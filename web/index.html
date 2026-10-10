@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xStocks Tracker – Solana Tokenized Stocks</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #121826;
+      --border: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #4ade80;
+      --red: #f87171;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+    header { text-align: center; margin-bottom: 32px; }
+    h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 14px; }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+    }
+    button {
+      background: var(--accent);
+      color: #0b0f19;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .up { color: var(--green); }
+    .down { color: var(--red); }
+    .muted { color: var(--muted); }
+    .total { font-size: 1.25rem; font-weight: 700; margin-top: 12px; }
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 40px; }
+    a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>xStocks Tracker</h1>
+      <p class="subtitle">Live prices & portfolio for tokenized stocks on Solana</p>
+    </header>
+
+    <div class="card">
+      <h2>Portfolio</h2>
+      <input type="text" id="wallet" placeholder="Paste Solana wallet address" />
+      <button id="checkBtn" onclick="checkPortfolio()">Check Portfolio</button>
+      <div id="portfolioResult" style="margin-top:16px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Live Prices</h2>
+      <div id="pricesTable">Loading…</div>
+    </div>
+
+    <footer>
+      Data via Jupiter Price API ·
+      <a href="https://github.com/filipefernandes0170/solana-xstocks-bot" target="_blank">GitHub</a> ·
+      Telegram bot available in the repo
+    </footer>
+  </div>
+
+  <script>
+    const TOKENS = [
+      { symbol: "NVDAx", mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh" },
+      { symbol: "TSLAx", mint: "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB" },
+      { symbol: "AAPLx", mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp" },
+      { symbol: "SPYx",  mint: "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W" },
+      { symbol: "QQQx",  mint: "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ" },
+      { symbol: "MSFTx", mint: "XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX" },
+      { symbol: "GOOGLx",mint: "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN" },
+      { symbol: "AMZNx", mint: "Xs3eBt7uRfJX8QUs4suhyU8p2M6DoUDrJyWBa8LLZsg" },
+      { symbol: "METAx", mint: "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu" },
+      { symbol: "CRCLx", mint: "XsueG8BtpquVJX9LVLLEGuViXUungE6WmK5YZ3p3bd1" },
+      { symbol: "MSTRx", mint: "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ" },
+      { symbol: "GLDx",  mint: "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re" },
+    ];
+
+    function fmtUsd(n) {
+      if (n >= 1e6) return "$" + (n/1e6).toFixed(2) + "M";
+      if (n >= 1e3) return "$" + (n/1e3).toFixed(2) + "K";
+      return "$" + n.toFixed(2);
+    }
+    function fmtPct(n) {
+      if (n == null) return "—";
+      const s = n >= 0 ? "+" : "";
+      return s + n.toFixed(2) + "%";
+    }
+
+    async function loadPrices() {
+      const ids = TOKENS.map(t => t.mint).join(",");
+      try {
+        const res = await fetch("https://api.jup.ag/price/v3?ids=" + ids);
+        const data = await res.json();
+        let html = "<table><thead><tr><th>Token</th><th>Price</th><th>24h</th></tr></thead><tbody>";
+        for (const t of TOKENS) {
+          const p = data[t.mint];
+          if (!p) continue;
+          const chg = p.priceChange24h;
+          const cls = chg == null ? "" : chg >= 0 ? "up" : "down";
+          html += `<tr><td><strong>${t.symbol}</strong></td><td>${fmtUsd(p.usdPrice)}</td><td class="${cls}">${fmtPct(chg)}</td></tr>`;
+        }
+        html += "</tbody></table>";
+        document.getElementById("pricesTable").innerHTML = html;
+      } catch (e) {
+        document.getElementById("pricesTable").innerHTML = "Failed to load prices.";
+      }
+    }
+
+    async function checkPortfolio() {
+      const wallet = document.getElementById("wallet").value.trim();
+      const btn = document.getElementById("checkBtn");
+      const out = document.getElementById("portfolioResult");
+      if (!wallet || wallet.length < 32) {
+        out.innerHTML = "<span class=\"muted\">Enter a valid Solana address.</span>";
+        return;
+      }
+      btn.disabled = true;
+      out.innerHTML = "Loading…";
+
+      try {
+        // Note: browser CORS may block public RPC. For production use a proxy or Helius.
+        // Here we show the UI and prices; full on-chain balance needs a backend or CORS-friendly RPC.
+        out.innerHTML = `
+          <p class="muted">Full on-chain portfolio lookup works best via the Telegram bot (no CORS issues).</p>
+          <p style="margin-top:8px">Use the Telegram bot for complete wallet scanning, or connect a CORS-enabled RPC later.</p>
+          <p class="total">Prices above are live.</p>
+        `;
+      } catch (e) {
+        out.innerHTML = "Error: " + e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    loadPrices();
+    setInterval(loadPrices, 60000);
+  </script>
+</body>
+</html>
