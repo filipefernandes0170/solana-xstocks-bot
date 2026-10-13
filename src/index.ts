@@ -6,11 +6,11 @@ import { checkDesk } from "./services/pings.js";
 
 const bot = createBot();
 
-bot.launch()
-  .then(() => {
-    console.log("xStocks Telegram bot is running");
-    if (!config.tokenMint) console.log("TOKEN_MINT is not set. Pings will not send until it is.");
-  })
+// Telegraf 4.16: the launch() promise settles only when polling stops, so log from the onLaunch callback.
+bot.launch(() => {
+  console.log("xStocks Telegram bot is running");
+  if (!config.tokenMint) console.log("TOKEN_MINT is not set. Pings will not send until it is.");
+})
   .catch((err) => {
     console.error("Failed to launch bot:", err);
     process.exit(1);

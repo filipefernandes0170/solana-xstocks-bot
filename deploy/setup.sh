@@ -9,6 +9,7 @@ SVC=par-bot
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 
 if [ "$(id -u)" -ne 0 ]; then echo "Please run with sudo:  sudo bash deploy/setup.sh"; exit 1; fi
+trap 'echo; echo "!! Setup stopped with an error (line $LINENO). Nothing was started. Send a screenshot of the last lines above."' ERR
 
 echo "==> 1/7 Checking Node.js and tools"
 if ! command -v node >/dev/null 2>&1 || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 20 ]; then
@@ -19,12 +20,14 @@ if ! command -v node >/dev/null 2>&1 || [ "$(node -p 'process.versions.node.spli
   apt-get install -y nodejs
 fi
 # rsync copies the code; build tools are only used if the SQLite module has no ready-made binary
-command -v rsync >/dev/null 2>&1 || { apt-get update -y; apt-get install -y rsync; }
-dpkg -s build-essential >/dev/null 2>&1 || apt-get install -y build-essential python3
+if ! command -v rsync >/dev/null 2>&1 || ! dpkg -s build-essential >/dev/null 2>&1; then
+  apt-get update -y
+  apt-get install -y rsync build-essential python3
+fi
 echo "    Node $(node -v)"
 
 echo "==> 2/7 Making sure there is swap memory (helps the 1 GB machine build)"
-if ! swapon --show | grep -q .; then
+if [ -z "$(swapon --show --noheadings)" ]; then
   fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
   grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
@@ -33,7 +36,7 @@ echo "==> 3/7 Creating the 'parbot' user and $APP"
 id parbot >/dev/null 2>&1 || useradd --system --home "$APP" --shell /usr/sbin/nologin parbot
 mkdir -p "$APP/data"
 # Copy the code. Never touch .env, the database (data/), node_modules or the build output.
-rsync -a --delete --exclude ".git" --exclude ".env" --exclude "data/" --exclude "node_modules/" --exclude "dist/" "$SRC/" "$APP/"
+rsync -a --no-owner --no-group --delete --exclude ".git" --exclude ".env" --exclude "data/" --exclude "node_modules/" --exclude "dist/" "$SRC/" "$APP/"
 FIRST=0
 if [ ! -f "$APP/.env" ]; then
   cp "$APP/.env.example" "$APP/.env"
