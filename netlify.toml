@@ -1,8 +1,4 @@
+# The public site is deployed on its own.
+# Exit 0 skips this build so a bot push cannot replace the Par desk.
 [build]
-  publish = "web"
-  command = "echo 'Static site – no build needed'"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+  ignore = "exit 0"
