@@ -10,6 +10,9 @@ const envSchema = z.object({
   BIG_MOVE_THRESHOLD_PCT: z.coerce.number().default(5),
   BIG_MOVE_WINDOW_MINUTES: z.coerce.number().default(60),
   ALERT_CHECK_INTERVAL_CRON: z.string().default("*/5 * * * *"),
+  DESK_CHECK_CRON: z.string().default("* * * * *"),
+  TOKEN_MINT: z.preprocess((value) => (value === "" ? undefined : value), z.string().min(32).optional()),
+  HOLDER_MIN_TOKENS: z.coerce.number().default(0),
 });
 
 export const env = envSchema.parse(process.env);
@@ -22,4 +25,7 @@ export const config = {
   bigMovePct: env.BIG_MOVE_THRESHOLD_PCT,
   bigMoveWindowMin: env.BIG_MOVE_WINDOW_MINUTES,
   alertCron: env.ALERT_CHECK_INTERVAL_CRON,
+  deskCron: env.DESK_CHECK_CRON,
+  tokenMint: env.TOKEN_MINT ?? "",
+  holderMin: env.HOLDER_MIN_TOKENS,
 };

@@ -1,4 +1,6 @@
-# xStocks Tracker – Solana Tokenized Stocks Telegram Bot
+# Par — Telegram bot for tokenized stocks on Solana
+
+Bot: [@ONPAR_BOT](https://t.me/ONPAR_BOT)
 
 Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solana: **NVDAx, AAPLx, SPYx, TSLAx, QQQx** and more.
 
@@ -14,18 +16,22 @@ Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solan
 |---------|-------------|
 | `/start` | Welcome + instructions |
 | `/portfolio` or `/p` | Show holdings + total USD value |
-| `/prices` | Live prices of major tokenized stocks |
+| `/prices` | Live prices of major xStocks |
 | `/yield` | Current yield opportunities |
 | `/alert` | Set % price alerts |
+| `/watch` | Ping when a name turns Fair, or trades rich while Nasdaq is closed |
+| `/bell` | One message at the Nasdaq open, listing whatever is Fair |
+| `/hold` | Wallet that holds the project coin |
 | `/help` | Full help |
 
-Just paste any Solana wallet address to track it instantly.
+Type a ticker (`nvda`) for one card: token price, Nasdaq price, gap, verdict, and a Buy button.
+
+Pings (`/watch`, `/bell`, and bag changes) send only while that wallet still holds `TOKEN_MINT`. The lookup itself stays free. Buy opens Jupiter on that stock. The bot does not charge a fee.
 
 ## Quick Start
 
 ```bash
-# 1. Clone
-git clone https://github.com/filipefernandes0170/solana-xstocks-bot.git
+# 1. Clone / unzip
 cd solana-xstocks-bot
 
 # 2. Install
@@ -47,6 +53,8 @@ npm run dev
 | `SOLANA_RPC_URL` | No | Default: public mainnet. Prefer Helius free tier |
 | `JUPITER_API_KEY` | No | Higher rate limits (developers.jup.ag) |
 | `DATABASE_PATH` | No | Default `./data/bot.db` (SQLite) |
+| `TOKEN_MINT` | For pings | Your coin's mint. Blank disables pings, not lookups |
+| `HOLDER_MIN_TOKENS` | No | `0` means any balance. `1` means at least one token |
 
 ## Adding New Tokenized Stocks
 

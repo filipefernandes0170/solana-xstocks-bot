@@ -6,22 +6,22 @@ export async function startCommand(ctx: Context) {
   upsertUser(from.id, from.username, from.first_name);
 
   await ctx.reply(
-`👋 Welcome to *xStocks Tracker*
+`Par
 
-Monitor tokenized stocks on Solana (NVDAx, AAPLx, SPYx, TSLAx…) with live prices, portfolio value and yield ideas.
+The site is free. This bot texts you when a price becomes real, and only while your wallet holds $PAR.
 
-*Quick start*
-1. Paste any Solana wallet address
-2. Or use /portfolio after setting a wallet
+Type a name, like nvda
+Paste the wallet that holds the coin
+/watch NVDAx  – ping when it turns Fair, and when it is rich while the market is closed
+/watch all
+/bell         – one message at the Nasdaq open, with whatever is Fair
+/hold         – use a different wallet for the coin than for your xStocks
 
-*Commands*
-/portfolio  – your holdings & total value
-/prices     – live prices of top xStocks
-/yield      – current yield opportunities
-/alert      – set price alerts
-/help       – full help
-
-Just send a wallet address anytime to track it.`,
-    { parse_mode: "Markdown" }
+Also
+/portfolio    – xStock bag
+/prices
+/yield
+/alert NVDAx up 5
+/help`,
   );
 }

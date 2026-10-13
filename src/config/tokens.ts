@@ -30,6 +30,8 @@ export const TOKENIZED_STOCKS: TokenizedStock[] = [
   { symbol: "GLDx",  name: "Gold xStock", mint: "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re", decimals: 8, underlying: "GLD", issuer: "xStocks" },
   { symbol: "SPCXx", name: "SpaceX xStock", mint: "Xs3oZwbHvqis4NYcf4YKWmEia2eC84wSiVrcYcTqpH8", decimals: 8, underlying: "SPCX", issuer: "xStocks" },
   { symbol: "PLTRx", name: "Palantir xStock", mint: "XsoBhf2ufR8fTyNSjqfU71DYGaE6Z3SUGAidpzriAA4", decimals: 8, underlying: "PLTR", issuer: "xStocks" },
+  { symbol: "AMDx",  name: "AMD xStock", mint: "XsXcJ6GZ9kVnjqGsjBnktRcuwMBmvKWh8S93RefZ1rF", decimals: 8, underlying: "AMD", issuer: "xStocks" },
+  { symbol: "HOODx", name: "Robinhood xStock", mint: "XsvNBAYkrDRNhA7wPHQfX3ZUXZyZLdnCQDfHZ56bzpg", decimals: 8, underlying: "HOOD", issuer: "xStocks" },
   { symbol: "MCDx",  name: "McDonald's xStock", mint: "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2", decimals: 8, underlying: "MCD", issuer: "xStocks" },
   { symbol: "NFLXx", name: "Netflix xStock", mint: "XsNNMt7WTNA2sV3jrb1NNfNgapxRF5i4i6GcnTRRHts", decimals: 8, underlying: "NFLX", issuer: "xStocks" },
 ];
@@ -37,3 +39,17 @@ export const TOKENIZED_STOCKS: TokenizedStock[] = [
 export const MINT_TO_TOKEN = new Map(TOKENIZED_STOCKS.map(t => [t.mint, t]));
 export const SYMBOL_TO_TOKEN = new Map(TOKENIZED_STOCKS.map(t => [t.symbol.toUpperCase(), t]));
 export const KNOWN_MINTS = TOKENIZED_STOCKS.map(t => t.mint);
+
+/** One word from a chat: `nvda`, `nvdax`, or `nvidia`. */
+export function lookupToken(input: string): TokenizedStock | null {
+  const q = input.trim().toLowerCase();
+  if (!q || /\s/.test(q) || q.length > 24) return null;
+  const upper = q.toUpperCase();
+  const direct = SYMBOL_TO_TOKEN.get(upper) ?? SYMBOL_TO_TOKEN.get(`${upper}X`);
+  if (direct) return direct;
+  const under = TOKENIZED_STOCKS.find((token) => token.underlying?.toUpperCase() === upper);
+  if (under) return under;
+  return (
+    TOKENIZED_STOCKS.find((token) => token.name.toLowerCase().replace(/ xstock$/, "") === q) ?? null
+  );
+}

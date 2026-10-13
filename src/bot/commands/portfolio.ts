@@ -61,6 +61,8 @@ export async function portfolioCommand(ctx: Context) {
       out += `_…and ${pf.positions.length - 15} more_`;
     }
 
+    out += `\n\nPings use this wallet while it holds the coin. /watch · /bell`;
+
     await ctx.telegram.editMessageText(ctx.chat!.id, msg.message_id, undefined, out, {
       parse_mode: "Markdown",
     });

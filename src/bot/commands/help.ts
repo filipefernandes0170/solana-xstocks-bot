@@ -2,31 +2,29 @@ import { Context } from "telegraf";
 
 export async function helpCommand(ctx: Context) {
   await ctx.reply(
-`*xStocks Tracker – Help*
+`Par
 
-*Portfolio*
-\`/portfolio\` or \`/p\` – show your saved wallet
-\`/portfolio <address>\` – track any wallet
-Just paste a Solana address anytime.
+One name
+Send nvda, nvdax, or nvidia. You get the token price, the Nasdaq price, the gap, the verdict, and Buy.
 
-*Prices*
-\`/prices\` – live prices of major tokenized stocks
+Pings, only while the wallet holds $PAR
+/watch NVDAx   ping when it turns Fair, and if it trades rich while Nasdaq is closed
+/watch all
+/watch list
+/watch off
+/bell          one message when Nasdaq opens. Fair names, each with Buy. Send /bell again to turn it off.
+/hold <wallet> wallet that holds the coin, if it is not the bag wallet
 
-*Yield*
-\`/yield\` – current yield / collateral opportunities (Kamino, Jupiter, Kraken…)
+Your bag
+Paste a Solana address. If a stock you hold changes verdict, or $1,000 becomes a large slice of the pool, the bot says so.
 
-*Alerts*
-\`/alert NVDAx up 5\` – notify if NVDAx rises ≥5%
-\`/alert TSLAx down 3\`
-\`/alert SPYx both 5\`
-\`/alert list\` – show your alerts
+Also
+/portfolio or /p
+/prices
+/yield
+/alert NVDAx up 5
+/alert list
 
-*Other*
-\`/start\` – welcome
-\`/help\` – this message
-
-Data sources: Solana RPC + Jupiter Price API.
-Add new tokens by editing \`src/config/tokens.ts\`.`,
-    { parse_mode: "Markdown" }
+Buy opens Jupiter on that stock, paid with USDC. The bot does not take a fee.`,
   );
 }

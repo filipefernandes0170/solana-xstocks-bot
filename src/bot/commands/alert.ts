@@ -8,6 +8,7 @@ export async function alertCommand(ctx: Context) {
   const text = (ctx.message as any)?.text || "";
   const parts = text.trim().split(/\s+/);
 
+  // /alert list
   if (parts[1]?.toLowerCase() === "list") {
     const alerts = getActiveAlerts(ctx.from!.id);
     if (alerts.length === 0) {
@@ -22,6 +23,7 @@ export async function alertCommand(ctx: Context) {
     return ctx.reply(out, { parse_mode: "Markdown" });
   }
 
+  // /alert SYMBOL up|down|both PCT
   if (parts.length < 4) {
     return ctx.reply(
 `*Set a price alert*

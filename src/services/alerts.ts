@@ -12,6 +12,7 @@ export async function checkAlerts(bot: Telegraf) {
   const alerts = getActiveAlerts();
   if (alerts.length === 0) return;
 
+  // Group by symbol to minimize price calls
   const symbols = [...new Set(alerts.map(a => a.symbol))];
   const mints = symbols
     .map(s => SYMBOL_TO_TOKEN.get(s)?.mint)
@@ -34,13 +35,17 @@ export async function checkAlerts(bot: Telegraf) {
     const changePct = ((current - oldPrice) / oldPrice) * 100;
 
     let triggered = false;
+    let direction = "";
 
     if (alert.direction === "up" && changePct >= alert.threshold_pct) {
       triggered = true;
+      direction = "up";
     } else if (alert.direction === "down" && changePct <= -alert.threshold_pct) {
       triggered = true;
+      direction = "down";
     } else if (alert.direction === "both" && Math.abs(changePct) >= alert.threshold_pct) {
       triggered = true;
+      direction = changePct > 0 ? "up" : "down";
     }
 
     if (triggered) {
@@ -50,6 +55,8 @@ export async function checkAlerts(bot: Telegraf) {
           `🚨 *Alert triggered*\n\n*${alert.symbol}* moved *${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%* in the last ${config.bigMoveWindowMin}m\nCurrent price: $${current.toFixed(2)}`,
           { parse_mode: "Markdown" }
         );
+        // Optional: one-shot alert
+        // deactivateAlert(alert.id);
       } catch (err) {
         console.warn("Failed to send alert to", alert.telegram_id, err);
       }
