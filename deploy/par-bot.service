@@ -1,0 +1,25 @@
+[Unit]
+Description=Par — Telegram bot for tokenized stocks on Solana
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=parbot
+Group=parbot
+WorkingDirectory=/opt/par-bot
+ExecStart=/usr/bin/node /opt/par-bot/dist/index.js
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=5
+# Keep the small machine healthy
+MemoryMax=400M
+# Hardening: the bot may only write to its data folder
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/par-bot/data
+
+[Install]
+WantedBy=multi-user.target

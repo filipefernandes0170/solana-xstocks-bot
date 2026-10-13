@@ -19,7 +19,7 @@ export async function sendCard(ctx: Context, token: TokenizedStock) {
     const verdict = describe(quote);
     await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, cardText(quote, verdict), {
       parse_mode: "HTML",
-      disable_web_page_preview: true,
+      link_preview_options: { is_disabled: true },
       reply_markup: buyKeyboard([quote]),
     });
   } catch (err) {
