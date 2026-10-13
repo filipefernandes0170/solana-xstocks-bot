@@ -6,7 +6,7 @@ import path from "path";
 const dir = path.dirname(config.dbPath);
 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-export const db = new Database(config.dbPath);
+export const db: Database.Database = new Database(config.dbPath);
 
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");

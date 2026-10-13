@@ -47,7 +47,7 @@ const bagCache = new Map<string, { at: number; symbols: Map<string, number> }>()
 async function send(bot: Telegraf, chatId: number, text: string, markup?: InlineKeyboardMarkup) {
   await bot.telegram.sendMessage(chatId, text, {
     parse_mode: "HTML",
-    disable_web_page_preview: true,
+    link_preview_options: { is_disabled: true },
     ...(markup ? { reply_markup: markup } : {}),
   });
 }

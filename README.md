@@ -92,6 +92,20 @@ src/
 
 Recommended: Railway free tier + Helius free RPC.
 
+### Own VM (Debian/Ubuntu, e.g. Google Cloud e2-micro)
+
+```bash
+git clone https://github.com/filipefernandes0170/solana-xstocks-bot
+cd solana-xstocks-bot
+sudo bash deploy/setup.sh          # Node 22, swap, build, systemd service "par-bot"
+sudo nano /opt/par-bot/.env        # set TELEGRAM_BOT_TOKEN (and SOLANA_RPC_URL)
+sudo systemctl restart par-bot
+sudo journalctl -u par-bot -f      # live logs
+```
+
+Update later: `git pull && sudo bash deploy/setup.sh` (keeps `.env` and the database in `/opt/par-bot/data`).
+Run only one copy of the bot per token. A second copy makes Telegram return `409 Conflict`.
+
 ## Tech Stack
 
 - Telegraf (Telegram)
