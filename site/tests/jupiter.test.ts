@@ -71,3 +71,11 @@ test("server logs blank out anything that looks like an address", () => {
   assert.equal(logMessage("not an error"), "request failed");
   assert.equal(logMessage(new Error("RPC answered 429")), "RPC answered 429");
 });
+
+test("the limiter pauses when Jupiter says the window is nearly full", async () => {
+  const { windowNearlyFull } = await import("../src/server/jupiter");
+  assert.equal(windowNearlyFull("5"), false);
+  assert.equal(windowNearlyFull("1"), true);
+  assert.equal(windowNearlyFull("-2"), true);
+  assert.equal(windowNearlyFull(null), false);
+});

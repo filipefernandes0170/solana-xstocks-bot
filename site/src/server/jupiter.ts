@@ -52,6 +52,28 @@ export function coolDownMs(headers: Headers, now = Date.now()) {
   return Math.min(Math.max(ms, 1000), 60_000);
 }
 
+let limitLogged = false;
+
+/**
+ * Jupiter sends x-ratelimit-remaining and x-ratelimit-reset on 200 and 429 answers. When one request or
+ * fewer is left in the window, the limiter pauses until the reset, so it slows down before a 429 instead of
+ * after. Remaining can be 0 or negative when over the limit.
+ */
+export function windowNearlyFull(remaining: unknown) {
+  if (remaining == null || remaining === "") return false;
+  const value = Number(remaining);
+  return Number.isFinite(value) && value <= 1;
+}
+
+/** Logs the window once per process, so the plan Jupiter applies to this key shows in the logs. */
+function logLimitOnce(current: unknown, remaining: unknown) {
+  if (limitLogged || current == null || remaining == null) return;
+  limitLogged = true;
+  const used = Number(current);
+  const left = Number(remaining);
+  console.log(`[par] Jupiter window: ${used} used, ${left} left (limit about ${used + left} per window)${hasJupiterKey() ? ", with key" : ", keyless"}`);
+}
+
 /** GET a Jupiter endpoint as JSON. Returns null (and logs why) instead of throwing. */
 export async function jupiterGet<T>(pathAndQuery: string, options: { maxWaitMs?: number; timeoutMs?: number } = {}): Promise<T | null> {
   const { maxWaitMs = 4000, timeoutMs = 8000 } = options;
@@ -62,12 +84,18 @@ export async function jupiterGet<T>(pathAndQuery: string, options: { maxWaitMs?:
   const label = pathAndQuery.split("?")[0];
   try {
     const response = await fetch(jupiterUrl(pathAndQuery), { headers, signal: AbortSignal.timeout(timeoutMs) });
+    const current = response.headers.get("x-ratelimit-current");
+    const remaining = response.headers.get("x-ratelimit-remaining");
+    logLimitOnce(current, remaining);
     if (response.status === 429) {
       const wait = coolDownMs(response.headers);
       coolDownUntil = Date.now() + wait;
-      console.warn(`[par] Jupiter ${label}: rate limited (429), pausing ${Math.round(wait / 1000)} s${hasJupiterKey() ? "" : " (no JUPITER_API_KEY set)"}`);
+      console.warn(
+        `[par] Jupiter ${label}: rate limited (429, ${current ?? "?"} used, ${remaining ?? "?"} left), pausing ${Math.round(wait / 1000)} s${hasJupiterKey() ? "" : " (no JUPITER_API_KEY set)"}`,
+      );
       return null;
     }
+    if (windowNearlyFull(remaining)) coolDownUntil = Math.max(coolDownUntil, Date.now() + coolDownMs(response.headers));
     if (!response.ok) {
       console.warn(`[par] Jupiter ${label}: HTTP ${response.status}`);
       return null;

@@ -57,6 +57,28 @@ export function coolDownMs(raw: unknown, now = Date.now()) {
   return Math.min(Math.max(ms, 1000), 60_000);
 }
 
+let limitLogged = false;
+
+/**
+ * Jupiter sends x-ratelimit-remaining and x-ratelimit-reset on 200 and 429 answers. When one request or
+ * fewer is left in the window, the limiter pauses until the reset, so it slows down before a 429 instead of
+ * after. Remaining can be 0 or negative when over the limit.
+ */
+export function windowNearlyFull(remaining: unknown) {
+  if (remaining == null || remaining === "") return false;
+  const value = Number(remaining);
+  return Number.isFinite(value) && value <= 1;
+}
+
+/** Logs the window once per process, so the plan Jupiter applies to this key shows in the logs. */
+function logLimitOnce(current: unknown, remaining: unknown) {
+  if (limitLogged || current == null || remaining == null) return;
+  limitLogged = true;
+  const used = Number(current);
+  const left = Number(remaining);
+  console.log(`Jupiter window: ${used} used, ${left} left (limit about ${used + left} per window)${hasJupiterKey() ? ", with key" : ", keyless"}`);
+}
+
 /** GET a Jupiter endpoint as JSON. Returns null (and logs why) instead of throwing. */
 export async function jupiterGet<T>(
   path: string,
@@ -68,7 +90,11 @@ export async function jupiterGet<T>(
   const headers: Record<string, string> = { accept: "application/json" };
   if (config.jupiterApiKey) headers["x-api-key"] = config.jupiterApiKey;
   try {
-    const { data } = await axios.get(`${jupiterBase()}${path}`, { params, headers, timeout: timeoutMs });
+    const { data, headers: answer } = await axios.get(`${jupiterBase()}${path}`, { params, headers, timeout: timeoutMs });
+    logLimitOnce(answer["x-ratelimit-current"], answer["x-ratelimit-remaining"]);
+    if (windowNearlyFull(answer["x-ratelimit-remaining"])) {
+      coolDownUntil = Math.max(coolDownUntil, Date.now() + coolDownMs(answer["x-ratelimit-reset"]));
+    }
     return data as T;
   } catch (err) {
     const response = axios.isAxiosError(err) ? err.response : undefined;
@@ -76,7 +102,7 @@ export async function jupiterGet<T>(
       const wait = coolDownMs(response.headers?.["x-ratelimit-reset"] ?? response.headers?.["retry-after"]);
       coolDownUntil = Date.now() + wait;
       console.warn(
-        `Jupiter ${path}: rate limited (429), pausing ${Math.round(wait / 1000)} s${hasJupiterKey() ? "" : " (no JUPITER_API_KEY set)"}`,
+        `Jupiter ${path}: rate limited (429, ${response.headers?.["x-ratelimit-current"] ?? "?"} used, ${response.headers?.["x-ratelimit-remaining"] ?? "?"} left), pausing ${Math.round(wait / 1000)} s${hasJupiterKey() ? "" : " (no JUPITER_API_KEY set)"}`,
       );
       return null;
     }

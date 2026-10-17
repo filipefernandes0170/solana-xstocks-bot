@@ -36,3 +36,13 @@ test("nothing is paused before a 429", () => {
   resetJupiterLimiter();
   assert.equal(jupiterPaused(), false);
 });
+
+test("the limiter pauses when Jupiter says the window is nearly full", async () => {
+  const { windowNearlyFull } = await import("./jupiter.js");
+  assert.equal(windowNearlyFull("5"), false);
+  assert.equal(windowNearlyFull("1"), true);
+  assert.equal(windowNearlyFull("0"), true);
+  assert.equal(windowNearlyFull("-2"), true);
+  assert.equal(windowNearlyFull(undefined), false);
+  assert.equal(windowNearlyFull(""), false);
+});
