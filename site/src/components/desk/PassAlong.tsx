@@ -38,7 +38,7 @@ export function PassAlong({
   const text = v ? `${plainLine(quote)} ${v.line}` : plainLine(quote);
   const token = TOKEN_BY_SYMBOL.get(symbol);
   return (
-    <section className="mt-10 panel p-5 ring-1 ring-line sm:p-7">
+    <section className="panel p-5 ring-1 ring-line sm:p-7">
       <p className="text-sm text-amber">Pass this along</p>
       <h2 className="mt-2 max-w-3xl font-display text-2xl leading-snug text-ink sm:text-3xl">{text}</h2>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">

@@ -16,6 +16,7 @@
     "dev:windows": "node --use-system-ca node_modules/vite/bin/vite.js dev --port 3000"
   },
   "dependencies": {
+    "@netlify/blobs": "11.1.4",
     "@tanstack/react-router": "1.170.45",
     "@tanstack/react-start": "1.169.3",
     "lucide-react": "1.58.0",

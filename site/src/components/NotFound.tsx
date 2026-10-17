@@ -1,9 +1,11 @@
+import { Logo } from "./Logo";
+
 /** Shown for any address that is not a Par page (the response keeps its 404 status). */
 export function NotFound() {
   return (
     <div className="min-h-screen bg-night text-foam">
       <main className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
-        <img src="/logo-96.jpg" alt="" width={48} height={48} className="h-12 w-12 rounded-xl" />
+        <Logo size={56} />
         <p className="mt-6 text-sm font-medium tracking-wide text-gold">Par · stocks on Solana</p>
         <h1 className="mt-3 font-display text-5xl text-foam">Page not found</h1>
         <p className="mt-4 text-base leading-relaxed text-mist">There is no Par page at this address.</p>

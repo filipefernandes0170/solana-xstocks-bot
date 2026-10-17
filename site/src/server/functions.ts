@@ -1,12 +1,14 @@
-// The desk's seven server functions. Handlers run only on the server (a Netlify Function in production);
+// The desk's nine server functions. Handlers run only on the server (a Netlify Function in production);
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
-import { PUBLIC_DATA_CACHE } from "../lib/site";
+import { PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE } from "../lib/site";
 import { cryptosResult } from "./cryptos";
+import { historyResult } from "./history";
 import { offersResult } from "./offers";
 import { quotesResult, sizeCheck } from "./quotes";
+import { env } from "./http";
 import { walletInput } from "./solana";
 import { holderStatus, lookupHoldings, readPortfolio } from "./wallet";
 
@@ -29,6 +31,20 @@ export const getQuotes = createServerFn({ method: "GET" })
 export const getOffers = createServerFn({ method: "GET" }).handler(async () => {
   sharePublicData();
   return offersResult();
+});
+
+/** One name's gap history (last trade versus Nasdaq, every 15 minutes in US hours). Shared for 5 minutes. */
+export const getHistory = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ symbol: String((input as { symbol?: unknown } | undefined)?.symbol ?? "") }))
+  .handler(async ({ data }) => {
+    setResponseHeader("Netlify-CDN-Cache-Control", STATIC_PAGE_CACHE);
+    return historyResult(data.symbol);
+  });
+
+/** Whether $PAR is live: the holder texts only work once TOKEN_MINT is set. Public, so shared like the prices. */
+export const getFlags = createServerFn({ method: "GET" }).handler(async () => {
+  sharePublicData();
+  return { coinLive: env("TOKEN_MINT") !== "" };
 });
 
 export const getCryptos = createServerFn({ method: "GET" }).handler(async () => {

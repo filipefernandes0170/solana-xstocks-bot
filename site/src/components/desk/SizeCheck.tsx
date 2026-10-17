@@ -8,6 +8,8 @@ import { TOKENS, TOKEN_BY_SYMBOL } from "../../lib/tokens";
 import type { SizeCheck as SizeResult } from "../../lib/types";
 import { gapPct } from "../../lib/verdict";
 import { checkSize } from "../../server/functions";
+import { sizeShareText, stockUrl } from "../../lib/share";
+import { ShareButton } from "../ShareButton";
 import { BuyLink, TickerBadge } from "./parts";
 
 const TONE_CLASS = {
@@ -172,6 +174,11 @@ export function SizeCheck({ symbol, onSymbol }: { symbol: string; onSymbol: (sym
               <p className="mt-4 text-sm leading-relaxed text-ink">{call.line}</p>
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {resultToken && call.tone !== "far" ? <BuyLink mint={resultToken.mint} symbol={resultToken.symbol} /> : null}
+                <ShareButton
+                  title={`${result.symbol} size check on Par`}
+                  text={sizeShareText(result.symbol, result.usd, gap)}
+                  url={stockUrl(result.symbol)}
+                />
                 <p className="text-xs leading-relaxed text-muted">
                   Live Jupiter quote,{" "}
                   {new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(

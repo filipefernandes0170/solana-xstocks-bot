@@ -7,11 +7,13 @@ export function YieldPanel({
   error,
   symbol,
   onSymbol,
+  hidePicker = false,
 }: {
   offers: Offer[];
   error: string | null;
   symbol: string;
   onSymbol: (symbol: string) => void;
+  hidePicker?: boolean;
 }) {
   const name = TOKEN_BY_SYMBOL.get(symbol)?.name ?? symbol;
   const mine = offers.filter((offer) => offer.symbol === symbol);
@@ -20,10 +22,10 @@ export function YieldPanel({
       <div className="panel p-5 ring-1 ring-line">
         <h2 className="font-display text-3xl text-ink">What you can do with {name}</h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-          Pick a stock. These are the live offers on Kamino’s two xStock markets, plus Kraken’s vault when that stock has one. It is not every
+          {hidePicker ? "" : "Pick a stock. "}These are the live offers on Kamino’s two xStock markets, plus Kraken’s vault when that stock has one. It is not every
           protocol on Solana. A name with no card is simply not listed there yet.
         </p>
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+        <div className={hidePicker ? "hidden" : "mt-4 flex gap-2 overflow-x-auto pb-1"}>
           {TOKENS.map((token) => (
             <button
               key={token.symbol}

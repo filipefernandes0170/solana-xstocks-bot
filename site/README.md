@@ -43,6 +43,16 @@ The website at https://xstocks-tracker.netlify.app (Netlify project `xstocks-tra
 - **Size check (new):** pick a name and an amount ($10 to $250,000) for a live Jupiter quote at that size: shares, price per share, gap versus Nasdaq, dollars over or under the print, pool impact and a call (Fair / Close / Far, same thresholds as the verdict). Buy is hidden when the price is far off. One quote per name and amount is shared for 20 s. Server function `checkSize` (POST, never cached by the CDN).
 - **Holder section:** what $PAR unlocks in @ONPAR_BOT (Fair pings, the new morning brief, open bell, bag watch) with a deep link that turns the brief on, and the read-only wallet check.
 
+## Brand, the bot page, name pages and history (17 Oct 2026, third pass)
+
+- **Mark:** two lines, the token price (gold) and the stock price (pale), meeting at one point. One source in `../tools/brand/mark.mjs`; the site draws it in `src/components/Logo.tsx` (a test keeps both equal). `cd ../tools/brand && npm install && npm run images` re-renders `public/favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `icon-512.png`, `og.png`, `og/bot.png`, `og/s/<SYMBOL>.png`, `qr-bot.svg` and `../tools/brand/out/bot-avatar.png` (for @BotFather). Link previews carry no prices on purpose: chat apps cache them for days.
+- **Hero:** the moon, stars and birds are gone. The hero draws one name at a time as the mark draws it, with live numbers: gold is the token (the $1,000 buy, or the last trade while it loads), pale the Nasdaq print, the dot the gap; the lines start further apart the bigger the gap. The page background is a faint grid.
+- **/bot:** what @ONPAR_BOT does, with a phone showing a real card built from the live desk (`src/lib/botText.ts` writes it the way the bot does), three steps, free versus holder features, commands, the verdict colours, questions and a QR code. Whether $PAR is live comes from `getFlags` (TOKEN_MINT set or not), so the page needs no edit when the coin launches.
+- **/s/<SYMBOL>:** one page per name, live (`useLiveQuotes`), with its own preview image, Buy, Share, Watch in Telegram, the size check, its Kamino offers and a week of gap history.
+- **Favourites:** a star on every card, kept on the device; the Favourites filter offers one Telegram link that watches them all (`?start=w-NVDAx-TSLAx`, up to 8 names).
+- **Share:** on cards, name pages and size checks. Phones get the system share sheet; elsewhere copy, X or Telegram. The text is built from the numbers on screen at that moment.
+- **Gap history:** `netlify/functions/record-gaps.mts`, a scheduled function (every 15 minutes, 12:00 to 21:45 UTC, Monday to Friday), stores each name's last trade and Nasdaq print in one Netlify Blob per UTC day (store `gap-history`). `getHistory` reads the last 7 days. About 880 runs a month, roughly 10 of the free plan's 300 credits. The $1,000 buy is not recorded: 18 quotes at Jupiter's free pace take longer than a scheduled function may run.
+
 ## Run it
 
 ```bash
@@ -82,9 +92,12 @@ Safe order, with labels from Netlify's docs:
 
 ```
 src/
-  routes/        __root.tsx (head, fonts, security headers, 404), index.tsx (desk + loader), portfolio.tsx
-  components/    Sky, SiteFooter, NotFound, desk/* (Desk, Ticker, StatStrip, StockCard, StockList, SizeCheck, crypto, gap chart, yield, glossary, why-hold)
-  lib/           site (URL, titles, cache and security headers), brand (badge colours, gap scale), size, tokens, types, format, session (Nasdaq clock), verdict, wallet-standard, etf-holdings
-  server/        functions.ts (the 7 server functions) + jupiter (rate limiter), quotes, offers, cryptos, solana, wallet, http
-tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts
+  routes/        __root.tsx (head, fonts, security headers, 404), index.tsx (desk + loader), bot.tsx, s.$symbol.tsx, portfolio.tsx
+  components/    Logo, Backdrop, SiteNav, SiteFooter, ShareButton, NotFound, bot/PhoneDemo, stock/GapHistory,
+                 desk/* (Desk, HeroLines, Ticker, StatStrip, StockCard, StockList, SizeCheck, crypto, gap chart, yield, glossary, why-hold)
+  lib/           site (URL, titles, cache and security headers), brand (badge colours, gap scale), size, share, history, botText,
+                 useFavourites, useLiveQuotes, tokens, types, format, session (Nasdaq clock), verdict, wallet-standard, etf-holdings
+  server/        functions.ts (the 9 server functions) + jupiter (rate limiter), quotes, history, offers, cryptos, solana, wallet, http
+netlify/functions/record-gaps.mts   the scheduled gap recorder
+tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts
 ```

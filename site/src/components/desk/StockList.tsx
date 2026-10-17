@@ -1,10 +1,20 @@
 import { formatUsd } from "../../lib/format";
 import { verdictPillClass } from "../../lib/verdict";
 import { BuyLink, ChangePill, GapPill, TickerBadge } from "./parts";
-import type { DeskRow } from "./StockCard";
+import { FavouriteButton, type DeskRow } from "./StockCard";
 
 /** The compact view of Markets: one line per name, for scanning all of them at once. */
-export function StockList({ rows, onOpen }: { rows: DeskRow[]; onOpen: (symbol: string) => void }) {
+export function StockList({
+  rows,
+  onOpen,
+  favourites,
+  onFavourite,
+}: {
+  rows: DeskRow[];
+  onOpen: (symbol: string) => void;
+  favourites: string[];
+  onFavourite: (symbol: string) => void;
+}) {
   return (
     <div className="panel mt-4 overflow-hidden ring-1 ring-line">
       <div className="hidden grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_10rem] gap-3 border-b border-line px-4 py-2 text-xs tracking-wide text-muted uppercase sm:grid">
@@ -20,7 +30,9 @@ export function StockList({ rows, onOpen }: { rows: DeskRow[]; onOpen: (symbol: 
             key={row.mint}
             className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_10rem]"
           >
-            <button type="button" onClick={() => onOpen(row.symbol)} className="flex min-w-0 items-center gap-3 text-left">
+            <span className="flex min-w-0 items-center gap-1">
+              <FavouriteButton symbol={row.symbol} on={favourites.includes(row.symbol)} onToggle={onFavourite} />
+              <button type="button" onClick={() => onOpen(row.symbol)} className="flex min-w-0 items-center gap-3 text-left">
               <TickerBadge underlying={row.underlying} sector={row.sector} size="sm" />
               <span className="min-w-0">
                 <span className="block truncate font-medium text-ink">{row.name}</span>
@@ -32,7 +44,8 @@ export function StockList({ rows, onOpen }: { rows: DeskRow[]; onOpen: (symbol: 
                   </span>
                 </span>
               </span>
-            </button>
+              </button>
+            </span>
             <span className="hidden text-right tabular-nums text-ink sm:block">{formatUsd(row.usdPrice)}</span>
             <span className="hidden text-right sm:block">
               <ChangePill value={row.change24h} />

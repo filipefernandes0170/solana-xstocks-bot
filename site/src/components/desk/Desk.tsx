@@ -1,16 +1,19 @@
-import { Bell, LayoutGrid, List, Ruler, Search, Send, Wallet } from "lucide-react";
+import { Bell, LayoutGrid, List, Ruler, Search, Send, Star, Wallet } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { formatGap, formatPct, formatUsd } from "../../lib/format";
-import { etClock, isSessionOpen, sessionLabel, sessionLine, timeToOpen } from "../../lib/session";
+import { etClock, sessionLabel, sessionLine } from "../../lib/session";
 import { TOKENS } from "../../lib/tokens";
+import { useFavourites, watchLink } from "../../lib/useFavourites";
 import type { CryptoRow, HolderStatus, HoldingsResult, Offer, Quote } from "../../lib/types";
 import { buyUsable, gapPct, mergeBuys, verdict } from "../../lib/verdict";
 import { checkHolder, getHoldings, getOffers, getQuotes } from "../../server/functions";
 import { SiteFooter } from "../SiteFooter";
-import { Sky } from "../Sky";
+import { Backdrop } from "../Backdrop";
+import { SiteNav } from "../SiteNav";
 import { CryptoPanel } from "./CryptoPanel";
 import type { GapRow } from "./GapView";
 import { Glossary } from "./Glossary";
+import { HeroLines } from "./HeroLines";
 import { PassAlong } from "./PassAlong";
 import { BuyLink, ChangePill, TickerBadge } from "./parts";
 import { SizeCheck } from "./SizeCheck";
@@ -35,6 +38,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 type Sort = "desk" | "gap" | "move" | "name";
+type Filter = "all" | "fair" | "favourites";
 type View = "cards" | "list";
 
 const SORTS: { id: Sort; label: string }[] = [
@@ -162,7 +166,8 @@ export function Desk({
   const [sizeSymbol, setSizeSymbol] = useState("NVDAx");
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [fairOnly, setFairOnly] = useState(false);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [favourites, toggleFavourite] = useFavourites();
   const [sort, setSort] = useState<Sort>("desk");
   const [view, setView] = useState<View>("cards");
   const [holderWallet, setHolderWallet] = useState("");
@@ -305,10 +310,10 @@ export function Desk({
     const filtered = rows.filter(
       (row) =>
         (!term || row.symbol.toLowerCase().includes(term) || row.name.toLowerCase().includes(term) || row.sector.toLowerCase().includes(term)) &&
-        (!fairOnly || row.verdict.id === "fair"),
+        (filter === "all" || (filter === "fair" ? row.verdict.id === "fair" : favourites.includes(row.symbol))),
     );
     return sortRows(filtered, sort);
-  }, [rows, search, fairOnly, sort]);
+  }, [rows, search, filter, favourites, sort]);
   const fairCount = rows.filter((row) => row.verdict.id === "fair").length;
   const gapRows: GapRow[] = useMemo(
     () =>
@@ -344,7 +349,7 @@ export function Desk({
     .sort((a, b) => (a.rebase as NonNullable<Quote["rebase"]>).at - (b.rebase as NonNullable<Quote["rebase"]>).at);
 
   function jumpTo(symbol: string) {
-    setFairOnly(false);
+    setFilter("all");
     setSearch(symbol);
     setTab("markets");
     window.setTimeout(() => {
@@ -429,19 +434,16 @@ export function Desk({
   }, [hits, quotes]);
 
   const age = Math.max(0, Math.round((now - asOf) / 1000));
-  const open = isSessionOpen(marketState);
 
   return (
     <>
-      <Sky />
+      <Backdrop />
       <Ticker rows={rows} onPick={jumpTo} />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
-        <header className="rise grid gap-8 lg:grid-cols-[minmax(0,1fr)_40rem] lg:items-end">
+      <SiteNav current="/" />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-4 sm:px-6 sm:pt-6">
+        <header className="rise grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
           <div className="min-w-0 max-w-2xl">
-            <div className="flex items-center gap-3">
-              <img src="/logo-96.jpg" alt="" width={44} height={44} className="h-11 w-11 rounded-xl ring-1 ring-white/15" />
-              <p className="text-sm font-medium tracking-wide text-gold">Par · stocks on Solana</p>
-            </div>
+            <p className="text-sm font-medium tracking-wide text-gold">Par · stocks on Solana</p>
             <h1 className="hero-title mt-4 font-display text-5xl leading-[0.95] text-foam sm:text-7xl">
               Is the price <span className="text-gold">real?</span>
             </h1>
@@ -490,40 +492,14 @@ export function Desk({
                 Size check
               </button>
             </div>
+            <a href="/bot" className="mt-4 inline-flex text-sm font-medium text-foam underline decoration-gold/70 underline-offset-4">
+              How the bot works
+            </a>
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-mist">
               An xStock tracks the share. It is not the share, it does not vote, and a dividend shows up as more tokens, not cash.
             </p>
           </div>
-          <div className="grid w-full items-start gap-4 sm:grid-cols-2">
-            <div className="panel w-full p-6 text-ink">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted">Fair right now</p>
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
-                  <span className="live-dot" aria-hidden />
-                  <span aria-hidden>{feedError ? "Reconnecting" : `${age}s`}</span>
-                  {/* Screen readers hear only the change between live and reconnecting, not every second. */}
-                  <span className="sr-only" role="status">
-                    {feedError ? "Prices reconnecting" : "Prices live"}
-                  </span>
-                </span>
-              </div>
-              <p className="mt-2 font-display text-6xl leading-none text-ink">
-                {fairCount}
-                <span className="ml-2 align-baseline font-sans text-base text-muted">of {rows.length}</span>
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-muted">
-                {mounted
-                  ? open
-                    ? fairCount > 0
-                      ? "Nasdaq is open. These sit within 0.4% of the print and are easy to sell."
-                      : "Nasdaq is open, but nothing is close enough to call fair."
-                    : `Nasdaq is closed, so nothing is fair yet. It opens in ${timeToOpen(now)}.`
-                  : "Checking the US session."}
-                {widest?.gap == null ? "" : ` Widest gap is ${widest.symbol}, ${formatGap(widest.gap)}.`}
-              </p>
-            </div>
-            <CryptoPanel initial={initialCryptos} />
-          </div>
+          <HeroLines rows={rows} age={age} feedError={feedError} onPick={jumpTo} />
         </header>
 
         <StatStrip
@@ -581,22 +557,24 @@ export function Desk({
                   />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFairOnly(false)}
-                    aria-pressed={!fairOnly}
-                    className={`h-12 rounded-full px-4 text-sm font-medium ${fairOnly ? "bg-dusk text-foam ring-1 ring-white/10" : "bg-gold text-ink"}`}
-                  >
-                    All names
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFairOnly(true)}
-                    aria-pressed={fairOnly}
-                    className={`h-12 rounded-full px-4 text-sm font-medium ${fairOnly ? "bg-gold text-ink" : "bg-dusk text-foam ring-1 ring-white/10"}`}
-                  >
-                    Fair now
-                  </button>
+                  {(
+                    [
+                      ["all", "All names"],
+                      ["fair", "Fair now"],
+                      ["favourites", `Favourites${favourites.length ? ` ${favourites.length}` : ""}`],
+                    ] as [Filter, string][]
+                  ).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setFilter(id)}
+                      aria-pressed={filter === id}
+                      className={`inline-flex h-12 items-center gap-1.5 rounded-full px-4 text-sm font-medium ${filter === id ? "bg-gold text-ink" : "bg-dusk text-foam ring-1 ring-white/10"}`}
+                    >
+                      {id === "favourites" ? <Star className="size-4" aria-hidden /> : null}
+                      {label}
+                    </button>
+                  ))}
                   <label className="sr-only" htmlFor="markets-sort">
                     Sort
                   </label>
@@ -634,15 +612,34 @@ export function Desk({
                   </div>
                 </div>
               </div>
+              {filter === "favourites" && favourites.length > 0 ? (
+                <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-dusk/80 px-4 py-3 ring-1 ring-white/10 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-mist">
+                    Get a text when {favourites.length === 1 ? "this name turns" : "these turn"} Fair.
+                    {favourites.length > 8 ? " The link carries the first 8." : ""}
+                  </p>
+                  <a
+                    href={watchLink(favourites)}
+                    className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-gold px-4 text-sm font-medium text-ink"
+                  >
+                    <Send className="size-4" aria-hidden />
+                    Watch in Telegram
+                  </a>
+                </div>
+              ) : null}
               {visible.length === 0 ? (
                 <p className="panel mt-4 px-5 py-10 text-base leading-relaxed text-muted ring-1 ring-line">
-                  {fairOnly
+                  {filter === "fair"
                     ? "Nothing is fair right now. The session is closed, or the gap is too wide. All names are still listed."
-                    : "Nothing matches that search."}
+                    : filter === "favourites"
+                      ? "No favourites yet. Tap the star on any card to keep it here, on this device."
+                      : "Nothing matches that search."}
                 </p>
               ) : view === "list" ? (
                 <StockList
                   rows={visible}
+                  favourites={favourites}
+                  onFavourite={toggleFavourite}
                   onOpen={(symbol) => {
                     setSearch(symbol);
                     chooseView("cards");
@@ -651,7 +648,15 @@ export function Desk({
               ) : (
                 <ul className="mt-4 grid gap-4 lg:grid-cols-2">
                   {visible.map((row) => (
-                    <StockCard key={row.mint} row={row} now={now} tick={ticks[row.symbol]} onSize={openSize} />
+                    <StockCard
+                      key={row.mint}
+                      row={row}
+                      now={now}
+                      tick={ticks[row.symbol]}
+                      onSize={openSize}
+                      favourite={favourites.includes(row.symbol)}
+                      onFavourite={toggleFavourite}
+                    />
                   ))}
                 </ul>
               )}
@@ -890,19 +895,22 @@ export function Desk({
 
         </div>
 
-        <PassAlong
-          quote={quotes.find((q) => q.symbol === passSymbol)}
-          symbol={passSymbol}
-          now={now}
-          onSymbol={setPassSymbol}
-          copied={copied}
-          onCopy={(text) => {
-            void navigator.clipboard.writeText(text).then(() => {
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1600);
-            });
-          }}
-        />
+        <div className="mt-10 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+          <PassAlong
+            quote={quotes.find((q) => q.symbol === passSymbol)}
+            symbol={passSymbol}
+            now={now}
+            onSymbol={setPassSymbol}
+            copied={copied}
+            onCopy={(text) => {
+              void navigator.clipboard.writeText(text).then(() => {
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1600);
+              });
+            }}
+          />
+          <CryptoPanel initial={initialCryptos} />
+        </div>
 
         <WhyHold
           wallet={holderWallet}

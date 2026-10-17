@@ -1,6 +1,7 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { SiteFooter } from "../components/SiteFooter";
+import { SiteNav } from "../components/SiteNav";
 import { HOLDINGS_AS_OF, exposures, holdingsMayBeStale, overlap } from "../lib/etf-holdings";
 import { SITE_URL, STATIC_PAGE_CACHE } from "../lib/site";
 import type { PortfolioLine, PortfolioResult } from "../lib/types";
@@ -260,22 +261,9 @@ function PortfolioPage() {
 
   return (
     <div className="min-h-screen bg-night text-foam">
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link to="/" className="flex items-center gap-2 text-sm font-medium text-foam">
-            <img src="/logo-96.jpg" alt="" width={28} height={28} className="h-7 w-7 rounded-lg" />
-            Par
-          </Link>
-          <nav className="flex items-center gap-5 text-sm text-mist">
-            <Link to="/" className="hover:text-foam">
-              Desk
-            </Link>
-            <Link to="/portfolio" className="text-foam underline decoration-gold decoration-2 underline-offset-8">
-              Portfolio
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <div className="border-b border-white/10">
+        <SiteNav current="/portfolio" />
+      </div>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <p className="text-sm text-mist">Home · Portfolio</p>
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">

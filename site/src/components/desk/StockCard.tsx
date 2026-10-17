@@ -1,10 +1,28 @@
-import { Ruler } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Ruler, Star } from "lucide-react";
 import { formatUsd } from "../../lib/format";
+import { cardShareText, stockUrl } from "../../lib/share";
+import { ShareButton } from "../ShareButton";
 import type { Quote, Verdict } from "../../lib/types";
 import { rebaseLine, verdictBarClass, verdictPillClass } from "../../lib/verdict";
 import { BuyLink, ChangePill, GapMeter, MultiplierNote, TickerBadge, VerdictDetail } from "./parts";
 
 export type DeskRow = Quote & { verdict: Verdict; gap: number | null };
+
+/** A star that keeps a name in Favourites, on this device. */
+export function FavouriteButton({ symbol, on, onToggle }: { symbol: string; on: boolean; onToggle: (symbol: string) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(symbol)}
+      aria-pressed={on}
+      aria-label={on ? `Remove ${symbol} from favourites` : `Add ${symbol} to favourites`}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${on ? "text-amber" : "text-muted hover:text-ink"}`}
+    >
+      <Star className="size-5" fill={on ? "currentColor" : "none"} aria-hidden />
+    </button>
+  );
+}
 
 /** One name on the Markets tab: price, the gap meter, the verdict, and Buy. */
 export function StockCard({
@@ -12,11 +30,15 @@ export function StockCard({
   now,
   tick,
   onSize,
+  favourite,
+  onFavourite,
 }: {
   row: DeskRow;
   now: number;
   tick: "up" | "down" | undefined;
   onSize: (symbol: string) => void;
+  favourite: boolean;
+  onFavourite: (symbol: string) => void;
 }) {
   return (
     <li id={`stock-${row.symbol}`} className="stock-card panel scroll-mt-24 overflow-hidden ring-1 ring-line">
@@ -27,7 +49,11 @@ export function StockCard({
             <div className="flex min-w-0 items-center gap-3">
               <TickerBadge underlying={row.underlying} sector={row.sector} />
               <div className="min-w-0">
-                <h2 className="truncate font-display text-2xl leading-tight text-ink sm:text-3xl">{row.name}</h2>
+                <h2 className="truncate font-display text-2xl leading-tight text-ink sm:text-3xl">
+                  <Link to="/s/$symbol" params={{ symbol: row.symbol }} className="hover:underline hover:decoration-line hover:underline-offset-4">
+                    {row.name}
+                  </Link>
+                </h2>
                 <p className="text-sm text-muted">
                   {row.symbol}
                   {" · "}
@@ -35,7 +61,10 @@ export function StockCard({
                 </p>
               </div>
             </div>
-            <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${verdictPillClass(row.verdict.id)}`}>{row.verdict.title}</span>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <span className={`rounded-full px-3 py-1 text-sm font-medium ${verdictPillClass(row.verdict.id)}`}>{row.verdict.title}</span>
+              <FavouriteButton symbol={row.symbol} on={favourite} onToggle={onFavourite} />
+            </div>
           </div>
 
           <div className="mt-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
@@ -71,7 +100,13 @@ export function StockCard({
               <div className="min-w-0 flex-1 basis-56">
                 <VerdictDetail row={row} now={now} />
               </div>
-              <div className="flex shrink-0 gap-2">
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <ShareButton
+                  title={`${row.symbol} on Par`}
+                  text={cardShareText(row.symbol, row.gap, row.verdict.title)}
+                  url={stockUrl(row.symbol)}
+                  label=""
+                />
                 <button
                   type="button"
                   onClick={() => onSize(row.symbol)}
