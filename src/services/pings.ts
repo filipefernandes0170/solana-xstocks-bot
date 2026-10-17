@@ -19,7 +19,7 @@ import {
   type UserRow,
 } from "../db/index.js";
 import { getTokenizedStockHoldings } from "./solana.js";
-import { getDeskQuotes, type DeskQuote } from "./desk.js";
+import { buysReady, getDeskQuotes, type DeskQuote } from "./desk.js";
 import { holderWallet, walletsHolding } from "./holder.js";
 import { bagText, bellText, briefKeyboard, briefTeaser, briefText, buyKeyboard, fairText, rebaseText, richText, teaserKeyboard } from "./messages.js";
 import {
@@ -162,6 +162,8 @@ export async function checkDesk(bot: Telegraf) {
   try {
     const quotes = await getDeskQuotes();
     if (quotes.length === 0) return;
+    // Right after a restart, wait for the first round of buy quotes so no verdict is judged without them.
+    if (!buysReady()) return;
     await sendBriefs(bot, quotes, Date.now()).catch((err) => console.warn("Briefs failed:", (err as Error).message));
     const bySymbol = new Map(quotes.map((quote) => [quote.symbol, quote]));
     const snaps = new Map(quotes.map((quote) => [quote.symbol, toSnap(quote)]));

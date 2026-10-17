@@ -6,7 +6,7 @@ import { pricesText } from "../../services/messages.js";
 export async function pricesCommand(ctx: Context) {
   const pending = await ctx.reply("📈 Reading the desk…");
   try {
-    const quotes = await getDeskQuotes();
+    const quotes = await getDeskQuotes({ allowStale: true });
     if (quotes.length === 0 || !quotes.some((quote) => quote.usdPrice != null)) {
       await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "📈 The price feed is busy. Try again in a minute.");
       return;

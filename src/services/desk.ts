@@ -25,7 +25,6 @@ const prints = new Map<string, StockPrint & { at: number }>();
 let printsReadAt = 0;
 const PRINTS_TTL_MS = 180_000;
 const PRINT_KEEP_MS = 30 * 60_000;
-const PRINT_BATCH = 4;
 let inflight: Promise<DeskQuote[]> | null = null;
 let rebaseCache: { at: number; rows: Map<string, MintInfo> } | null = null;
 
@@ -36,7 +35,13 @@ type Buy = { price: number; impactPct: number; at: number };
 const buys = new Map<string, Buy>();
 const BUY_KEEP_MS = 90_000;
 let buyRefresh: Promise<void> | null = null;
-let buysPrimed = false;
+// True once the first round of buy quotes after a restart has finished. Pings wait for it, so they never
+// judge a verdict without buy prices; lookups do not wait.
+let firstBuyRoundDone = false;
+
+export function buysReady() {
+  return firstBuyRoundDone;
+}
 
 async function mintRebases() {
   if (rebaseCache && Date.now() - rebaseCache.at < 10 * 60_000) return rebaseCache.rows;
@@ -132,23 +137,49 @@ export function freshPrints(rows: Map<string, StockPrint & { at: number }>, now:
   return out;
 }
 
-/** Nasdaq prints, refreshed every 3 minutes, four requests at a time so Nasdaq never sees a burst of 18. */
+let printsRefresh: Promise<void> | null = null;
+
+/** Asks Nasdaq for every symbol at once (each answer takes about 3 s, so one by one would be slow). Returns the failures. */
+async function fetchPrints(symbols: string[]) {
+  const rows = await Promise.all(symbols.map((symbol) => onePrint(symbol)));
+  const failed: { symbol: string; reason: string }[] = [];
+  rows.forEach((row, index) => {
+    if (typeof row === "string") failed.push({ symbol: symbols[index], reason: row });
+    else prints.set(symbols[index], { ...row, at: Date.now() });
+  });
+  return failed;
+}
+
+/** One round of prints; symbols that fail are asked once more a second later. */
+async function refreshPrints() {
+  const symbols = [...new Set(TOKENIZED_STOCKS.map((token) => token.underlying).filter(Boolean))].filter(
+    (symbol) => symbol !== "SPCX",
+  ) as string[];
+  let failed = await fetchPrints(symbols);
+  if (failed.length > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    failed = await fetchPrints(failed.map((row) => row.symbol));
+  }
+  if (failed.length > 0) console.warn(`Nasdaq: no print this round for ${failed.map((row) => `${row.symbol} (${row.reason})`).join(", ")}`);
+}
+
+/**
+ * Nasdaq prints, refreshed every 3 minutes in the background. Only the first read after a restart waits
+ * for them; later reads answer at once with the prints already held while the refresh runs.
+ */
 async function stockPrints() {
-  if (Date.now() - printsReadAt < PRINTS_TTL_MS) return freshPrints(prints, Date.now());
-  printsReadAt = Date.now();
-  const symbols = [...new Set(TOKENIZED_STOCKS.map((token) => token.underlying).filter(Boolean))]
-    .filter((symbol) => symbol !== "SPCX") as string[];
-  const failed: string[] = [];
-  for (let i = 0; i < symbols.length; i += PRINT_BATCH) {
-    const batch = symbols.slice(i, i + PRINT_BATCH);
-    const rows = await Promise.all(batch.map((symbol) => onePrint(symbol)));
-    rows.forEach((row, index) => {
-      if (typeof row === "string") failed.push(`${batch[index]} (${row})`);
-      else prints.set(batch[index], { ...row, at: Date.now() });
+  if (Date.now() - printsReadAt >= PRINTS_TTL_MS && !printsRefresh) {
+    printsReadAt = Date.now();
+    printsRefresh = refreshPrints().finally(() => {
+      printsRefresh = null;
     });
   }
-  if (failed.length > 0) console.warn(`Nasdaq: no print this round for ${failed.join(", ")}`);
-  return freshPrints(prints, Date.now());
+  const held = freshPrints(prints, Date.now());
+  if (Object.keys(held).length === 0 && printsRefresh) {
+    await printsRefresh;
+    return freshPrints(prints, Date.now());
+  }
+  return held;
 }
 
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -200,6 +231,7 @@ function startBuyRefresh(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
       .catch((err) => console.error("Buy quotes failed:", err instanceof Error ? err.message : err))
       .finally(() => {
         buyRefresh = null;
+        firstBuyRoundDone = true;
       });
   }
   return buyRefresh;
@@ -257,15 +289,7 @@ async function loadQuotes(): Promise<DeskQuote[]> {
       sharesPerToken: rebases.get(token.mint)?.multiplier ?? null,
     };
   });
-  const refresh = startBuyRefresh(base, rebases);
-  // Right after a restart there are no buy quotes yet; wait for the first round (at most a minute)
-  // so the first verdicts are judged on real buy prices.
-  if (!buysPrimed) {
-    buysPrimed = true;
-    let timer: NodeJS.Timeout | undefined;
-    await Promise.race([refresh, new Promise((resolve) => (timer = setTimeout(resolve, 60_000)))]);
-    clearTimeout(timer);
-  }
+  void startBuyRefresh(base, rebases);
   if (!base.some((quote) => quote.usdPrice != null)) {
     if (cache) return cache.quotes;
     return [];
@@ -274,19 +298,33 @@ async function loadQuotes(): Promise<DeskQuote[]> {
   return base;
 }
 
-/** Every tracked name, with prices cached for 45 s and the newest buy quotes added on each call. */
-export async function getDeskQuotes() {
-  if (cache && Date.now() - cache.at < 45_000) return withBuys(cache.quotes);
+const FRESH_MS = 45_000;
+const STALE_OK_MS = 5 * 60_000;
+
+/**
+ * Every tracked name, with prices cached for 45 s and the newest buy quotes added on each call.
+ * `allowStale` (chat lookups) answers at once with prices up to 5 minutes old and refreshes in the
+ * background; the ping loop leaves it off and waits for fresh prices. The cron refreshes every minute,
+ * so lookups normally see prices under a minute old.
+ */
+export async function getDeskQuotes(options: { allowStale?: boolean } = {}) {
+  const age = cache ? Date.now() - cache.at : Number.POSITIVE_INFINITY;
+  if (cache && age < FRESH_MS) return withBuys(cache.quotes);
   if (!inflight) {
     inflight = loadQuotes().finally(() => {
       inflight = null;
     });
   }
+  if (options.allowStale && cache && age < STALE_OK_MS) {
+    inflight.catch(() => {});
+    return withBuys(cache.quotes);
+  }
   return withBuys(await inflight);
 }
 
+/** One name for a chat lookup: answers at once when recent prices are held. */
 export async function getDeskQuote(symbol: string) {
-  const quotes = await getDeskQuotes();
+  const quotes = await getDeskQuotes({ allowStale: true });
   return quotes.find((quote) => quote.symbol === symbol) ?? null;
 }
 

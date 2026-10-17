@@ -2,9 +2,13 @@ import { MENU_COMMANDS, createBot } from "./bot/index.js";
 import cron from "node-cron";
 import { config } from "./config/index.js";
 import { checkAlerts } from "./services/alerts.js";
+import { getDeskQuotes } from "./services/desk.js";
 import { checkDesk } from "./services/pings.js";
 
 const bot = createBot();
+
+// Load prices before anyone asks, so the first lookup after a restart answers at once.
+getDeskQuotes().catch((err) => console.warn("Warm-up failed:", err instanceof Error ? err.message : err));
 
 // Telegraf 4.16: the launch() promise settles only when polling stops, so log from the onLaunch callback.
 bot.launch(() => {

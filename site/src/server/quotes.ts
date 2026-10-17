@@ -34,7 +34,6 @@ const prints = new Map<string, StockPrint & { at: number }>();
 let printsReadAt = 0;
 const PRINTS_TTL_MS = 180_000;
 const PRINT_KEEP_MS = 30 * 60_000;
-const PRINT_BATCH = 4;
 const buys = new Map<string, Buy>();
 const decimalsByMint = new Map<string, number>();
 
@@ -83,21 +82,33 @@ export function freshPrints(rows: Map<string, StockPrint & { at: number }>, now:
   return out;
 }
 
-/** Nasdaq prints, refreshed every 3 minutes, four requests at a time so Nasdaq never sees a burst of 18. */
+/** Asks Nasdaq for every symbol at once (each answer takes about 3 s, so one by one would be slow). Returns the failures. */
+async function fetchPrints(symbols: string[]) {
+  const rows = await Promise.all(symbols.map((symbol) => onePrint(symbol)));
+  const failed: { symbol: string; reason: string }[] = [];
+  rows.forEach((row, index) => {
+    if (typeof row === "string") failed.push({ symbol: symbols[index], reason: row });
+    else prints.set(symbols[index], { ...row, at: Date.now() });
+  });
+  return failed;
+}
+
+/** One round of prints; symbols that fail are asked once more a second later. */
+async function refreshPrints() {
+  const symbols = [...new Set(TOKENS.map((token) => token.underlying))].filter((symbol) => symbol !== NO_PRINT_UNDERLYING);
+  let failed = await fetchPrints(symbols);
+  if (failed.length > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    failed = await fetchPrints(failed.map((row) => row.symbol));
+  }
+  if (failed.length > 0) console.warn(`[par] Nasdaq: no print this round for ${failed.map((row) => `${row.symbol} (${row.reason})`).join(", ")}`);
+}
+
+/** Nasdaq prints, refreshed every 3 minutes. */
 async function stockPrints() {
   if (Date.now() - printsReadAt < PRINTS_TTL_MS) return freshPrints(prints, Date.now());
   printsReadAt = Date.now();
-  const symbols = [...new Set(TOKENS.map((token) => token.underlying))].filter((symbol) => symbol !== NO_PRINT_UNDERLYING);
-  const failed: string[] = [];
-  for (let i = 0; i < symbols.length; i += PRINT_BATCH) {
-    const batch = symbols.slice(i, i + PRINT_BATCH);
-    const rows = await Promise.all(batch.map((symbol) => onePrint(symbol)));
-    rows.forEach((row, index) => {
-      if (typeof row === "string") failed.push(`${batch[index]} (${row})`);
-      else prints.set(batch[index], { ...row, at: Date.now() });
-    });
-  }
-  if (failed.length > 0) console.warn(`[par] Nasdaq: no print this round for ${failed.join(", ")}`);
+  await refreshPrints();
   return freshPrints(prints, Date.now());
 }
 

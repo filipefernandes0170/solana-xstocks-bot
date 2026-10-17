@@ -30,7 +30,7 @@ export async function portfolioCommand(ctx: Context) {
   const pending = await ctx.reply("💼 Reading the wallet…");
 
   try {
-    const [pf, quotes] = await Promise.all([buildPortfolio(wallet), getDeskQuotes().catch(() => [])]);
+    const [pf, quotes] = await Promise.all([buildPortfolio(wallet), getDeskQuotes({ allowStale: true }).catch(() => [])]);
     if (pf.positions.length === 0) {
       await ctx.telegram.editMessageText(
         ctx.chat!.id,

@@ -62,7 +62,7 @@ export function createBot() {
 
   bot.action("menu:prices", async (ctx) => {
     await ctx.answerCbQuery().catch(() => {});
-    const quotes = await getDeskQuotes();
+    const quotes = await getDeskQuotes({ allowStale: true });
     if (!quotes.some((quote) => quote.usdPrice != null)) {
       await ctx.reply("📈 The price feed is busy. Try again in a minute.");
       return;
