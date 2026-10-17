@@ -91,4 +91,12 @@ Variáveis do site (todas opcionais): `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `TOKE
 1. **O bot corre na VM** (Google Cloud), segundo o Filipe. Confirmação rápida: no Telegram, manda `/start` ao [@ONPAR_BOT](https://t.me/ONPAR_BOT). Se responder, está a correr.
 2. **Repositório privado.** O bot da VM não é afetado, porque a VM não se atualiza sozinha. Na próxima atualização manual na VM (`git pull`), o GitHub vai pedir acesso. Nessa altura, o agente ajuda a pôr uma *deploy key* só de leitura. Nunca se cola um token no chat.
 3. O `netlify.toml` da raiz manda o Netlify construir a pasta `site/`. O Netlify salta a build quando um push não muda nada em `site/`, por isso as alterações do bot nunca mexem no site. A publicação no Netlify fica **bloqueada** ("Lock to stop auto publishing"): cada versão nova do site só vai para o ar depois de testada e publicada à mão ("Publish Deploy").
-4. **Bot corrigido (17 out):** os ETFs (SPY, QQQ, GLD) passaram a ser pedidos à Nasdaq como "etf" (`src/services/nasdaq.ts`, com teste). A correção está no GitHub. A VM só a recebe numa atualização manual (ver §6.2).
+4. **Bot corrigido e atualizado na VM (17 out, 08:59 UTC):** os ETFs (SPY, QQQ, GLD) passaram a ser pedidos à Nasdaq como "etf" (`src/services/nasdaq.ts`, com teste). Confirmado no Telegram: o cartão do SPYx mostra o preço da Nasdaq ($763.25).
+5. **Acesso da VM ao GitHub:** a VM `near-bot` tem uma *deploy key* só de leitura (no GitHub: "par-bot VM near-bot (read-only)"; na VM: `~/.ssh/par_deploy`). A pasta `~/solana-xstocks-bot` usa essa chave. Para atualizar o bot no futuro, na VM:
+   ```bash
+   cd ~/solana-xstocks-bot && git pull --ff-only && sudo bash deploy/setup.sh
+   ```
+   Notas:
+   - a pasta antiga `~/par-bot-src` já não é usada;
+   - o `package-lock.json` que estava solto na pasta ficou guardado em `~/package-lock.solana-xstocks-bot.bak`.
+6. **Melhoria possível:** ao parar, o bot não desliga os temporizadores (cron). Por isso, cada reinício espera 90 segundos e o systemd fecha-o à força. É inofensivo, mas pode corrigir-se em `src/index.ts`.
