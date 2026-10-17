@@ -354,3 +354,32 @@ test("the welcome puts the wallet proof first for someone who has not proven one
   assert.ok(startText("Ana").includes("Prove your $PAR wallet first"));
   assert.ok(startText("Ana").includes("never asks you to sign a transaction"));
 });
+
+test("/yield shows the stablecoin's borrow rate and links each name's own Kamino page", async () => {
+  const { KAMINO_MARKETS, offersFromRows } = await import("./yield.js");
+  const site = await import("../../site/src/server/offers.js");
+  assert.deepEqual(KAMINO_MARKETS, site.KAMINO_MARKETS, "the bot and the site read the same markets and stablecoins");
+  const { yieldText } = await import("./messages.js");
+  const rows = [
+    {
+      reserve: "7B66Az3tJhAo4bLkX8PzTixQ9ZGyHkkjxfVLhF26sP5q",
+      liquidityToken: "NVDAx",
+      liquidityTokenMint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+      maxLtv: 0.55,
+      borrowApy: 0.0717,
+      supplyApy: 0.00022,
+      totalSupplyUsd: 2287173,
+    },
+    { reserve: "97zoywd8mPZsGTg8q1wdD2Wgkdrs2tqusp1Qqcxbyj7E", liquidityToken: "USDC", liquidityTokenMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", borrowApy: 0.066861418243086 },
+  ];
+  const offers = offersFromRows(rows, KAMINO_MARKETS[0]);
+  assert.equal(offers.length, 1);
+  assert.equal(offers[0].borrowAsset, "USDC");
+  const text = yieldText(offers, "NVDAx");
+  assert.ok(text.includes("Lend it: 0.02% a year"), text);
+  assert.ok(text.includes("Borrow USDC against it: up to 55% of its value, at 6.69% a year"), text);
+  assert.ok(!text.includes("7.17%"), "never the token's own borrow rate");
+  assert.ok(
+    text.includes('<a href="https://kamino.com/borrow/reserve/5wJeMrUYECGq41fxRESKALVcHnNX26TAWy4W98yULsua/7B66Az3tJhAo4bLkX8PzTixQ9ZGyHkkjxfVLhF26sP5q">open on Kamino</a>'),
+  );
+});

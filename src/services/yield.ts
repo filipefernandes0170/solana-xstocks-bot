@@ -7,10 +7,26 @@
 import axios from "axios";
 import { MINT_TO_TOKEN, SYMBOL_TO_TOKEN } from "../config/tokens.js";
 
+/**
+ * Kamino's two xStock markets, and the stablecoin each one lends against the tokens (checked in Kamino's API on
+ * 17 Oct 2026: USDC in the xStocks market, PYUSD in Sentora's). A token's own borrow rate is what it costs to borrow
+ * that token, so the "borrow" figure shown is the stablecoin's rate, read from its row in the same market.
+ * Same as the Par site (site/src/server/offers.ts).
+ */
 export const KAMINO_MARKETS = [
-  { id: "5wJeMrUYECGq41fxRESKALVcHnNX26TAWy4W98yULsua", venue: "Kamino xStocks" },
-  { id: "8BNUWRSibVasaAmhYpBCFpGgMisGKfVAf9ho3Cmf6vjr", venue: "Sentora on Kamino" },
+  {
+    id: "5wJeMrUYECGq41fxRESKALVcHnNX26TAWy4W98yULsua",
+    venue: "Kamino xStocks",
+    stable: { symbol: "USDC", mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+  },
+  {
+    id: "8BNUWRSibVasaAmhYpBCFpGgMisGKfVAf9ho3Cmf6vjr",
+    venue: "Sentora on Kamino",
+    stable: { symbol: "PYUSD", mint: "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo" },
+  },
 ];
+
+type Market = (typeof KAMINO_MARKETS)[number];
 
 export const KRAKEN_VAULT = {
   symbols: ["SPYx", "QQQx", "NVDAx"],
@@ -23,13 +39,18 @@ export type LendingOffer = {
   symbol: string;
   venue: string;
   supplyApy: number | null;
+  /** The stablecoin this market lends against the token (USDC, PYUSD); null when it has none. */
+  borrowAsset: string | null;
+  /** What borrowing borrowAsset costs a year in this market. Not the token's own borrow rate. */
   borrowApy: number | null;
   maxLtv: number | null;
   depositsUsd: number | null;
+  /** The token's own page on Kamino, where the user deposits or borrows themselves. */
   href: string;
 };
 
-type ReserveMetrics = {
+export type ReserveMetrics = {
+  reserve?: string;
   liquidityToken?: string;
   liquidityTokenMint?: string;
   maxLtv?: number | string;
@@ -45,15 +66,20 @@ function num(value: number | string | undefined) {
   return Number.isFinite(n) ? n : null;
 }
 
-async function marketOffers(market: (typeof KAMINO_MARKETS)[number]): Promise<LendingOffer[]> {
-  const { data } = await axios.get(`https://api.kamino.finance/kamino-market/${market.id}/reserves/metrics`, {
-    params: { env: "mainnet-beta" },
-    headers: { accept: "application/json" },
-    timeout: 12_000,
-  });
-  if (!Array.isArray(data)) throw new Error("Kamino answered without a list");
+/**
+ * The page for one token in one market on Kamino ("Borrow NVDAx Reserve (xStocks Market)", checked 17 Oct 2026).
+ * Kamino's lending overview when the reserve address is missing.
+ */
+export function kaminoReserveUrl(marketId: string, reserve: string | undefined) {
+  return reserve && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(reserve) ? `https://kamino.com/borrow/reserve/${marketId}/${reserve}` : "https://kamino.com/borrow";
+}
+
+/** One market's rows as offers for the tracked tokens. Pure, so the tests can feed it Kamino's own answer. */
+export function offersFromRows(rows: ReserveMetrics[], market: Market): LendingOffer[] {
+  const stable = rows.find((row) => row.liquidityTokenMint === market.stable.mint);
+  const stableBorrowApy = stable ? num(stable.borrowApy) : null;
   const offers: LendingOffer[] = [];
-  for (const row of data as ReserveMetrics[]) {
+  for (const row of rows) {
     const token =
       (row.liquidityTokenMint && MINT_TO_TOKEN.get(row.liquidityTokenMint)) || SYMBOL_TO_TOKEN.get((row.liquidityToken ?? "").toUpperCase());
     if (!token) continue;
@@ -61,13 +87,24 @@ async function marketOffers(market: (typeof KAMINO_MARKETS)[number]): Promise<Le
       symbol: token.symbol,
       venue: market.venue,
       supplyApy: num(row.supplyApy),
-      borrowApy: num(row.borrowApy),
+      borrowAsset: stable ? market.stable.symbol : null,
+      borrowApy: stableBorrowApy,
       maxLtv: num(row.maxLtv),
       depositsUsd: num(row.totalSupplyUsd),
-      href: `https://kamino.com/lend/${market.id}`,
+      href: kaminoReserveUrl(market.id, row.reserve),
     });
   }
   return offers;
+}
+
+async function marketOffers(market: Market): Promise<LendingOffer[]> {
+  const { data } = await axios.get(`https://api.kamino.finance/kamino-market/${market.id}/reserves/metrics`, {
+    params: { env: "mainnet-beta" },
+    headers: { accept: "application/json" },
+    timeout: 12_000,
+  });
+  if (!Array.isArray(data)) throw new Error("Kamino answered without a list");
+  return offersFromRows(data as ReserveMetrics[], market);
 }
 
 /** Live Kamino offers for every tracked xStock, cached for a minute. Null when both markets fail and nothing is cached. */

@@ -398,8 +398,13 @@ export function yieldText(offers: LendingOffer[], symbol: string | null) {
         [
           "",
           `<b>${escapeHtml(offer.venue)}</b>`,
-          `Supply ${rate(offer.supplyApy)} · borrow USDC ${rate(offer.borrowApy)} · borrow up to ${offer.maxLtv == null ? "—" : `${Math.round(offer.maxLtv * 100)}%`}`,
-          offer.depositsUsd != null ? `${dollars(offer.depositsUsd)} deposited · <a href="${offer.href}">open</a>` : `<a href="${offer.href}">open</a>`,
+          `Lend it: ${rate(offer.supplyApy)} a year`,
+          offer.borrowAsset
+            ? `Borrow ${escapeHtml(offer.borrowAsset)} against it: up to ${offer.maxLtv == null ? "—" : `${Math.round(offer.maxLtv * 100)}%`} of its value, at ${rate(offer.borrowApy)} a year`
+            : `Borrow against it: up to ${offer.maxLtv == null ? "—" : `${Math.round(offer.maxLtv * 100)}%`} of its value`,
+          offer.depositsUsd != null
+            ? `${dollars(offer.depositsUsd)} deposited · <a href="${escapeHtml(offer.href)}">open on Kamino</a>`
+            : `<a href="${escapeHtml(offer.href)}">open on Kamino</a>`,
         ].join("\n"),
       ),
       kraken && `\n<b>${KRAKEN_VAULT.venue}</b>\n${escapeHtml(KRAKEN_VAULT.note)} <a href="${KRAKEN_VAULT.href}">open</a>`,

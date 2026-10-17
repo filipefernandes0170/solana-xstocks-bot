@@ -23,7 +23,7 @@ Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solan
 | `/sizealert NVDAx 5000` | Holders: a one-off text when a buy of that size costs at most 0.4% over the Nasdaq print while Nasdaq is open. Up to 3; `/sizealert` lists, `/sizealert off [name]` clears |
 | `/size NVDAx 5000` | Size check: shares, price per share, gap and pool impact at that size |
 | `/portfolio` or `/p` | Holdings per share, total value, each name's verdict |
-| `/yield`, `/yield NVDAx` | Live Kamino lending rates (Kraken's vault shown as its published target) |
+| `/yield`, `/yield NVDAx` | Live Kamino lending rates: what lending the token earns, and what borrowing the market's stablecoin against it costs (USDC or PYUSD, not the token's own borrow rate), with a link to that token's own Kamino page. Kraken's vault is shown as its published target |
 | `/alert NVDAx up 5` | One-off move alert; `/alert list`, `/alert clear` |
 | `/watch` | Ping when a name turns Fair, or trades rich while Nasdaq is closed |
 | `/brief` | Morning brief, weekdays 9:00–9:29 New York time, trading days only |

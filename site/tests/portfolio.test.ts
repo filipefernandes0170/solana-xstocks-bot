@@ -153,11 +153,12 @@ test("possible yield uses the best live rate above 0 and leaves the stated vault
     venue,
     kind,
     supplyApy,
+    borrowAsset: null,
     borrowApy: null,
     maxLtv: null,
     depositsUsd: null,
     note: "",
-    href: "https://kamino.com/lend/x",
+    href: "https://kamino.com/borrow",
   });
   const offers = [offer("NVDAx", "A", 0.02), offer("NVDAx", "B", 0.03), offer("NVDAx", "Kraken vault", null, "Vault"), offer("TSLAx", "A", 0)];
   const idea = yieldIdeas([line("NVDAx", 5, 1000), line("TSLAx", 1, 400), line("USDC", 50, 50, "Cash")], offers);

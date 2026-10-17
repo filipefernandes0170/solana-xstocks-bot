@@ -33,10 +33,14 @@ export type Offer = {
   venue: string;
   kind: "Collateral" | "Vault";
   supplyApy: number | null;
+  /** The stablecoin this market lends against the token (USDC, PYUSD); null when it has none. */
+  borrowAsset: string | null;
+  /** What borrowing borrowAsset costs a year in this market. Not the token's own borrow rate. */
   borrowApy: number | null;
   maxLtv: number | null;
   depositsUsd: number | null;
   note: string;
+  /** The token's own page on Kamino (or the Kraken vault page), where the visitor acts themselves. */
   href: string;
 };
 

@@ -94,6 +94,12 @@ Reasons to hold $PAR are tools for traders; none is a return on the coin.
 - `/api/events` serves the same list as JSON for the bot (CDN: 60 s, stale up to 120 s).
 - **/bot** now explains how the bot works and every feature, with its commands.
 
+## Yield fix (17 Oct 2026)
+
+- "Borrow" on the yield cards is now the market's stablecoin rate (USDC in Kamino xStocks, PYUSD in Sentora), read from that stablecoin's row in the same market. Before, it showed the token's own borrow rate (what borrowing NVDAx costs) under the label "Borrow USDC".
+- Every "Open on Kamino" link opens the token's own page, `kamino.com/borrow/reserve/<market>/<reserve>` (checked in a browser). The old `kamino.com/lend/<market>` now lands on an unrelated Earn vault page.
+- Today the stock tokens themselves earn almost nothing when lent (0.00 to 0.18% on 17 Oct 2026), so "Possible yield" is usually about $0. That is the real figure.
+
 ## Run it
 
 ```bash

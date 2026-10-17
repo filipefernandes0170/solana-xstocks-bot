@@ -60,7 +60,7 @@ export function YieldPanel({
                     <dd className="font-display text-2xl text-ink">{formatRate(offer.supplyApy)}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-muted">Borrow USDC</dt>
+                    <dt className="text-sm text-muted">{offer.borrowAsset ? `Borrow ${offer.borrowAsset}` : "Borrow"}</dt>
                     <dd className="font-display text-2xl text-ink">{formatRate(offer.borrowApy)}</dd>
                   </div>
                   <div>
@@ -76,7 +76,7 @@ export function YieldPanel({
                 rel="noreferrer"
                 className="mt-4 inline-flex h-11 items-center text-sm font-medium text-ink underline decoration-line underline-offset-4"
               >
-                Open this market
+                {offer.kind === "Vault" ? "Open on Kraken" : "Open on Kamino"}
               </a>
             </li>
           ))}
