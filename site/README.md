@@ -13,7 +13,7 @@ The website at https://xstocks-tracker.netlify.app (Netlify project `xstocks-tra
 
 ## Intentional differences from the published site
 
-1. **ETF prints fixed.** Nasdaq's quote API rejects SPY, QQQ and GLD as `assetclass=stocks` (HTTP 400), so the original never showed a Nasdaq print for SPYx, QQQx or GLDx. Here they use `assetclass=etf`. The bot's `src/services/desk.ts` has the same bug, and it is not changed here.
+1. **ETF prints fixed.** Nasdaq's quote API rejects SPY, QQQ and GLD as `assetclass=stocks` (HTTP 400), so the original never showed a Nasdaq print for SPYx, QQQx or GLDx. Here they use `assetclass=etf`. The bot had the same bug in `src/services/desk.ts`; it was fixed on 17 Oct 2026 (`src/services/nasdaq.ts`).
 2. **Cash valued.** On /portfolio, USDC and USDT were often worth $0 because Jupiter's price API leaves them out. Here they fall back to $1.
 3. **Holdings at price per share.** The desk's Portfolio tab lookup multiplied the raw-token price by the share amount. Here it divides by the multiplier, as /portfolio and the page itself already did. Nothing changes on screen.
 4. **More tokens priced on /portfolio.** The original's rule for which other tokens get priced is unknown. Here it prices up to 1,000 tokens, 50 per Jupiter request. Anything Jupiter has no price for is counted in "N tokens had no price".

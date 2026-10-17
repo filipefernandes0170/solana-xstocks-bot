@@ -1,6 +1,7 @@
 import axios from "axios";
 import { config } from "../config/index.js";
 import { TOKENIZED_STOCKS } from "../config/tokens.js";
+import { nasdaqQuoteUrl } from "./nasdaq.js";
 import { pendingRebase, tradeVerdict, type Rebase, type VerdictInput } from "./verdict.js";
 
 export type DeskQuote = VerdictInput & {
@@ -104,7 +105,7 @@ async function stockPrints() {
   const rows = await Promise.all(
     symbols.map(async (symbol) => {
       try {
-        const { data } = await axios.get(`https://api.nasdaq.com/api/quote/${symbol}/info?assetclass=stocks`, {
+        const { data } = await axios.get(nasdaqQuoteUrl(symbol), {
           headers: { accept: "application/json", "user-agent": "Mozilla/5.0" },
           timeout: 12_000,
         });

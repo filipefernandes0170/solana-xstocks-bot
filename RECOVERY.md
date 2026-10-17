@@ -89,4 +89,4 @@ Variáveis do site (todas opcionais): `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `TOKE
 1. **O bot corre na VM** (Google Cloud), segundo o Filipe. Confirmação rápida: no Telegram, manda `/start` ao [@ONPAR_BOT](https://t.me/ONPAR_BOT). Se responder, está a correr.
 2. **Repositório privado.** O bot da VM não é afetado, porque a VM não se atualiza sozinha. Na próxima atualização manual na VM (`git pull`), o GitHub vai pedir acesso. Nessa altura, o agente ajuda a pôr uma *deploy key* só de leitura. Nunca se cola um token no chat.
 3. O Netlify ignora as builds a partir da raiz deste repositório (`netlify.toml`: `ignore = "exit 0"`), por isso enviar para o GitHub **não** mexe no site online.
-4. **Por decidir pelo Filipe:** substituir o site online pelo reconstruído (§4)? O bot tem o mesmo defeito dos ETFs em `src/services/desk.ts`: corrigir também?
+4. **Bot corrigido (17 out):** os ETFs (SPY, QQQ, GLD) passaram a ser pedidos à Nasdaq como "etf" (`src/services/nasdaq.ts`, com teste). A correção está no GitHub. A VM só a recebe numa atualização manual (ver §6.2).
