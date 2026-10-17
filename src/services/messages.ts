@@ -134,7 +134,11 @@ export function cardText(quote: DeskQuote, verdict: Verdict) {
     `<b>${escapeHtml(verdict.title)}.</b> ${escapeHtml(verdict.line)}`,
     "",
     `💵 Last trade <b>${money(quote.usdPrice)}</b>${quote.change24h != null ? ` · 24h ${pct(quote.change24h)}` : ""}`,
-    buy != null ? `🛒 $1,000 buy <b>${money(buy)}</b> a share` : "🛒 The $1,000 buy is still loading",
+    quote.underlying === "SPCX"
+      ? null
+      : buy != null
+        ? `🛒 $1,000 buy <b>${money(buy)}</b> a share`
+        : "🛒 The $1,000 buy is still loading",
     nasdaq,
     gap != null && `📏 Gap <b>${escapeHtml(gapLabel(gap))}</b>`,
     bar != null && `<code>${bar}</code>`,

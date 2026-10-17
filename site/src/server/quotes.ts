@@ -37,9 +37,14 @@ const PRINT_KEEP_MS = 30 * 60_000;
 const buys = new Map<string, Buy>();
 const decimalsByMint = new Map<string, number>();
 
-/** Buy quotes per refresh: 4 with a Jupiter key (1 request/s), 3 without (0.5 request/s). */
+/**
+ * Buy quotes per refresh: 5 with a Jupiter key (1 request/s), 3 without (0.5 request/s). With a key, 18 names
+ * take 4 refreshes (about 80 s at one refresh per ~20 s), inside the 90 s a buy stays usable. Budget, per
+ * minute: at most 6 refreshes x (1 price + 5 buys) = 36 for the site, plus about 19 for the bot, under the 60
+ * a free key allows for the whole organisation.
+ */
 export function buysPerRefresh() {
-  return hasJupiterKey() ? 4 : 3;
+  return hasJupiterKey() ? 5 : 3;
 }
 
 /** The mints whose buy quote is oldest (missing first), limited to `count`. */
@@ -170,7 +175,10 @@ async function oneBuy(quote: Quote): Promise<Buy | null> {
 /** Refreshes the oldest few buy quotes, one after another so Jupiter's per-second limit holds. */
 async function rotateBuys(base: Quote[]) {
   const byMint = new Map(base.map((quote) => [quote.mint, quote]));
-  const candidates = base.filter((quote) => quote.usdPrice != null && decimalsByMint.has(quote.mint)).map((quote) => quote.mint);
+  // SpaceX has no Nasdaq print, so its buy could never be compared; it is not quoted.
+  const candidates = base
+    .filter((quote) => quote.usdPrice != null && quote.underlying !== NO_PRINT_UNDERLYING && decimalsByMint.has(quote.mint))
+    .map((quote) => quote.mint);
   for (const mint of stalestMints(candidates, buys, buysPerRefresh())) {
     const buy = await oneBuy(byMint.get(mint) as Quote);
     if (buy) buys.set(mint, buy);

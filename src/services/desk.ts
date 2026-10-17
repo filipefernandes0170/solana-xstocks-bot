@@ -218,6 +218,8 @@ async function refreshBuys(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
   const order = [...quotes].sort((a, b) => (buys.get(a.mint)?.at ?? 0) - (buys.get(b.mint)?.at ?? 0));
   for (const quote of order) {
     if (jupiterPaused()) break;
+    // SpaceX has no Nasdaq print, so its buy could never be compared.
+    if (quote.underlying === "SPCX") continue;
     const info = mints.get(quote.mint);
     if (!info || typeof info.decimals !== "number") continue;
     const buy = await oneBuy(quote, info);

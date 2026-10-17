@@ -23,7 +23,7 @@ The website at https://xstocks-tracker.netlify.app (Netlify project `xstocks-tra
 
 ## Changes after the rebuild (17 Oct 2026)
 
-1. **Jupiter rate limits.** Every Jupiter call goes through `src/server/jupiter.ts`: one request every 2.1 s without a key, every 1.1 s with one, and a pause after an HTTP 429. Buy quotes are refreshed a few at a time, oldest first (3 per load without a key, 4 with one), and only by the browser's polling, so the first page load stays fast. The bot does the same in `../src/services/jupiter.ts`.
+1. **Jupiter rate limits.** Every Jupiter call goes through `src/server/jupiter.ts`: one request every 2.1 s without a key, every 1.1 s with one, and a pause after an HTTP 429. Buy quotes are refreshed a few at a time, oldest first (3 per load without a key, 5 with one; SpaceX, which has no Nasdaq print, is not quoted), and only by the browser's polling, so the first page load stays fast. The bot does the same in `../src/services/jupiter.ts`.
 2. **CDN cache.** The desk page and the public data (quotes, offers, coins) are cached on Netlify's CDN for 10 s (`Netlify-CDN-Cache-Control`), so many visitors cost about one function call every 10 s. /portfolio's page is cached for 5 minutes; wallet lookups are POST and never cached. Price polling stops while the tab is hidden, unless a saved alert can still ping this browser.
 3. **Accessibility.** A visible keyboard focus ring everywhere, darker red and gold text on the light cards (WCAG AA contrast), `aria-pressed` on the tab and filter buttons, and a status line that only announces "live" or "reconnecting" instead of every second.
 4. **Speed.** The Gap tab's chart library loads only when that tab is opened; the header logo is a 2 KB image instead of 138 KB.

@@ -133,7 +133,7 @@ export function VerdictDetail({ row, now }: { row: Quote; now: number }) {
     <p className="text-sm leading-relaxed text-muted">
       {"Nasdaq "}
       {row.underlying === NO_PRINT_UNDERLYING ? "has no public print" : formatUsd(row.stockPrice)}
-      {buy == null ? " · The $1,000 buy is still loading" : ` · A $1,000 buy pays ${formatUsd(buy)} a share`}
+      {row.underlying === NO_PRINT_UNDERLYING ? "" : buy == null ? " · The $1,000 buy is still loading" : ` · A $1,000 buy pays ${formatUsd(buy)} a share`}
       {impact == null ? "" : ` and moves the price ${formatImpact(impact)}%`}
       {hint ? ` · ${hint}` : ""}
       {l.poolVersusIssuer != null && l.issuerVersusStock != null
