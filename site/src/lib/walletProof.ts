@@ -2,7 +2,7 @@
 // The bot builds the same text (src/services/walletProof.ts in the repo root; a bot test keeps both equal) and
 // checks the signature itself before it trusts a wallet.
 
-export const PROOF_HOST = "xstocks-tracker.netlify.app";
+export const PROOF_HOST = "onpar.site";
 export const PROOF_TTL_MS = 15 * 60_000;
 const NONCE = /^[0-9a-f]{32}$/;
 

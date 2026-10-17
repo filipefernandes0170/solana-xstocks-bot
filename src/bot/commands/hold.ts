@@ -1,7 +1,7 @@
 import { Context } from "telegraf";
 import { getProof, getUser, latestProof, markProofUsed, setVerifiedWallet, upsertUser } from "../../db/index.js";
 import { holdText, proofKeyboard, provenText } from "../../services/messages.js";
-import { fetchSiteProof, isNonce, proofFresh, proofMessage, verifyProof } from "../../services/walletProof.js";
+import { fetchSiteProof, isNonce, proofFresh, verifyCodeProof } from "../../services/walletProof.js";
 import { holderNote } from "../holderNote.js";
 import { freshProofCode } from "../proof.js";
 
@@ -51,7 +51,7 @@ export async function confirmProof(ctx: Context, nonce?: string) {
     await ctx.reply("🔐 No signature for this code yet. Sign the message on the page, then tap Back to Telegram, or send /hold check.");
     return;
   }
-  if (!verifyProof(signed.address, signed.signature, proofMessage(proof.nonce))) {
+  if (!verifyCodeProof(signed.address, signed.signature, proof.nonce)) {
     await ctx.reply("🔐 The signature did not check out, so nothing was saved. Send /hold to try again.");
     return;
   }

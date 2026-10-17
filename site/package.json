@@ -2,7 +2,7 @@
   "name": "par-desk",
   "version": "1.0.0",
   "private": true,
-  "description": "Par desk: is a tokenized stock on Solana at the share price? Rebuilt source of xstocks-tracker.netlify.app.",
+  "description": "Par desk: is a tokenized stock on Solana at the share price? Rebuilt source of onpar.site (formerly xstocks-tracker.netlify.app).",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"

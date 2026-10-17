@@ -261,6 +261,12 @@ test("wallet proof: the bot checks the signature itself, for its own code only",
   assert.ok(!proof.verifyProof(owner.address, signature, proof.proofMessage(proof.newNonce())), "another code");
   assert.ok(!proof.verifyProof(owner.address, signature.slice(0, 20), message), "cut short");
   assert.ok(!proof.verifyProof("nope", signature, message));
+  // The bot checks a code against the site's message now (onpar.site) and under its earlier address, nothing else.
+  assert.ok(message.startsWith("onpar.site wants you to link this wallet"));
+  assert.ok(proof.verifyCodeProof(owner.address, signature, nonce));
+  assert.ok(proof.verifyCodeProof(owner.address, owner.sign(proof.proofMessage(nonce, "xstocks-tracker.netlify.app")), nonce), "signed before the move");
+  assert.ok(!proof.verifyCodeProof(owner.address, owner.sign(proof.proofMessage(nonce, "evil.example")), nonce), "another site's message");
+  assert.ok(!proof.verifyCodeProof(owner.address, signature, proof.newNonce()), "another code");
 
   const now = 1_000_000_000;
   assert.ok(proof.proofFresh(now - 14 * 60_000, now));
@@ -341,7 +347,7 @@ test("the welcome puts the wallet proof first for someone who has not proven one
   const withProof = startKeyboard(nonce).inline_keyboard;
   const first = withProof[0][0] as { text: string; url?: string };
   assert.equal(first.text, "🔐 Prove my $PAR wallet");
-  assert.equal(first.url, `https://xstocks-tracker.netlify.app/verify?n=${nonce}`);
+  assert.equal(first.url, `https://onpar.site/verify?n=${nonce}`);
   const without = startKeyboard().inline_keyboard;
   assert.equal(without.length, withProof.length - 1);
   assert.ok(!JSON.stringify(without).includes("/verify"));

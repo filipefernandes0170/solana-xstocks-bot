@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://xstocks-tracker.netlify.app/sitemap.xml
+Sitemap: https://onpar.site/sitemap.xml

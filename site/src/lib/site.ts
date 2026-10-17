@@ -1,7 +1,10 @@
 // Site-wide settings: the public address, CDN cache rules and security headers.
 
-/** Public address of the site (used for canonical links and link previews). Change it here if a domain is added. */
-export const SITE_URL = "https://xstocks-tracker.netlify.app";
+/**
+ * Public address of the site (canonical links, link previews, share links). onpar.site since 17 Oct 2026; the old
+ * xstocks-tracker.netlify.app forwards to it (Netlify's primary domain).
+ */
+export const SITE_URL = "https://onpar.site";
 
 export const SITE_TITLE = "Par — Is the price real?";
 export const SITE_DESCRIPTION = "Par says whether a tokenized stock on Solana is actually at the share price.";

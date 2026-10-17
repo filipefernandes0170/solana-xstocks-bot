@@ -30,7 +30,7 @@ import { logMessage, rpc } from "./solana";
 
 const STORE = "events";
 const KEY = "sec-filings";
-const SEC_USER_AGENT = "Par desk https://xstocks-tracker.netlify.app";
+const SEC_USER_AGENT = "Par desk https://onpar.site";
 /** A company's list is read again once it is this old. */
 const LIST_FRESH_MS = 5 * 60_000;
 const LISTS_PER_CALL = 10;

@@ -34,7 +34,7 @@ const NONCE = "0123456789abcdef0123456789abcdef";
 test("the message says what it is, and the code is 128 random bits in hex", () => {
   assert.equal(
     proofMessage(NONCE),
-    `xstocks-tracker.netlify.app wants you to link this wallet to @ONPAR_BOT on Telegram.\n\nThis is a message, not a transaction. It cannot move funds.\n\nCode: ${NONCE}`,
+    `onpar.site wants you to link this wallet to @ONPAR_BOT on Telegram.\n\nThis is a message, not a transaction. It cannot move funds.\n\nCode: ${NONCE}`,
   );
   assert.ok(isNonce(NONCE));
   assert.ok(!isNonce("0123456789ABCDEF0123456789ABCDEF"));
@@ -43,8 +43,8 @@ test("the message says what it is, and the code is 128 random bits in hex", () =
   const payload = new URL(telegramReturnLink(NONCE)).searchParams.get("start") ?? "";
   assert.equal(payload, `v-${NONCE}`);
   assert.ok(payload.length <= 64);
-  const [phantom] = walletBrowseLinks("https://xstocks-tracker.netlify.app/verify?n=abc");
-  assert.equal(phantom.href, "https://phantom.app/ul/browse/https%3A%2F%2Fxstocks-tracker.netlify.app%2Fverify%3Fn%3Dabc?ref=https%3A%2F%2Fxstocks-tracker.netlify.app");
+  const [phantom] = walletBrowseLinks("https://onpar.site/verify?n=abc");
+  assert.equal(phantom.href, "https://phantom.app/ul/browse/https%3A%2F%2Fonpar.site%2Fverify%3Fn%3Dabc?ref=https%3A%2F%2Fonpar.site");
 });
 
 test("base58 addresses decode to their 32 bytes", () => {

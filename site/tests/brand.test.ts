@@ -25,7 +25,7 @@ test("the hero lines start closer together the smaller the gap", () => {
 });
 
 test("share texts say what is on screen, plainly", () => {
-  assert.equal(stockUrl("NVDAx"), "https://xstocks-tracker.netlify.app/s/NVDAx");
+  assert.equal(stockUrl("NVDAx"), "https://onpar.site/s/NVDAx");
   assert.equal(cardShareText("NVDAx", 0.36, "Split"), "A $1,000 buy of NVDAx is 0.36% over the Nasdaq print right now (Split). Is the price real?");
   assert.equal(cardShareText("TSLAx", -0.31, "Wait"), "A $1,000 buy of TSLAx is 0.31% under the Nasdaq print right now (Wait). Is the price real?");
   assert.equal(cardShareText("AAPLx", 0.01, "Fair"), "A $1,000 buy of AAPLx is at the Nasdaq print right now (Fair). Is the price real?");

@@ -9,7 +9,7 @@ Estado verificado a **17 out 2026**. Este documento não contém chaves nem segr
 | Parte | Onde vive | Estado a 17 out |
 |---|---|---|
 | **Bot do Telegram** [@ONPAR_BOT](https://t.me/ONPAR_BOT) | Este repositório (`src/`), GitHub `filipefernandes0170/solana-xstocks-bot` (**privado** desde 17 out) | **Recuperado a 100%.** Compila e os testes passam (ver §3). Corre na VM, segundo o Filipe |
-| **Site "Par desk"** https://xstocks-tracker.netlify.app | Netlify, projeto `xstocks-tracker`, ligado a este repositório (pasta `site/`) | **Online com a versão reconstruída** desde 17 out, 08:37 UTC (deploy `6ad3321104e3134362f024fe`). O original do Grok (deploy `6aced2a4bac172109cf9f9c3`) fica no Netlify para voltar atrás, e os ficheiros dele estão em `published-site/` |
+| **Site "Par desk"** https://onpar.site (antes https://xstocks-tracker.netlify.app, que reencaminha para lá) | Netlify, projeto `xstocks-tracker`, ligado a este repositório (pasta `site/`) | **Online com a versão reconstruída** desde 17 out, 08:37 UTC (deploy `6ad3321104e3134362f024fe`). O original do Grok (deploy `6aced2a4bac172109cf9f9c3`) fica no Netlify para voltar atrás, e os ficheiros dele estão em `published-site/` |
 
 ## 2. Porque se perdeu o código-fonte do site
 

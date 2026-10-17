@@ -28,7 +28,7 @@ import {
 } from "./verdict.js";
 import { KRAKEN_VAULT, type LendingOffer } from "./yield.js";
 
-export const DESK_URL = "https://xstocks-tracker.netlify.app";
+export const DESK_URL = "https://onpar.site";
 const SIZE_BUTTONS = [1000, 5000, 25000];
 
 const TONE_EMOJI: Record<SizeTone, string> = { fair: "🟢", close: "🟡", far: "🔴", none: "⚪" };

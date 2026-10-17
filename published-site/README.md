@@ -2,7 +2,7 @@
 
 This is the built website from Netlify, not the TypeScript source.
 
-- Site: https://xstocks-tracker.netlify.app (Netlify project `xstocks-tracker`)
+- Site: https://onpar.site, formerly https://xstocks-tracker.netlify.app (Netlify project `xstocks-tracker`)
 - Deploy: 6aced2a4bac172109cf9f9c3, published 14 October 2026 00:55 UTC. Framework: TanStack Start, server-rendered through one Netlify Function (the `@netlify/vite-plugin` server handler).
 - Built by Grok Bot and deployed through its Netlify connector ("Deploy triggered by upload"). The page links `/__grok/manifest.webmanifest`.
 - First snapshot taken 14 October 2026. Completed and re-checked against the live site on 17 October 2026.

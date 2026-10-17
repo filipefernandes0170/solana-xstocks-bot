@@ -10,7 +10,12 @@
 import { createPublicKey, randomBytes, verify } from "node:crypto";
 import { PublicKey } from "@solana/web3.js";
 
-export const SITE_HOST = "xstocks-tracker.netlify.app";
+export const SITE_HOST = "onpar.site";
+/**
+ * The site's address before onpar.site. A wallet that signed there (the site was published after the bot moved)
+ * is still accepted: it is the same message from the same site, under its earlier name.
+ */
+const EARLIER_HOSTS = ["xstocks-tracker.netlify.app"];
 export const PROOF_TTL_MS = 15 * 60_000;
 const NONCE = /^[0-9a-f]{32}$/;
 // DER header for an Ed25519 public key (SubjectPublicKeyInfo, OID 1.3.101.112), followed by the 32 raw key bytes.
@@ -26,9 +31,9 @@ export function isNonce(value: string) {
 }
 
 /** The exact text the wallet signs. The site builds the same text (a test keeps both equal). */
-export function proofMessage(nonce: string) {
+export function proofMessage(nonce: string, host = SITE_HOST) {
   return [
-    `${SITE_HOST} wants you to link this wallet to @ONPAR_BOT on Telegram.`,
+    `${host} wants you to link this wallet to @ONPAR_BOT on Telegram.`,
     "",
     "This is a message, not a transaction. It cannot move funds.",
     "",
@@ -48,6 +53,11 @@ export function verifyProof(address: string, signatureBase64: string, message: s
   } catch {
     return false;
   }
+}
+
+/** True when the wallet at `address` signed this code's message, as the site writes it now or under its earlier address. */
+export function verifyCodeProof(address: string, signatureBase64: string, nonce: string) {
+  return [SITE_HOST, ...EARLIER_HOSTS].some((host) => verifyProof(address, signatureBase64, proofMessage(nonce, host)));
 }
 
 /** Whether a code made at `createdAt` (ms) can still be used at `now`. */
