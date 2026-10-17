@@ -48,9 +48,17 @@ export function buysPerRefresh() {
   return 4;
 }
 
-/** The mints whose buy quote is oldest (missing first), limited to `count`. */
-export function stalestMints(mints: string[], current: Map<string, Buy>, count: number) {
-  return [...mints].sort((a, b) => (current.get(a)?.at ?? 0) - (current.get(b)?.at ?? 0)).slice(0, Math.max(0, count));
+/**
+ * The mints whose buy quote is oldest (missing first), limited to `count`. Ties (above all, the names a fresh copy of
+ * the function has never quoted) go in list order starting at `start`: Netlify runs several copies, each with its own
+ * buys, and a clock-based start keeps them from all quoting the first names of the list.
+ */
+export function stalestMints(mints: string[], current: Map<string, Buy>, count: number, start = 0) {
+  const n = mints.length;
+  const place = new Map(mints.map((mint, index) => [mint, n > 0 ? (((index - start) % n) + n) % n : 0]));
+  return [...mints]
+    .sort((a, b) => (current.get(a)?.at ?? 0) - (current.get(b)?.at ?? 0) || (place.get(a) ?? 0) - (place.get(b) ?? 0))
+    .slice(0, Math.max(0, count));
 }
 
 export async function jupiterPrices(mints: string[], maxWaitMs = 5000): Promise<Record<string, JupiterPrice> | null> {
@@ -180,7 +188,9 @@ async function rotateBuys(base: Quote[]) {
   const candidates = base
     .filter((quote) => quote.usdPrice != null && decimalsByMint.has(quote.mint) && !(quote.poolUsd != null && quote.poolUsd < THIN_POOL_USD))
     .map((quote) => quote.mint);
-  for (const mint of stalestMints(candidates, buys, buysPerRefresh())) {
+  // The start moves on by one refresh's worth of names every 10 s, the browser's polling pace.
+  const start = Math.floor(Date.now() / 10_000) * buysPerRefresh();
+  for (const mint of stalestMints(candidates, buys, buysPerRefresh(), start)) {
     const buy = await oneBuy(byMint.get(mint) as Quote);
     if (buy) buys.set(mint, buy);
   }

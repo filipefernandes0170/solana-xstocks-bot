@@ -61,6 +61,17 @@ test("the rotation quotes missing names first, then the oldest", () => {
   assert.deepEqual(stalestMints(["a", "b"], current, 0), []);
 });
 
+test("a fresh copy of the function starts its rotation where the clock says, not always at the top", () => {
+  const empty = new Map<string, Buy>();
+  const names = ["a", "b", "c", "d", "e", "f"];
+  assert.deepEqual(stalestMints(names, empty, 3), ["a", "b", "c"]);
+  assert.deepEqual(stalestMints(names, empty, 3, 4), ["e", "f", "a"]);
+  assert.deepEqual(stalestMints(names, empty, 2, 13), ["b", "c"]);
+  // Names already quoted still wait behind the missing ones, whatever the start.
+  const some = new Map<string, Buy>([["e", { price: 1, impactPct: 0.1, at: 100 }]]);
+  assert.deepEqual(stalestMints(names, some, 3, 4), ["f", "a", "b"]);
+});
+
 test("the holdings note appears only after 90 days", () => {
   assert.equal(holdingsMayBeStale(Date.parse("2026-10-17T12:00:00Z")), false);
   assert.equal(holdingsMayBeStale(Date.parse("2027-01-10T12:00:00Z")), false);
