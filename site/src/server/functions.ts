@@ -1,4 +1,4 @@
-// The desk's nine server functions. Handlers run only on the server (a Netlify Function in production);
+// The desk's ten server functions. Handlers run only on the server (a Netlify Function in production);
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
@@ -7,7 +7,7 @@ import { PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE } from "../lib/site";
 import { cryptosResult } from "./cryptos";
 import { historyResult } from "./history";
 import { offersResult } from "./offers";
-import { quotesResult, sizeCheck } from "./quotes";
+import { exitCheck, quotesResult, sizeCheck } from "./quotes";
 import { env } from "./http";
 import { walletInput } from "./solana";
 import { holderStatus, lookupHoldings, readPortfolio } from "./wallet";
@@ -74,3 +74,11 @@ export const checkSize = createServerFn({ method: "POST" })
     return { symbol: typeof raw?.symbol === "string" ? raw.symbol : "", usd: typeof raw?.usd === "number" ? raw.usd : Number.NaN };
   })
   .handler(({ data }) => sizeCheck(data.symbol, data.usd));
+
+/** Exit check for /portfolio: a live sell quote for the shares a wallet holds. POST, never cached by the CDN. */
+export const checkExit = createServerFn({ method: "POST" })
+  .validator((input: unknown) => {
+    const raw = input as { symbol?: unknown; shares?: unknown } | undefined;
+    return { symbol: typeof raw?.symbol === "string" ? raw.symbol : "", shares: typeof raw?.shares === "number" ? raw.shares : Number.NaN };
+  })
+  .handler(({ data }) => exitCheck(data.symbol, data.shares));

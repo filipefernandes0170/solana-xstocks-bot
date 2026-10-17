@@ -114,3 +114,11 @@ Variáveis do site (todas opcionais): `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `TOKE
    - **Páginas novas:** `/bot` (explica o bot, com uma conversa real e QR) e `/s/NVDAx` (uma por ação, com partilha, favoritos e histórico).
    - **Histórico do gap:** uma função agendada do Netlify grava os preços de 15 em 15 minutos, nos dias úteis, das 12:00 às 21:45 UTC, em "Blobs" do Netlify. Gasta cerca de 10 dos 300 créditos mensais do plano grátis. O histórico só começa a aparecer depois da primeira sessão da bolsa a seguir à publicação.
    - **Bot:** o link "Watch in Telegram" dos favoritos (`?start=w-...`) liga o `/watch` para essas ações. É preciso atualizar a VM para isto funcionar.
+11. **Portfolio novo (17 out 2026, quarta volta).** Tudo descrito em `site/README.md` ("Portfolio upgrade").
+   - **O bag ao preço real:** cada xStock da carteira ao último preço na Solana, ao lado das mesmas ações ao preço da Nasdaq, com a diferença e o veredito.
+   - **Preço de saída:** um botão pede ao Jupiter quanto daria vender cada posição agora (as 10 maiores, uma de cada vez). É só uma cotação: nada é assinado nem enviado.
+   - **Visual novo:** total grande, mapa colorido das posições e cartões no telemóvel.
+   - **Vigiar no Telegram:** o botão "Watch this bag" abre o bot com o endereço público (`?start=p-...`). O bot guarda a carteira e avisa (só quem tem $PAR) quando algo muda. É preciso atualizar a VM para isto funcionar.
+   - **Rendimento possível:** as taxas reais do Kamino para as ações que a carteira tem, em dólares por ano. Não é conselho.
+   - **Próximos eventos:** os "rebases" que vão mudar o número de tokens na carteira.
+   - **Créditos do Netlify:** a página só atualiza os preços depois de ler uma carteira, e o preço de saída só gasta quando alguém carrega no botão.

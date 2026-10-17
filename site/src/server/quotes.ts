@@ -8,7 +8,7 @@
 // polling refresh them; the server-rendered first page uses what is already there, so it stays fast.
 
 import { ETF_UNDERLYINGS, NO_PRINT_UNDERLYING, TOKEN_BY_SYMBOL, TOKENS, USDC_MINT } from "../lib/tokens";
-import type { Quote, QuotesResult, Rebase, SizeCheck } from "../lib/types";
+import type { ExitCheck, Quote, QuotesResult, Rebase, SizeCheck } from "../lib/types";
 import { getJson } from "./http";
 import { jupiterGet } from "./jupiter";
 
@@ -301,6 +301,74 @@ export async function sizeCheck(symbol: string, usd: number): Promise<SizeCheck>
   const now = Date.now();
   for (const [entry, value] of sizeCache) if (now - value.at >= SIZE_CACHE_MS) sizeCache.delete(entry);
   sizeCache.set(key, { at: now, result });
+  return result;
+}
+
+export const EXIT_MIN_USD = 1;
+export const EXIT_MAX_USD = 1_000_000;
+const EXIT_CACHE_MS = 20_000;
+const exitCache = new Map<string, { at: number; result: ExitCheck }>();
+
+/**
+ * On-chain units to sell for `shares` shown in a wallet. The wallet shows each unit times the multiplier,
+ * so the units are shares / multiplier, in the token's smallest unit (rounded down, never more than held).
+ */
+export function sellUnits(shares: number, multiplier: number | null, decimals: number) {
+  if (!Number.isFinite(shares) || shares <= 0 || multiplier == null || !Number.isFinite(multiplier) || multiplier <= 0) return null;
+  const units = Math.floor((shares / multiplier) * 10 ** decimals);
+  return Number.isSafeInteger(units) && units > 0 ? units : null;
+}
+
+/**
+ * Exit check: what selling `shares` of one name for USDC returns right now, from a live Jupiter quote at that size.
+ * Read-only: nothing is signed or sent. Answers are shared for 20 s per name and amount, like the size check.
+ */
+export async function exitCheck(symbol: string, shares: number): Promise<ExitCheck> {
+  const token = TOKEN_BY_SYMBOL.get(symbol);
+  if (!token) return { ok: false, message: "Only the names on the desk can be checked." };
+  if (!Number.isFinite(shares) || shares <= 0) return { ok: false, message: "No shares to check." };
+
+  const quote = (await deskQuotes()).find((row) => row.mint === token.mint);
+  const decimals = decimalsByMint.get(token.mint);
+  if (!quote || quote.usdPrice == null || decimals == null) {
+    return { ok: false, message: "Prices are still loading. Try again in a few seconds." };
+  }
+  const marked = shares * quote.usdPrice;
+  if (marked < EXIT_MIN_USD) return { ok: false, message: "Under $1. Too small to quote." };
+  if (marked > EXIT_MAX_USD) return { ok: false, message: "Over $1,000,000. Too large for one pool quote." };
+  const units = sellUnits(shares, quote.sharesPerToken, decimals);
+  if (units == null) return { ok: false, message: "The balance multiplier is still loading." };
+
+  const key = `${token.mint}:${units}`;
+  const cached = exitCache.get(key);
+  if (cached && Date.now() - cached.at < EXIT_CACHE_MS) return cached.result;
+
+  const params = new URLSearchParams({ inputMint: token.mint, outputMint: USDC_MINT, amount: String(units), slippageBps: "50" });
+  const data = await jupiterGet<{ outAmount?: string; priceImpactPct?: string }>(`/swap/v1/quote?${params}`, { maxWaitMs: 9000 });
+  const usd = Number(data?.outAmount) / 1e6;
+  const impactFrac = Number(data?.priceImpactPct);
+  const price = usd / shares;
+  if (!data || !Number.isFinite(usd) || usd <= 0 || !Number.isFinite(impactFrac) || impactFrac < 0) {
+    return { ok: false, message: "Jupiter is busy or has no route for this size. Try again in a few seconds." };
+  }
+  // Same sanity rule as the $1,000 buy: an answer more than 5x away from the last trade is not used.
+  if (price > quote.usdPrice * 5 || price < quote.usdPrice / 5) return { ok: false, message: "Jupiter's answer was far from the last trade. Try again." };
+
+  const result: ExitCheck = {
+    ok: true,
+    symbol: token.symbol,
+    shares,
+    usd,
+    price,
+    impactPct: impactFrac * 100,
+    lastTrade: quote.usdPrice,
+    stockPrice: token.underlying === NO_PRINT_UNDERLYING ? null : quote.stockPrice,
+    marketState: quote.marketState,
+    at: Date.now(),
+  };
+  const now = Date.now();
+  for (const [entry, value] of exitCache) if (now - value.at >= EXIT_CACHE_MS) exitCache.delete(entry);
+  exitCache.set(key, { at: now, result });
   return result;
 }
 

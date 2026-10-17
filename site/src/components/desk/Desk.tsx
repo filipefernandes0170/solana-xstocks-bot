@@ -1,4 +1,4 @@
-import { Bell, LayoutGrid, List, Ruler, Search, Send, Star, Wallet } from "lucide-react";
+import { ArrowRight, Bell, LayoutGrid, List, Ruler, Search, Send, Star, Wallet } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { formatGap, formatPct, formatUsd } from "../../lib/format";
 import { etClock, sessionLabel, sessionLine } from "../../lib/session";
@@ -713,8 +713,12 @@ export function Desk({
                     {savedWallet}
                   </p>
                 ) : null}
-                <a href="/portfolio" className="mt-4 inline-flex text-sm font-medium text-ink underline decoration-line underline-offset-4">
-                  See every coin and the sector mix on /portfolio
+                <a href="/portfolio" className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-ink px-4 py-3 text-foam">
+                  <span>
+                    <span className="block text-sm font-medium">Open the full portfolio</span>
+                    <span className="block text-xs leading-relaxed text-mist">Next to Nasdaq, the exit price, yield, rebases, a map, and a Telegram watch</span>
+                  </span>
+                  <ArrowRight className="size-4 shrink-0" aria-hidden />
                 </a>
               </form>
               <div className="panel p-4 ring-1 ring-line">

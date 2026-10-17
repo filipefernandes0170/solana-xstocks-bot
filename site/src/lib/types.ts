@@ -92,5 +92,21 @@ export type SizeCheck =
     }
   | { ok: false; message: string };
 
+/** A live Jupiter sell quote (token → USDC) for the shares a wallet holds, priced per share. */
+export type ExitCheck =
+  | {
+      ok: true;
+      symbol: string;
+      shares: number;
+      usd: number;
+      price: number;
+      impactPct: number;
+      lastTrade: number | null;
+      stockPrice: number | null;
+      marketState: string | null;
+      at: number;
+    }
+  | { ok: false; message: string };
+
 export type Verdict = { id: VerdictId; title: string; line: string };
 export type VerdictId = "fair" | "near" | "wait" | "overnight" | "split" | "checking" | "unpriced";

@@ -53,6 +53,19 @@ The website at https://xstocks-tracker.netlify.app (Netlify project `xstocks-tra
 - **Share:** on cards, name pages and size checks. Phones get the system share sheet; elsewhere copy, X or Telegram. The text is built from the numbers on screen at that moment.
 - **Gap history:** `netlify/functions/record-gaps.mts`, a scheduled function (every 15 minutes, 12:00 to 21:45 UTC, Monday to Friday), stores each name's last trade and Nasdaq print in one Netlify Blob per UTC day (store `gap-history`). `getHistory` reads the last 7 days. About 880 runs a month, roughly 10 of the free plan's 300 credits. The $1,000 buy is not recorded: 18 quotes at Jupiter's free pace take longer than a scheduled function may run.
 
+## Portfolio upgrade (17 Oct 2026, fourth pass)
+
+/portfolio was rebuilt around one question: what is this bag really worth? The logic lives in `src/lib/bag.ts` (pure, tested in `tests/portfolio.test.ts`); the sections are in `src/components/portfolio/`.
+
+- **At the real price** (`RealPrice`): each xStock held, marked at the live last trade and set next to the same number of shares at the Nasdaq print, with the difference, the token-versus-print gap and the desk's verdict on a $1,000 buy. The page polls the same CDN-cached quotes as the desk (`useLiveQuotes`), but only once a wallet is read.
+- **Exit price:** on a click, one live Jupiter sell quote (token → USDC) per position, the 10 largest, one at a time. `checkExit` (POST, never cached by the CDN) sells `shares / multiplier` on-chain units (`sellUnits` in `server/quotes.ts`), skips positions under $1 or over $1,000,000, rejects answers more than 5x from the last trade, and shares each answer for 20 s. Live polling pauses while the checks run, so they get Jupiter's whole rate limit. Nothing is signed or sent.
+- **New look:** the page backdrop and light panels of the desk, a large total with today's move, and a map of every position sized by value and coloured by sector (`BagMap`, a squarified treemap in `src/lib/treemap.ts`; xStock tiles open their name page). Holdings are cards on phones. Before a wallet is read, six tiles say what the page will show.
+- **Watch this bag in Telegram** (`WatchBag`): `t.me/ONPAR_BOT?start=p-<address>` (46 characters, inside Telegram's 64). The bot saves that public address and shows the bag; its existing bag texts (verdict changes, a thin pool, the evening before a rebase) then follow it for $PAR holders. A second link watches the held names for a Fair ping (`?start=w-…`).
+- **Possible yield** (`BagYield`): each xStock's best live Kamino supply rate above 0%, times its value, summed per year. Kraken's vault target is shown as text, not counted.
+- **Coming up** (`BagEvents`): rebases still ahead for the names held (from Jupiter's `scaledUiConfig`), with the balance after, plus the Nasdaq session.
+- **Saved wallet:** a wallet read on /portfolio or on the desk's Portfolio tab is kept on the device (`xstocks-wallet`, the desk's key) and offered as one button next time. Disconnect or Forget clears it. The address never goes in the page URL.
+- **Desk:** the Portfolio tab keeps its quick summary and links to the full page.
+
 ## Run it
 
 ```bash
@@ -94,10 +107,11 @@ Safe order, with labels from Netlify's docs:
 src/
   routes/        __root.tsx (head, fonts, security headers, 404), index.tsx (desk + loader), bot.tsx, s.$symbol.tsx, portfolio.tsx
   components/    Logo, Backdrop, SiteNav, SiteFooter, ShareButton, NotFound, bot/PhoneDemo, stock/GapHistory,
+                 portfolio/* (RealPrice, BagMap, BagYield, BagEvents, WatchBag, BagPromise),
                  desk/* (Desk, HeroLines, Ticker, StatStrip, StockCard, StockList, SizeCheck, crypto, gap chart, yield, glossary, why-hold)
   lib/           site (URL, titles, cache and security headers), brand (badge colours, gap scale), size, share, history, botText,
-                 useFavourites, useLiveQuotes, tokens, types, format, session (Nasdaq clock), verdict, wallet-standard, etf-holdings
-  server/        functions.ts (the 9 server functions) + jupiter (rate limiter), quotes, history, offers, cryptos, solana, wallet, http
+                 useFavourites, useLiveQuotes, bag, treemap, tokens, types, format, session (Nasdaq clock), verdict, wallet-standard, etf-holdings
+  server/        functions.ts (the 10 server functions) + jupiter (rate limiter), quotes, history, offers, cryptos, solana, wallet, http
 netlify/functions/record-gaps.mts   the scheduled gap recorder
-tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts
+tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts, portfolio.test.ts
 ```
