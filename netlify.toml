@@ -1,4 +1,11 @@
-# The public site is deployed on its own.
-# Exit 0 skips this build so a bot push cannot replace the Par desk.
+# Netlify builds the Par desk website (xstocks-tracker.netlify.app) from the site/ folder.
+# The Telegram bot in the repo root is not a website and is never deployed by Netlify.
+# Netlify skips a build when a push changes nothing inside site/ (it compares the base directory).
+# Paths below are relative to the base directory.
 [build]
-  ignore = "exit 0"
+  base = "site"
+  command = "npm run build"
+  publish = "dist/client"
+
+[build.environment]
+  NODE_VERSION = "22"

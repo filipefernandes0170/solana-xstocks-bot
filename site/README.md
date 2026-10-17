@@ -46,9 +46,15 @@ Node 22.12 or newer.
 
 Set them in Netlify (Project configuration → Environment variables) and redeploy. Never commit values.
 
-## Deploying (not done; needs Filipe's OK)
+## Deploying
 
-The live site still runs the original Grok build. To replace it with this source, link the Netlify project to this private repo with **base directory `site`** (build settings come from `site/netlify.toml`: `npm run build`, publish `dist/client`). Check a deploy preview side by side with the live site before publishing it. The repo root `netlify.toml` skips builds on purpose, so bot pushes never touch the site.
+The repo-root `netlify.toml` builds this folder (`base = "site"`, `npm run build`, publish `dist/client`, Node 22). Netlify skips the build when a push changes nothing in `site/`, so bot-only pushes never touch the site.
+
+Safe order, with labels from Netlify's docs:
+1. Netlify → the project → **Deploys** → **Lock to stop auto publishing**. New builds stop going live by themselves.
+2. Netlify → **Project configuration → Developer settings → Continuous deployment → Repository**: the repo `filipefernandes0170/solana-xstocks-bot` must be linked (**Link repository** if not; **Configure Netlify on GitHub** if the private repo is not in the list).
+3. A push that changes `site/` builds a new deploy that is not published. Test its own address (`<deploy-id>--xstocks-tracker.netlify.app`) side by side with the live site.
+4. When it is good: open that deploy → **Publish Deploy**. Rolling back is the same button on an older deploy (Grok's original is `6aced2a4bac172109cf9f9c3`).
 
 ## Layout
 
