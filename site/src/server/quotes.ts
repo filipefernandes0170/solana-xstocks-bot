@@ -28,7 +28,13 @@ const BUY_KEEP_MS = 120_000;
 
 let quotesCache: { at: number; quotes: Quote[] } | null = null;
 let inflight: Promise<Quote[]> | null = null;
-let stockCache: { at: number; stocks: Record<string, StockPrint> } | null = null;
+// Nasdaq prints by symbol, each with the time it was read. A symbol whose request fails keeps its last
+// good print for PRINT_KEEP_MS, so one dropped request does not blank a card. Same rule as the bot.
+const prints = new Map<string, StockPrint & { at: number }>();
+let printsReadAt = 0;
+const PRINTS_TTL_MS = 180_000;
+const PRINT_KEEP_MS = 30 * 60_000;
+const PRINT_BATCH = 4;
 const buys = new Map<string, Buy>();
 const decimalsByMint = new Map<string, number>();
 
@@ -55,29 +61,44 @@ async function geckoPrices() {
   return data?.data?.attributes?.token_prices ?? null;
 }
 
+async function onePrint(symbol: string): Promise<StockPrint | string> {
+  try {
+    const assetClass = ETF_UNDERLYINGS.has(symbol) ? "etf" : "stocks";
+    const data = await getJson<{ data?: { primaryData?: { lastSalePrice?: string }; marketStatus?: string } }>(
+      `https://api.nasdaq.com/api/quote/${symbol}/info?assetclass=${assetClass}`,
+      { headers: { accept: "application/json", "user-agent": "Mozilla/5.0" } },
+    );
+    const price = Number(String(data?.data?.primaryData?.lastSalePrice ?? "").replace(/[$,]/g, ""));
+    if (!Number.isFinite(price) || price <= 0) return "no price in the answer";
+    return { price, state: String(data?.data?.marketStatus ?? "") };
+  } catch (error) {
+    return error instanceof Error ? error.message : "request failed";
+  }
+}
+
+/** Prints still young enough to show: read within PRINT_KEEP_MS. */
+export function freshPrints(rows: Map<string, StockPrint & { at: number }>, now: number, keepMs = PRINT_KEEP_MS) {
+  const out: Record<string, StockPrint> = {};
+  for (const [symbol, row] of rows) if (now - row.at <= keepMs) out[symbol] = { price: row.price, state: row.state };
+  return out;
+}
+
+/** Nasdaq prints, refreshed every 3 minutes, four requests at a time so Nasdaq never sees a burst of 18. */
 async function stockPrints() {
-  if (stockCache && Date.now() - stockCache.at < 180_000) return stockCache.stocks;
+  if (Date.now() - printsReadAt < PRINTS_TTL_MS) return freshPrints(prints, Date.now());
+  printsReadAt = Date.now();
   const symbols = [...new Set(TOKENS.map((token) => token.underlying))].filter((symbol) => symbol !== NO_PRINT_UNDERLYING);
-  const rows = await Promise.all(
-    symbols.map(async (symbol) => {
-      try {
-        const assetClass = ETF_UNDERLYINGS.has(symbol) ? "etf" : "stocks";
-        const data = await getJson<{ data?: { primaryData?: { lastSalePrice?: string }; marketStatus?: string } }>(
-          `https://api.nasdaq.com/api/quote/${symbol}/info?assetclass=${assetClass}`,
-          { headers: { accept: "application/json", "user-agent": "Mozilla/5.0" } },
-        );
-        const price = Number(String(data?.data?.primaryData?.lastSalePrice ?? "").replace(/[$,]/g, ""));
-        if (!Number.isFinite(price) || price <= 0) return null;
-        return [symbol, { price, state: String(data?.data?.marketStatus ?? "") }] as const;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  const stocks = Object.fromEntries(rows.filter((row) => row != null)) as Record<string, StockPrint>;
-  if (Object.keys(stocks).length > 0) stockCache = { at: Date.now(), stocks };
-  else console.warn("[par] Nasdaq: no prints this round");
-  return Object.keys(stocks).length > 0 ? stocks : (stockCache?.stocks ?? {});
+  const failed: string[] = [];
+  for (let i = 0; i < symbols.length; i += PRINT_BATCH) {
+    const batch = symbols.slice(i, i + PRINT_BATCH);
+    const rows = await Promise.all(batch.map((symbol) => onePrint(symbol)));
+    rows.forEach((row, index) => {
+      if (typeof row === "string") failed.push(`${batch[index]} (${row})`);
+      else prints.set(batch[index], { ...row, at: Date.now() });
+    });
+  }
+  if (failed.length > 0) console.warn(`[par] Nasdaq: no print this round for ${failed.join(", ")}`);
+  return freshPrints(prints, Date.now());
 }
 
 /**
@@ -154,7 +175,7 @@ async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
       console.warn("[par] GeckoTerminal: no prices this round");
       return null;
     }),
-    stockPrints().catch(() => stockCache?.stocks ?? {}),
+    stockPrints().catch(() => freshPrints(prints, Date.now())),
   ]);
   const now = Date.now();
   const sessionState = Object.values(stocks).find((row) => row.state)?.state ?? null;

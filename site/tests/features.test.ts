@@ -59,3 +59,13 @@ test("the site and the bot track the same mints", () => {
   assert.equal(botMints.size, TOKENS.length);
   for (const token of TOKENS) assert.equal(botMints.get(token.symbol), token.mint, token.symbol);
 });
+
+test("a Nasdaq print survives one failed round, but not past 30 minutes", async () => {
+  const { freshPrints } = await import("../src/server/quotes");
+  const now = 1_800_000_000_000;
+  const rows = new Map([
+    ["NFLX", { price: 70.53, state: "Closed", at: now - 4 * 60_000 }],
+    ["AMD", { price: 528.75, state: "Closed", at: now - 31 * 60_000 }],
+  ]);
+  assert.deepEqual(freshPrints(rows, now), { NFLX: { price: 70.53, state: "Closed" } });
+});
