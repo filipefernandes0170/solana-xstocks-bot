@@ -1,4 +1,4 @@
-// The desk's six server functions. Handlers run only on the server (a Netlify Function in production);
+// The desk's seven server functions. Handlers run only on the server (a Netlify Function in production);
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
@@ -6,7 +6,7 @@ import { setResponseHeader } from "@tanstack/react-start/server";
 import { PUBLIC_DATA_CACHE } from "../lib/site";
 import { cryptosResult } from "./cryptos";
 import { offersResult } from "./offers";
-import { quotesResult } from "./quotes";
+import { quotesResult, sizeCheck } from "./quotes";
 import { walletInput } from "./solana";
 import { holderStatus, lookupHoldings, readPortfolio } from "./wallet";
 
@@ -50,3 +50,11 @@ export const getHoldings = createServerFn({ method: "POST" })
 export const getPortfolio = createServerFn({ method: "POST" })
   .validator(walletInput)
   .handler(({ data }) => readPortfolio(data.wallet));
+
+/** Size check: a live buy quote at the amount the visitor picks. POST, never cached by the CDN. */
+export const checkSize = createServerFn({ method: "POST" })
+  .validator((input: unknown) => {
+    const raw = input as { symbol?: unknown; usd?: unknown } | undefined;
+    return { symbol: typeof raw?.symbol === "string" ? raw.symbol : "", usd: typeof raw?.usd === "number" ? raw.usd : Number.NaN };
+  })
+  .handler(({ data }) => sizeCheck(data.symbol, data.usd));

@@ -76,5 +76,21 @@ export type PortfolioResult = { lines: PortfolioLine[]; unpriced: number; spyCha
 
 export type HolderStatus = "unminted" | "holds" | "absent" | "error";
 
+/** A live Jupiter buy quote at the size the visitor asked for, priced per share. */
+export type SizeCheck =
+  | {
+      ok: true;
+      symbol: string;
+      usd: number;
+      shares: number;
+      price: number;
+      impactPct: number;
+      lastTrade: number | null;
+      stockPrice: number | null;
+      marketState: string | null;
+      at: number;
+    }
+  | { ok: false; message: string };
+
 export type Verdict = { id: VerdictId; title: string; line: string };
 export type VerdictId = "fair" | "near" | "wait" | "overnight" | "split" | "checking" | "unpriced";

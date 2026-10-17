@@ -34,7 +34,10 @@ export function multiplierLabel(multiplier: number | null | undefined) {
   return Math.abs(multiplier - 1) < 1e-6 ? "1" : multiplier.toFixed(4);
 }
 
-/** Price per share: the pool prices the raw token, so divide by the multiplier. */
+/**
+ * Price per share from a price per on-chain unit (a pool or swap price): divide by the multiplier.
+ * Jupiter's usdPrice and wallet UI amounts are already per share, so they never go through this.
+ */
 export function perSharePrice(usdPrice: number | null | undefined, multiplier: number | null | undefined) {
   if (usdPrice == null || !Number.isFinite(usdPrice)) return null;
   if (multiplier == null || !Number.isFinite(multiplier) || multiplier <= 0) return usdPrice;

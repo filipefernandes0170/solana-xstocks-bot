@@ -1,10 +1,10 @@
-import { Bell, Search, Wallet } from "lucide-react";
+import { Bell, LayoutGrid, List, Ruler, Search, Send, Wallet } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import { formatAmount, formatGap, formatPct, formatUsd, perSharePrice } from "../../lib/format";
-import { etClock, isSessionOpen, sessionLabel, sessionLine, timeToOpen, utcStamp } from "../../lib/session";
-import { NO_PRINT_UNDERLYING, TOKENS } from "../../lib/tokens";
+import { formatGap, formatPct, formatUsd } from "../../lib/format";
+import { etClock, isSessionOpen, sessionLabel, sessionLine, timeToOpen } from "../../lib/session";
+import { TOKENS } from "../../lib/tokens";
 import type { CryptoRow, HolderStatus, HoldingsResult, Offer, Quote } from "../../lib/types";
-import { buyUsable, gapPct, rebaseLine, verdict, verdictBarClass, verdictPillClass } from "../../lib/verdict";
+import { buyUsable, gapPct, verdict } from "../../lib/verdict";
 import { checkHolder, getHoldings, getOffers, getQuotes } from "../../server/functions";
 import { SiteFooter } from "../SiteFooter";
 import { Sky } from "../Sky";
@@ -12,7 +12,12 @@ import { CryptoPanel } from "./CryptoPanel";
 import type { GapRow } from "./GapView";
 import { Glossary } from "./Glossary";
 import { PassAlong } from "./PassAlong";
-import { BuyLink, ChangePill, GapPill, ShareMeter, VerdictDetail } from "./parts";
+import { BuyLink, ChangePill, TickerBadge } from "./parts";
+import { SizeCheck } from "./SizeCheck";
+import { StatStrip } from "./StatStrip";
+import { StockCard, type DeskRow } from "./StockCard";
+import { StockList } from "./StockList";
+import { Ticker } from "./Ticker";
 import { WhyHold } from "./WhyHold";
 import { YieldPanel } from "./YieldPanel";
 
@@ -29,11 +34,24 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "alerts", label: "Alerts" },
 ];
 
+type Sort = "desk" | "gap" | "move" | "name";
+type View = "cards" | "list";
+
+const SORTS: { id: Sort; label: string }[] = [
+  { id: "desk", label: "Desk order" },
+  { id: "gap", label: "Widest gap" },
+  { id: "move", label: "Biggest 24h move" },
+  { id: "name", label: "Name A–Z" },
+];
+
 type Alert = { id: string; symbol: string; direction: "up" | "down"; pct: number; kind?: "move" | "gap" };
 
 // Same storage keys as the published desk, so alerts and the saved wallet carry over.
 const ALERTS_KEY = "xstocks-alerts";
 const WALLET_KEY = "xstocks-wallet";
+// The Markets view and sort are remembered on this device only.
+const VIEW_KEY = "par-view";
+const SORT_KEY = "par-sort";
 
 function loadAlerts(): Alert[] {
   try {
@@ -41,6 +59,22 @@ function loadAlerts(): Alert[] {
     return raw ? (JSON.parse(raw) as Alert[]) : [];
   } catch {
     return [];
+  }
+}
+
+function readSetting(key: string) {
+  try {
+    return localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveSetting(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Private windows can refuse storage; the setting then lasts for this visit only.
   }
 }
 
@@ -77,6 +111,14 @@ function alertHit(alert: Alert, quote: Quote | undefined) {
     return gap == null ? false : alert.direction === "up" ? gap >= alert.pct : gap <= -alert.pct;
   }
   return quote.change24h == null ? false : alert.direction === "up" ? quote.change24h >= alert.pct : quote.change24h <= -alert.pct;
+}
+
+function sortRows(rows: DeskRow[], sort: Sort) {
+  const last = (value: number | null) => (value == null ? -1 : Math.abs(value));
+  if (sort === "gap") return [...rows].sort((a, b) => last(b.gap) - last(a.gap));
+  if (sort === "move") return [...rows].sort((a, b) => last(b.change24h) - last(a.change24h));
+  if (sort === "name") return [...rows].sort((a, b) => a.name.localeCompare(b.name));
+  return rows;
 }
 
 export function Desk({
@@ -117,9 +159,12 @@ export function Desk({
   const [offersErr, setOffersErr] = useState(offersError);
   const [yieldSymbol, setYieldSymbol] = useState("NVDAx");
   const [passSymbol, setPassSymbol] = useState("NVDAx");
+  const [sizeSymbol, setSizeSymbol] = useState("NVDAx");
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [fairOnly, setFairOnly] = useState(false);
+  const [sort, setSort] = useState<Sort>("desk");
+  const [view, setView] = useState<View>("cards");
   const [holderWallet, setHolderWallet] = useState("");
   const [holderBusy, setHolderBusy] = useState(false);
   const [holderError, setHolderError] = useState<string | null>(null);
@@ -128,9 +173,13 @@ export function Desk({
   useEffect(() => {
     setMounted(true);
     setAlerts(loadAlerts());
-    const wallet = localStorage.getItem(WALLET_KEY) ?? "";
+    const wallet = readSetting(WALLET_KEY);
     setSavedWallet(wallet);
     setWalletDraft(wallet);
+    const savedView = readSetting(VIEW_KEY);
+    if (savedView === "cards" || savedView === "list") setView(savedView);
+    const savedSort = readSetting(SORT_KEY);
+    if (SORTS.some((s) => s.id === savedSort)) setSort(savedSort as Sort);
   }, []);
 
   useEffect(() => {
@@ -138,7 +187,7 @@ export function Desk({
   }, [initial]);
 
   useEffect(() => {
-    localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts));
+    saveSetting(ALERTS_KEY, JSON.stringify(alerts));
   }, [alerts]);
 
   useEffect(() => {
@@ -196,7 +245,7 @@ export function Desk({
     };
   }, []);
 
-  // Keep a loaded wallet's values in step with the latest prices.
+  // Keep a loaded wallet's values in step with the latest prices. Wallet amounts and Jupiter's price are both per share.
   useEffect(() => {
     setHoldings((current) => {
       if (!current) return current;
@@ -205,8 +254,7 @@ export function Desk({
         const quote = quotes.find((q) => q.symbol === h.symbol);
         if (!quote || quote.usdPrice == null || (quote.usdPrice === h.usdPrice && quote.change24h === h.change24h)) return h;
         changed = true;
-        const perShare = perSharePrice(quote.usdPrice, quote.sharesPerToken) ?? quote.usdPrice;
-        return { ...h, usdPrice: quote.usdPrice, change24h: quote.change24h, usdValue: h.amount * perShare };
+        return { ...h, usdPrice: quote.usdPrice, change24h: quote.change24h, usdValue: h.amount * quote.usdPrice };
       });
       if (!changed) return current;
       const totalUsd = next.reduce((sum, h) => sum + h.usdValue, 0);
@@ -243,18 +291,24 @@ export function Desk({
     };
   }, [offers.length]);
 
-  const rows = useMemo(
-    () => (quotes.length ? quotes : TOKENS.map(emptyQuote)).map((quote) => ({ ...quote, verdict: verdict(quote, now) })),
+  const rows: DeskRow[] = useMemo(
+    () =>
+      (quotes.length ? quotes : TOKENS.map(emptyQuote)).map((quote) => ({
+        ...quote,
+        verdict: verdict(quote, now),
+        gap: gapPct(buyUsable(quote.buyAt, now) ? quote.buyPrice : null, quote.stockPrice),
+      })),
     [quotes, now],
   );
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return rows.filter(
+    const filtered = rows.filter(
       (row) =>
         (!term || row.symbol.toLowerCase().includes(term) || row.name.toLowerCase().includes(term) || row.sector.toLowerCase().includes(term)) &&
         (!fairOnly || row.verdict.id === "fair"),
     );
-  }, [rows, search, fairOnly]);
+    return sortRows(filtered, sort);
+  }, [rows, search, fairOnly, sort]);
   const fairCount = rows.filter((row) => row.verdict.id === "fair").length;
   const gapRows: GapRow[] = useMemo(
     () =>
@@ -282,7 +336,7 @@ export function Desk({
   const widest = gapRows.find((row) => row.gap != null);
   const fairNames = rows
     .filter((row) => row.verdict.id === "fair")
-    .map((row) => ({ symbol: row.symbol, gap: gapPct(buyUsable(row.buyAt, now) ? row.buyPrice : null, row.stockPrice) }))
+    .map((row) => ({ symbol: row.symbol, gap: row.gap }))
     .sort((a, b) => Math.abs(a.gap ?? 99) - Math.abs(b.gap ?? 99));
   const closestFair = fairNames[0] ?? null;
   const rebases = quotes
@@ -294,8 +348,31 @@ export function Desk({
     setSearch(symbol);
     setTab("markets");
     window.setTimeout(() => {
-      document.getElementById(`stock-${symbol}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const target = document.getElementById(`stock-${symbol}`) ?? document.getElementById("markets");
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
+  }
+
+  function openSize(symbol: string) {
+    setSizeSymbol(symbol);
+    window.setTimeout(() => document.getElementById("size-check")?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
+  }
+
+  /** Switching tabs from further down the page brings the tab content back into view. */
+  function chooseTab(next: Tab) {
+    setTab(next);
+    const top = document.getElementById("sections")?.getBoundingClientRect().top ?? 0;
+    if (top < 0) document.getElementById("sections")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function chooseView(next: View) {
+    setView(next);
+    saveSetting(VIEW_KEY, next);
+  }
+
+  function chooseSort(next: Sort) {
+    setSort(next);
+    saveSetting(SORT_KEY, next);
   }
 
   async function loadHoldings(wallet = walletDraft) {
@@ -305,7 +382,7 @@ export function Desk({
       const result = await getHoldings({ data: { wallet } });
       setHoldings(result);
       setSavedWallet(wallet.trim());
-      localStorage.setItem(WALLET_KEY, wallet.trim());
+      saveSetting(WALLET_KEY, wallet.trim());
       setTab("portfolio");
     } catch (error) {
       setHoldings(null);
@@ -352,18 +429,25 @@ export function Desk({
   }, [hits, quotes]);
 
   const age = Math.max(0, Math.round((now - asOf) / 1000));
+  const open = isSessionOpen(marketState);
 
   return (
     <>
       <Sky />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6">
-        <header className="rise flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+      <Ticker rows={rows} onPick={jumpTo} />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
+        <header className="rise grid gap-8 lg:grid-cols-[minmax(0,1fr)_40rem] lg:items-end">
           <div className="min-w-0 max-w-2xl">
             <div className="flex items-center gap-3">
-              <img src="/logo-96.jpg" alt="" width={44} height={44} className="h-11 w-11 rounded-xl" />
+              <img src="/logo-96.jpg" alt="" width={44} height={44} className="h-11 w-11 rounded-xl ring-1 ring-white/15" />
               <p className="text-sm font-medium tracking-wide text-gold">Par · stocks on Solana</p>
             </div>
-            <h1 className="mt-3 font-display text-5xl leading-none text-foam sm:text-7xl">Is the price real?</h1>
+            <h1 className="hero-title mt-4 font-display text-5xl leading-[0.95] text-foam sm:text-7xl">
+              Is the price <span className="text-gold">real?</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-lg leading-relaxed text-mist">
+              Par checks {TOKENS.length} tokenized stocks on Solana against Nasdaq, live, and says when a buy is fair.
+            </p>
             <p className="mt-4 text-sm font-medium tracking-wide text-gold">
               {mounted ? `${sessionLabel(marketState, now)} · ${etClock(now)}` : "Checking the session"}
             </p>
@@ -371,7 +455,7 @@ export function Desk({
               <button
                 type="button"
                 onClick={() => jumpTo(closestFair.symbol)}
-                className="mt-3 block text-left text-lg text-foam underline decoration-gold/70 underline-offset-4"
+                className="mt-2 block text-left text-lg text-foam underline decoration-gold/70 underline-offset-4"
               >
                 {fairNames.length === 1 ? `${closestFair.symbol} is the fair one.` : `${closestFair.symbol} is the closest fair name.`}
               </button>
@@ -380,25 +464,37 @@ export function Desk({
                 type="button"
                 onClick={() => widest && jumpTo(widest.symbol)}
                 disabled={!widest}
-                className="mt-3 block text-left text-lg text-foam underline decoration-gold/70 underline-offset-4 disabled:no-underline"
+                className="mt-2 block text-left text-lg text-foam underline decoration-gold/70 underline-offset-4 disabled:no-underline"
               >
                 {widest ? `Nothing is fair. The widest gap is ${widest.symbol}.` : "Checking which name is fair."}
               </button>
             )}
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <a href="https://t.me/ONPAR_BOT" className="inline-flex h-12 items-center rounded-full bg-foam px-5 text-sm font-medium text-ink">
+              <a
+                href="https://t.me/ONPAR_BOT"
+                className="inline-flex h-12 items-center gap-2 rounded-full bg-gold px-5 text-sm font-medium text-ink shadow-[0_8px_24px_#e0a04a33]"
+              >
+                <Send className="size-4" aria-hidden />
                 Open @ONPAR_BOT
               </a>
-              <a href="/portfolio" className="inline-flex h-12 items-center gap-2 rounded-full bg-gold px-5 text-sm font-medium text-ink">
+              <a href="/portfolio" className="inline-flex h-12 items-center gap-2 rounded-full bg-foam px-5 text-sm font-medium text-ink">
+                <Wallet className="size-4" aria-hidden />
                 Your portfolio
               </a>
+              <button
+                type="button"
+                onClick={() => openSize(sizeSymbol)}
+                className="inline-flex h-12 items-center gap-2 rounded-full px-4 text-sm font-medium text-foam ring-1 ring-white/20"
+              >
+                <Ruler className="size-4" aria-hidden />
+                Size check
+              </button>
             </div>
-            <p className="mt-3 max-w-xl text-sm text-mist">See every stock, ETF, coin, and dollar in the wallet.</p>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-mist">
+            <p className="mt-5 max-w-xl text-sm leading-relaxed text-mist">
               An xStock tracks the share. It is not the share, it does not vote, and a dividend shows up as more tokens, not cash.
             </p>
           </div>
-          <div className="grid w-full items-start gap-4 sm:grid-cols-2 lg:w-[40rem] lg:shrink-0">
+          <div className="grid w-full items-start gap-4 sm:grid-cols-2">
             <div className="panel w-full p-6 text-ink">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-muted">Fair right now</p>
@@ -411,10 +507,13 @@ export function Desk({
                   </span>
                 </span>
               </div>
-              <p className="mt-2 font-display text-6xl leading-none text-ink">{fairCount}</p>
+              <p className="mt-2 font-display text-6xl leading-none text-ink">
+                {fairCount}
+                <span className="ml-2 align-baseline font-sans text-base text-muted">of {rows.length}</span>
+              </p>
               <p className="mt-3 text-sm leading-relaxed text-muted">
                 {mounted
-                  ? isSessionOpen(marketState)
+                  ? open
                     ? fairCount > 0
                       ? "Nasdaq is open. These sit within 0.4% of the print and are easy to sell."
                       : "Nasdaq is open, but nothing is close enough to call fair."
@@ -427,27 +526,369 @@ export function Desk({
           </div>
         </header>
 
-        <section className="mt-8" aria-label="Next balance change">
-          <p className="text-sm font-medium tracking-wide text-gold">Next balance change</p>
-          {rebases.length === 0 ? (
-            <p className="mt-2 max-w-xl text-base leading-relaxed text-mist">No balance changes are scheduled on the names we track.</p>
-          ) : (
-            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-              {rebases.map((q) => (
-                <li key={q.symbol}>
-                  <button type="button" onClick={() => jumpTo(q.symbol)} className="panel w-full px-4 py-3 text-left ring-1 ring-line">
-                    <span className="font-medium text-ink">{q.symbol}</span>
-                    <span className="mt-1 block text-sm text-muted">
-                      {utcStamp(q.rebase!.at)}
-                      {" UTC · "}
-                      {q.rebase!.direction === "up" ? "balance goes up" : "multiplier drops"}
-                    </span>
-                  </button>
-                </li>
+        <StatStrip
+          mounted={mounted}
+          marketState={marketState}
+          now={now}
+          fairCount={fairCount}
+          total={rows.length}
+          widest={widest}
+          rebases={rebases}
+          onPick={jumpTo}
+        />
+
+        {feedError ? <p className="mt-4 rounded-2xl bg-clay-soft px-4 py-3 text-sm text-clay">{feedError}</p> : null}
+        {hits.length > 0 ? (
+          <p className="mt-4 rounded-2xl bg-pine-soft px-4 py-3 text-sm text-pine">
+            {hits.length}
+            {" alert"}
+            {hits.length === 1 ? "" : "s"} {hits.length === 1 ? "is" : "are"}
+            {" live. Open Alerts to review."}
+          </p>
+        ) : null}
+
+        <SizeCheck symbol={sizeSymbol} onSymbol={setSizeSymbol} />
+
+        {/* The tab bar sticks to the top only while the tab content is on screen. */}
+        <div id="sections" className="mt-10 scroll-mt-0">
+          <div className="sticky top-0 z-30 -mx-4 bg-night/75 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6">
+            <nav className="flex gap-0.5 overflow-x-auto rounded-full bg-dusk p-1 ring-1 ring-white/10 sm:gap-1" aria-label="Sections">
+              {TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => chooseTab(t.id)}
+                  aria-pressed={tab === t.id}
+                  className={`h-11 shrink-0 rounded-full px-2.5 text-sm font-medium transition-colors sm:px-5 ${tab === t.id ? "bg-gold text-ink" : "text-foam hover:bg-white/5"}`}
+                >
+                  {t.label}
+                </button>
               ))}
-            </ul>
-          )}
-        </section>
+            </nav>
+          </div>
+
+          {tab === "markets" ? (
+            <section id="markets" className="mt-4 scroll-mt-24">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="panel flex flex-1 items-center gap-2 px-4 ring-1 ring-line">
+                  <Search className="size-4 text-muted" aria-hidden />
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search a company"
+                    aria-label="Search a company"
+                    className="h-12 w-full bg-transparent text-base text-ink placeholder:text-muted"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFairOnly(false)}
+                    aria-pressed={!fairOnly}
+                    className={`h-12 rounded-full px-4 text-sm font-medium ${fairOnly ? "bg-dusk text-foam ring-1 ring-white/10" : "bg-gold text-ink"}`}
+                  >
+                    All names
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFairOnly(true)}
+                    aria-pressed={fairOnly}
+                    className={`h-12 rounded-full px-4 text-sm font-medium ${fairOnly ? "bg-gold text-ink" : "bg-dusk text-foam ring-1 ring-white/10"}`}
+                  >
+                    Fair now
+                  </button>
+                  <label className="sr-only" htmlFor="markets-sort">
+                    Sort
+                  </label>
+                  <select
+                    id="markets-sort"
+                    value={sort}
+                    onChange={(event) => chooseSort(event.target.value as Sort)}
+                    className="h-12 rounded-full bg-dusk px-4 text-sm font-medium text-foam ring-1 ring-white/10"
+                  >
+                    {SORTS.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex rounded-full bg-dusk p-1 ring-1 ring-white/10" role="group" aria-label="View">
+                    <button
+                      type="button"
+                      onClick={() => chooseView("cards")}
+                      aria-pressed={view === "cards"}
+                      aria-label="Cards"
+                      className={`inline-flex h-10 w-10 items-center justify-center rounded-full ${view === "cards" ? "bg-gold text-ink" : "text-foam"}`}
+                    >
+                      <LayoutGrid className="size-4" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => chooseView("list")}
+                      aria-pressed={view === "list"}
+                      aria-label="List"
+                      className={`inline-flex h-10 w-10 items-center justify-center rounded-full ${view === "list" ? "bg-gold text-ink" : "text-foam"}`}
+                    >
+                      <List className="size-4" aria-hidden />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {visible.length === 0 ? (
+                <p className="panel mt-4 px-5 py-10 text-base leading-relaxed text-muted ring-1 ring-line">
+                  {fairOnly
+                    ? "Nothing is fair right now. The session is closed, or the gap is too wide. All names are still listed."
+                    : "Nothing matches that search."}
+                </p>
+              ) : view === "list" ? (
+                <StockList
+                  rows={visible}
+                  onOpen={(symbol) => {
+                    setSearch(symbol);
+                    chooseView("cards");
+                  }}
+                />
+              ) : (
+                <ul className="mt-4 grid gap-4 lg:grid-cols-2">
+                  {visible.map((row) => (
+                    <StockCard key={row.mint} row={row} now={now} tick={ticks[row.symbol]} onSize={openSize} />
+                  ))}
+                </ul>
+              )}
+              {search ? (
+                <button type="button" onClick={() => setSearch("")} className="mt-3 text-sm text-foam underline decoration-gold/70 underline-offset-4">
+                  Show every name
+                </button>
+              ) : null}
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-mist">
+                Buy opens Jupiter, selling USDC for that xStock. You pay the pool, not Par. These are not Backpack stock tokens, even when the company
+                name matches.
+              </p>
+            </section>
+          ) : null}
+
+          {tab === "gap" ? (
+            <Suspense fallback={<p className="panel mt-5 px-5 py-10 text-base text-muted ring-1 ring-line">Loading the gap chart…</p>}>
+              <GapView rows={gapRows} session={mounted ? session : "Checking the US session."} marketState={marketState} now={now} />
+            </Suspense>
+          ) : null}
+
+          {tab === "portfolio" ? (
+            <section className="mt-5 grid gap-4 lg:grid-cols-[320px_1fr]">
+              <form
+                className="panel p-4 ring-1 ring-line"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void loadHoldings();
+                }}
+              >
+                <div className="flex items-center gap-2 text-sm font-medium text-ink">
+                  <Wallet className="size-4" aria-hidden />
+                  Wallet
+                </div>
+                <p className="mt-2 text-sm text-muted">Paste any Solana address. We only read tokenized-stock balances.</p>
+                <textarea
+                  value={walletDraft}
+                  onChange={(event) => setWalletDraft(event.target.value)}
+                  rows={3}
+                  placeholder="Solana address"
+                  aria-label="Solana address"
+                  className="mt-3 w-full resize-none rounded-2xl bg-foam px-3 py-3 text-sm text-ink ring-1 ring-line"
+                />
+                <button
+                  type="submit"
+                  disabled={holdingsBusy}
+                  className="mt-3 h-11 w-full rounded-full bg-pine text-sm font-medium text-foam disabled:opacity-60"
+                >
+                  {holdingsBusy ? "Reading chain…" : "Show holdings"}
+                </button>
+                {savedWallet ? (
+                  <p className="mt-3 truncate text-xs text-muted">
+                    {"Saved on this device: "}
+                    {savedWallet}
+                  </p>
+                ) : null}
+                <a href="/portfolio" className="mt-4 inline-flex text-sm font-medium text-ink underline decoration-line underline-offset-4">
+                  See every coin and the sector mix on /portfolio
+                </a>
+              </form>
+              <div className="panel p-4 ring-1 ring-line">
+                {holdingsError ? <p className="text-sm text-clay">{holdingsError}</p> : null}
+                {!holdings && !holdingsError ? <p className="text-sm text-muted">No wallet loaded yet.</p> : null}
+                {holdings ? (
+                  <>
+                    <p className="text-xs tracking-wide text-muted uppercase">Total marked value</p>
+                    <p className="mt-1 font-display text-4xl text-ink">
+                      {formatUsd(
+                        holdings.holdings.reduce((sum, h) => {
+                          const price = quotes.find((q) => q.symbol === h.symbol)?.usdPrice ?? h.usdPrice;
+                          return sum + (price == null ? h.usdValue : h.amount * price);
+                        }, 0),
+                      )}
+                    </p>
+                    <p className="mt-1 text-sm text-muted">
+                      {"24h "}
+                      {holdings.change24hPct == null ? "—" : formatPct(holdings.change24hPct)}
+                      {" ·"} {holdings.holdings.length}
+                      {" position"}
+                      {holdings.holdings.length === 1 ? "" : "s"}
+                    </p>
+                    {holdings.holdings.length === 0 ? (
+                      <p className="mt-6 text-sm text-muted">No tracked xStocks in this wallet. Prices above still cover the major names.</p>
+                    ) : (
+                      <ul className="mt-5 divide-y divide-line">
+                        {holdings.holdings.map((h) => {
+                          const token = TOKENS.find((t) => t.symbol === h.symbol);
+                          const price = quotes.find((q) => q.symbol === h.symbol)?.usdPrice ?? h.usdPrice;
+                          const value = price == null ? h.usdValue : h.amount * price;
+                          return (
+                            <li key={h.symbol} className="flex items-center justify-between gap-3 py-3">
+                              <div className="flex min-w-0 items-center gap-3">
+                                {token ? <TickerBadge underlying={token.underlying} sector={token.sector} size="sm" /> : null}
+                                <div className="min-w-0">
+                                  <div className="font-medium">{h.symbol}</div>
+                                  <div className="truncate text-sm text-muted">
+                                    {new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(h.amount)}
+                                    {" shares · "}
+                                    {h.name}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className="text-right">
+                                  <div className="font-medium tabular-nums">{formatUsd(value)}</div>
+                                  <ChangePill value={h.change24h} />
+                                </div>
+                                {token ? <BuyLink mint={token.mint} symbol={h.symbol} /> : null}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {tab === "yield" ? <YieldPanel offers={offers} error={offersErr} symbol={yieldSymbol} onSymbol={setYieldSymbol} /> : null}
+
+          {tab === "alerts" ? (
+            <section className="mt-5 grid gap-4 lg:grid-cols-[320px_1fr]">
+              <form
+                className="panel p-4 ring-1 ring-line"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  addAlert();
+                }}
+              >
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Bell className="size-4" aria-hidden />
+                  New alert
+                </div>
+                <label className="mt-3 block text-xs text-muted">
+                  Token
+                  <select
+                    value={alertSymbol}
+                    onChange={(event) => setAlertSymbol(event.target.value)}
+                    className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
+                  >
+                    {TOKENS.map((t) => (
+                      <option key={t.symbol}>{t.symbol}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="mt-3 block text-xs text-muted">
+                  Watch
+                  <select
+                    value={alertKind}
+                    onChange={(event) => setAlertKind(event.target.value as "move" | "gap")}
+                    className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
+                  >
+                    <option value="move">The day's move</option>
+                    <option value="gap">The gap versus Nasdaq</option>
+                  </select>
+                </label>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <label className="text-xs text-muted">
+                    {alertKind === "gap" ? "When it is" : "Direction"}
+                    <select
+                      value={alertDirection}
+                      onChange={(event) => setAlertDirection(event.target.value as "up" | "down")}
+                      className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
+                    >
+                      <option value="up">{alertKind === "gap" ? "Rich" : "Up"}</option>
+                      <option value="down">{alertKind === "gap" ? "Cheap" : "Down"}</option>
+                    </select>
+                  </label>
+                  <label className="text-xs text-muted">
+                    {alertKind === "gap" ? "Gap %" : "Move %"}
+                    <input
+                      value={alertPct}
+                      onChange={(event) => setAlertPct(event.target.value)}
+                      inputMode="decimal"
+                      className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
+                    />
+                  </label>
+                </div>
+                <button type="submit" className="mt-4 h-11 w-full rounded-full bg-ink text-sm font-medium text-foam">
+                  Save alert
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof Notification !== "undefined") void Notification.requestPermission();
+                  }}
+                  className="mt-2 h-11 w-full rounded-full bg-foam text-sm font-medium text-ink ring-1 ring-line"
+                >
+                  Ping this browser
+                </button>
+                <p className="mt-3 text-xs leading-relaxed text-muted">
+                  A day-move alert watches the 24h change. A gap alert watches the difference versus Nasdaq. Pings fire in this browser while Par stays
+                  open, including in a background tab. Closing the tab stops them. Nothing is stored on a server.
+                </p>
+              </form>
+              <ul className="panel ring-1 ring-line">
+                {alerts.length === 0 ? (
+                  <li className="px-4 py-8 text-sm text-muted">No alerts yet.</li>
+                ) : (
+                  alerts.map((alert) => {
+                    const quote = quotes.find((q) => q.symbol === alert.symbol);
+                    const hit = alertHit(alert, quote);
+                    const gap = quote ? gapPct(quote.usdPrice, quote.stockPrice) : null;
+                    const isGap = (alert.kind ?? "move") === "gap";
+                    return (
+                      <li key={alert.id} className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
+                        <div>
+                          <div className="font-medium">
+                            {alert.symbol} {isGap ? "gap" : "day"} {alert.direction === "up" ? (isGap ? "rich" : "up") : isGap ? "cheap" : "down"}{" "}
+                            {alert.pct}%
+                          </div>
+                          <div className="text-sm text-muted">
+                            {"Now "}
+                            {isGap ? formatGap(gap) : formatPct(quote?.change24h ?? null)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {hit ? <span className="rounded-full bg-pine-soft px-2 py-1 text-xs font-medium text-pine">Hit</span> : null}
+                          <button
+                            type="button"
+                            onClick={() => setAlerts((list) => list.filter((a) => a.id !== alert.id))}
+                            className="h-11 px-2 text-sm text-clay"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </section>
+          ) : null}
+
+        </div>
 
         <PassAlong
           quote={quotes.find((q) => q.symbol === passSymbol)}
@@ -462,346 +903,6 @@ export function Desk({
             });
           }}
         />
-
-        {feedError ? <p className="mt-4 rounded-2xl bg-clay-soft px-4 py-3 text-sm text-clay">{feedError}</p> : null}
-        {hits.length > 0 ? (
-          <p className="mt-4 rounded-2xl bg-pine-soft px-4 py-3 text-sm text-pine">
-            {hits.length}
-            {" alert"}
-            {hits.length === 1 ? "" : "s"} {hits.length === 1 ? "is" : "are"}
-            {" live. Open Alerts to review."}
-          </p>
-        ) : null}
-
-        <nav className="mt-8 flex gap-0.5 overflow-x-auto rounded-full bg-dusk p-1 ring-1 ring-white/10 sm:gap-1" aria-label="Sections">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              aria-pressed={tab === t.id}
-              className={`h-11 shrink-0 rounded-full px-2.5 text-sm font-medium sm:px-4 ${tab === t.id ? "bg-gold text-ink" : "text-foam"}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-
-        {tab === "markets" ? (
-          <section className="mt-6">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="panel flex flex-1 items-center gap-2 px-4 ring-1 ring-line">
-                <Search className="size-4 text-muted" aria-hidden />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search a company"
-                  aria-label="Search a company"
-                  className="h-12 w-full bg-transparent text-base text-ink placeholder:text-muted"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFairOnly(false)}
-                  aria-pressed={!fairOnly}
-                  className={`h-12 rounded-full px-4 text-sm font-medium ${fairOnly ? "bg-dusk text-foam ring-1 ring-white/10" : "bg-gold text-ink"}`}
-                >
-                  All names
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFairOnly(true)}
-                  aria-pressed={fairOnly}
-                  className={`h-12 rounded-full px-4 text-sm font-medium ${fairOnly ? "bg-gold text-ink" : "bg-dusk text-foam ring-1 ring-white/10"}`}
-                >
-                  Fair now
-                </button>
-              </div>
-            </div>
-            {visible.length === 0 ? (
-              <p className="panel mt-4 px-5 py-10 text-base leading-relaxed text-muted ring-1 ring-line">
-                {fairOnly
-                  ? "Nothing is fair right now. The session is closed, or the gap is too wide. All names are still listed."
-                  : "Nothing matches that search."}
-              </p>
-            ) : (
-              <ul className="mt-4 grid gap-4 lg:grid-cols-2">
-                {visible.map((row) => (
-                  <li key={row.mint} id={`stock-${row.symbol}`} className="panel overflow-hidden ring-1 ring-line">
-                    <div className="flex h-full">
-                      <div className={`w-1.5 shrink-0 ${verdictBarClass(row.verdict.id)}`} />
-                      <div className="flex min-w-0 flex-1 flex-col p-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm text-muted">
-                              {row.symbol}
-                              {" · xStock · "}
-                              {row.sector}
-                            </p>
-                            <h2 className="mt-1 font-display text-3xl text-ink">{row.name}</h2>
-                          </div>
-                          <span className={`rounded-full px-3 py-1 text-sm font-medium ${verdictPillClass(row.verdict.id)}`}>{row.verdict.title}</span>
-                        </div>
-                        <p className="mt-5 text-sm text-muted">Last trade</p>
-                        <p
-                          className={`font-display text-4xl text-ink sm:text-5xl ${ticks[row.symbol] === "up" ? "tick-up" : ticks[row.symbol] === "down" ? "tick-down" : ""}`}
-                        >
-                          {formatUsd(row.usdPrice)}
-                        </p>
-                        <ShareMeter
-                          symbol={row.symbol}
-                          multiplier={row.sharesPerToken}
-                          usdPrice={row.usdPrice}
-                          stockPrice={row.underlying === NO_PRINT_UNDERLYING ? null : row.stockPrice}
-                        />
-                        <p className="mt-3 max-w-md text-base leading-relaxed text-ink">{row.verdict.line}</p>
-                        {row.rebase && row.rebase.at * 1000 > now ? (
-                          <p className="mt-2 max-w-md text-sm leading-relaxed text-ink">{rebaseLine(row.symbol, row.rebase)}</p>
-                        ) : null}
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                          <GapPill value={gapPct(buyUsable(row.buyAt, now) ? row.buyPrice : null, row.stockPrice)} />
-                          <ChangePill value={row.change24h} />
-                        </div>
-                        <div className="mt-5 flex items-end justify-between gap-3">
-                          <VerdictDetail row={row} now={now} />
-                          <BuyLink mint={row.mint} symbol={row.symbol} />
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-mist">
-              Buy opens Jupiter, selling USDC for that xStock. You pay the pool, not Par. These are not Backpack stock tokens, even when the company
-              name matches.
-            </p>
-          </section>
-        ) : null}
-
-        {tab === "gap" ? (
-          <Suspense fallback={<p className="panel mt-5 px-5 py-10 text-base text-muted ring-1 ring-line">Loading the gap chart…</p>}>
-            <GapView rows={gapRows} session={mounted ? session : "Checking the US session."} marketState={marketState} now={now} />
-          </Suspense>
-        ) : null}
-
-        {tab === "portfolio" ? (
-          <section className="mt-5 grid gap-4 lg:grid-cols-[320px_1fr]">
-            <form
-              className="panel p-4 ring-1 ring-line"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void loadHoldings();
-              }}
-            >
-              <div className="flex items-center gap-2 text-sm font-medium text-ink">
-                <Wallet className="size-4" aria-hidden />
-                Wallet
-              </div>
-              <p className="mt-2 text-sm text-muted">Paste any Solana address. We only read tokenized-stock balances.</p>
-              <textarea
-                value={walletDraft}
-                onChange={(event) => setWalletDraft(event.target.value)}
-                rows={3}
-                placeholder="Solana address"
-                aria-label="Solana address"
-                className="mt-3 w-full resize-none rounded-2xl bg-foam px-3 py-3 text-sm text-ink ring-1 ring-line"
-              />
-              <button
-                type="submit"
-                disabled={holdingsBusy}
-                className="mt-3 h-11 w-full rounded-full bg-pine text-sm font-medium text-foam disabled:opacity-60"
-              >
-                {holdingsBusy ? "Reading chain…" : "Show holdings"}
-              </button>
-              {savedWallet ? (
-                <p className="mt-3 truncate text-xs text-muted">
-                  {"Saved on this device: "}
-                  {savedWallet}
-                </p>
-              ) : null}
-            </form>
-            <div className="panel p-4 ring-1 ring-line">
-              {holdingsError ? <p className="text-sm text-clay">{holdingsError}</p> : null}
-              {!holdings && !holdingsError ? <p className="text-sm text-muted">No wallet loaded yet.</p> : null}
-              {holdings ? (
-                <>
-                  <p className="text-xs tracking-wide text-muted uppercase">Total marked value</p>
-                  <p className="mt-1 font-display text-4xl text-ink">
-                    {formatUsd(
-                      holdings.holdings.reduce((sum, h) => {
-                        const quote = quotes.find((q) => q.symbol === h.symbol);
-                        const perShare = perSharePrice(quote?.usdPrice ?? h.usdPrice, quote?.sharesPerToken ?? null);
-                        return sum + (perShare == null ? h.usdValue : h.amount * perShare);
-                      }, 0),
-                    )}
-                  </p>
-                  <p className="mt-1 text-sm text-muted">
-                    {"24h "}
-                    {holdings.change24hPct == null ? "—" : formatPct(holdings.change24hPct)}
-                    {" ·"} {holdings.holdings.length}
-                    {" position"}
-                    {holdings.holdings.length === 1 ? "" : "s"}
-                  </p>
-                  {holdings.holdings.length === 0 ? (
-                    <p className="mt-6 text-sm text-muted">No tracked xStocks in this wallet. Prices above still cover the major names.</p>
-                  ) : (
-                    <ul className="mt-5 divide-y divide-line">
-                      {holdings.holdings.map((h) => {
-                        const token = TOKENS.find((t) => t.symbol === h.symbol);
-                        const quote = quotes.find((q) => q.symbol === h.symbol);
-                        const multiplier = quote?.sharesPerToken ?? null;
-                        const shares = h.amount;
-                        const raw = multiplier != null && multiplier > 0 ? shares / multiplier : null;
-                        const perShare = perSharePrice(quote?.usdPrice ?? h.usdPrice, multiplier);
-                        const value = perShare == null ? h.usdValue : shares * perShare;
-                        const showRaw = raw != null && Math.abs(raw - shares) / Math.max(shares, 1) > 5e-5;
-                        return (
-                          <li key={h.symbol} className="flex items-center justify-between gap-3 py-3">
-                            <div>
-                              <div className="font-medium">{h.symbol}</div>
-                              <div className="text-sm text-muted">
-                                {formatAmount(shares)}
-                                {" shares"}
-                                {showRaw && raw != null ? ` · ${formatAmount(raw)} raw` : ""}
-                                {" · "}
-                                {h.name}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <div className="font-medium tabular-nums">{formatUsd(value)}</div>
-                                <ChangePill value={h.change24h} />
-                              </div>
-                              {token ? <BuyLink mint={token.mint} symbol={h.symbol} /> : null}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
-        {tab === "yield" ? <YieldPanel offers={offers} error={offersErr} symbol={yieldSymbol} onSymbol={setYieldSymbol} /> : null}
-
-        {tab === "alerts" ? (
-          <section className="mt-5 grid gap-4 lg:grid-cols-[320px_1fr]">
-            <form
-              className="panel p-4 ring-1 ring-line"
-              onSubmit={(event) => {
-                event.preventDefault();
-                addAlert();
-              }}
-            >
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Bell className="size-4" aria-hidden />
-                New alert
-              </div>
-              <label className="mt-3 block text-xs text-muted">
-                Token
-                <select
-                  value={alertSymbol}
-                  onChange={(event) => setAlertSymbol(event.target.value)}
-                  className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
-                >
-                  {TOKENS.map((t) => (
-                    <option key={t.symbol}>{t.symbol}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mt-3 block text-xs text-muted">
-                Watch
-                <select
-                  value={alertKind}
-                  onChange={(event) => setAlertKind(event.target.value as "move" | "gap")}
-                  className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
-                >
-                  <option value="move">The day's move</option>
-                  <option value="gap">The gap versus Nasdaq</option>
-                </select>
-              </label>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <label className="text-xs text-muted">
-                  {alertKind === "gap" ? "When it is" : "Direction"}
-                  <select
-                    value={alertDirection}
-                    onChange={(event) => setAlertDirection(event.target.value as "up" | "down")}
-                    className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
-                  >
-                    <option value="up">{alertKind === "gap" ? "Rich" : "Up"}</option>
-                    <option value="down">{alertKind === "gap" ? "Cheap" : "Down"}</option>
-                  </select>
-                </label>
-                <label className="text-xs text-muted">
-                  {alertKind === "gap" ? "Gap %" : "Move %"}
-                  <input
-                    value={alertPct}
-                    onChange={(event) => setAlertPct(event.target.value)}
-                    inputMode="decimal"
-                    className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
-                  />
-                </label>
-              </div>
-              <button type="submit" className="mt-4 h-11 w-full rounded-full bg-ink text-sm font-medium text-foam">
-                Save alert
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof Notification !== "undefined") void Notification.requestPermission();
-                }}
-                className="mt-2 h-11 w-full rounded-full bg-foam text-sm font-medium text-ink ring-1 ring-line"
-              >
-                Ping this browser
-              </button>
-              <p className="mt-3 text-xs leading-relaxed text-muted">
-                A day-move alert watches the 24h change. A gap alert watches the difference versus Nasdaq. Pings fire in this browser while Par stays
-                open, including in a background tab. Closing the tab stops them. Nothing is stored on a server.
-              </p>
-            </form>
-            <ul className="panel ring-1 ring-line">
-              {alerts.length === 0 ? (
-                <li className="px-4 py-8 text-sm text-muted">No alerts yet.</li>
-              ) : (
-                alerts.map((alert) => {
-                  const quote = quotes.find((q) => q.symbol === alert.symbol);
-                  const hit = alertHit(alert, quote);
-                  const gap = quote ? gapPct(quote.usdPrice, quote.stockPrice) : null;
-                  const isGap = (alert.kind ?? "move") === "gap";
-                  return (
-                    <li key={alert.id} className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                      <div>
-                        <div className="font-medium">
-                          {alert.symbol} {isGap ? "gap" : "day"} {alert.direction === "up" ? (isGap ? "rich" : "up") : isGap ? "cheap" : "down"}{" "}
-                          {alert.pct}%
-                        </div>
-                        <div className="text-sm text-muted">
-                          {"Now "}
-                          {isGap ? formatGap(gap) : formatPct(quote?.change24h ?? null)}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {hit ? <span className="rounded-full bg-pine-soft px-2 py-1 text-xs font-medium text-pine">Hit</span> : null}
-                        <button
-                          type="button"
-                          onClick={() => setAlerts((list) => list.filter((a) => a.id !== alert.id))}
-                          className="h-11 px-2 text-sm text-clay"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })
-              )}
-            </ul>
-          </section>
-        ) : null}
 
         <WhyHold
           wallet={holderWallet}

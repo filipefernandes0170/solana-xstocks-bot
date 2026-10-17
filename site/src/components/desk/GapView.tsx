@@ -21,7 +21,7 @@ export type GapRow = {
 };
 
 const EXPLAINER =
-  "xStocker and the exchange apps show a token price. They do not show whether you are paying above or below the Nasdaq print. Green means the $1,000 buy is cheaper than the stock. Red means you are paying a premium. SpaceX has no public print. A token can also stand for slightly more than one share, because dividends are reinvested into that number instead of paid as cash. That line sits under each name, and it is not the gap. Fair, on Markets, means Nasdaq is open and a $1,000 Jupiter buy, the issuer mark, and the Nasdaq print all sit within 0.4% of each other. The large price is the last trade. The verdict uses the buy, refreshed about once a minute. If that buy is missing, the card stays on Checking and is not called Fair. A tight last trade can still be two errors cancelling. Split means the buy and the issuer mark disagree. The dollar figure is how much, scaled in a straight line, reaches 1% impact on that same buy. It is not a guaranteed fill. Overnight means Kraken quotes that name around the clock, and it is still not the print.";
+  "Wallets and exchange apps show a token price. They do not show whether you are paying above or below the Nasdaq print. Green means the $1,000 buy is cheaper than the stock. Red means you are paying a premium. SpaceX has no public print. Splits and dividends are added to holders' balances through a multiplier, so one token in a wallet tracks one share, and every price here is per share. Fair, on Markets, means Nasdaq is open and a $1,000 Jupiter buy, the issuer mark, and the Nasdaq print all sit within 0.4% of each other. The large price is the last trade. The verdict uses the buy, refreshed about once a minute. If that buy is missing, the card stays on Checking and is not called Fair. A tight last trade can still be two errors cancelling. Split means the buy and the issuer mark disagree. The dollar figure is how much, scaled in a straight line, reaches 1% impact on that same buy. It is not a guaranteed fill. Overnight means Kraken quotes that name around the clock, and it is still not the print.";
 
 export function GapView({ rows, session, marketState, now }: { rows: GapRow[]; session: string; marketState: string | null; now: number }) {
   const withGap = rows.filter((row) => row.gap != null);
@@ -91,7 +91,7 @@ export function GapView({ rows, session, marketState, now }: { rows: GapRow[]; s
                     {formatUsd(row.token)}
                     {" · Nasdaq "}
                     {row.underlying === NO_PRINT_UNDERLYING ? "no print" : formatUsd(row.stock)}
-                    {buyUsable(row.buyAt, now) && row.buyPrice != null ? ` · $1,000 buy ${formatUsd(row.buyPrice)}` : ""}
+                    {buyUsable(row.buyAt, now) && row.buyPrice != null ? ` · $1,000 buy ${formatUsd(row.buyPrice)} a share` : ""}
                     {row.issuerPrice == null ? "" : ` · issuer ${formatUsd(row.issuerPrice)}`}
                   </p>
                 </div>
@@ -99,11 +99,9 @@ export function GapView({ rows, session, marketState, now }: { rows: GapRow[]; s
               </div>
               {shares ? (
                 <p className="mt-3 text-sm leading-relaxed text-muted">
-                  {"1 "}
-                  {row.symbol}
-                  {" stands for "}
-                  {shares} {shares === "1" ? "share" : "shares"}
-                  {". Dividends raise this number. They are not paid as cash."}
+                  {shares === "1"
+                    ? `Each ${row.symbol} tracks one share. No split or dividend has been added yet.`
+                    : `Each ${row.symbol} tracks one share. Splits and dividends have grown balances ×${shares}.`}
                 </p>
               ) : null}
               {l.poolVersusIssuer == null ? null : (

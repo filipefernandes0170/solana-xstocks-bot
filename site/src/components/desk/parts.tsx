@@ -1,45 +1,50 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { formatGap, formatImpact, formatPct, formatUsd, impactHint, jupiterBuyUrl, multiplierLabel, perSharePrice } from "../../lib/format";
+import { FAIR_BAND, GAP_SCALE, gapPosition, sectorColours } from "../../lib/brand";
+import { formatGap, formatImpact, formatPct, formatUsd, impactHint, jupiterBuyUrl, multiplierLabel } from "../../lib/format";
 import { NO_PRINT_UNDERLYING } from "../../lib/tokens";
-import type { Quote } from "../../lib/types";
+import type { Quote, VerdictId } from "../../lib/types";
 import { buyUsable, legs } from "../../lib/verdict";
 
-/** "1 NVDAx = 1.0017 shares" and the price per share. */
-export function ShareMeter({
-  symbol,
-  multiplier,
-  usdPrice,
-  stockPrice,
-}: {
-  symbol: string;
-  multiplier: number | null;
-  usdPrice: number | null;
-  stockPrice: number | null;
-}) {
+/**
+ * The token's balance multiplier. Splits and reinvested dividends are added to every holder's balance,
+ * so one token in a wallet tracks one share; the multiplier only says how much balances have grown.
+ */
+export function MultiplierNote({ symbol, multiplier }: { symbol: string; multiplier: number | null }) {
   const label = multiplierLabel(multiplier);
-  const perShare = perSharePrice(usdPrice, multiplier);
+  if (!label) return <p className="text-sm text-muted">Balance multiplier is loading.</p>;
   return (
-    <div className="mt-4 rounded-2xl bg-foam px-4 py-3">
-      <p className="text-sm text-muted">Share meter</p>
-      <p className="mt-1 text-base font-medium text-ink">
-        {label ? `1 ${symbol} = ${label} ${label === "1" ? "share" : "shares"}` : "Share count is loading."}
-      </p>
-      <p className="mt-1 text-sm text-muted">
-        {perShare == null ? "Price per share is loading" : `${formatUsd(perShare)} per share`}
-        {stockPrice == null ? "" : ` · Nasdaq ${formatUsd(stockPrice)}`}
-      </p>
-    </div>
+    <p className="text-sm leading-relaxed text-muted">
+      {label === "1"
+        ? `Each ${symbol} tracks one share. No split or dividend has been added yet.`
+        : `Each ${symbol} tracks one share. Splits and dividends have grown balances ×${label}.`}
+    </p>
+  );
+}
+
+/** The underlying ticker on a tile coloured by sector. */
+export function TickerBadge({ underlying, sector, size = "md" }: { underlying: string; sector: string; size?: "sm" | "md" }) {
+  const colours = sectorColours(sector);
+  const box = size === "sm" ? "h-9 w-9 rounded-lg" : "h-12 w-12 rounded-xl";
+  const text = underlying.length > 4 ? "text-[0.6rem]" : size === "sm" ? "text-[0.65rem]" : "text-xs";
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex shrink-0 items-center justify-center font-semibold tracking-wide ${box} ${text}`}
+      style={{ background: colours.bg, color: colours.fg }}
+    >
+      {underlying}
+    </span>
   );
 }
 
 /** Opens Jupiter to buy the token with USDC. Par takes no fee. */
-export function BuyLink({ mint, symbol }: { mint: string; symbol: string }) {
+export function BuyLink({ mint, symbol, tone = "dark" }: { mint: string; symbol: string; tone?: "dark" | "gold" }) {
   return (
     <a
       href={jupiterBuyUrl(mint)}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex h-11 shrink-0 items-center rounded-full bg-ink px-4 text-sm font-medium text-foam"
+      className={`inline-flex h-11 shrink-0 items-center rounded-full px-4 text-sm font-medium ${tone === "gold" ? "bg-gold text-ink" : "bg-ink text-foam"}`}
       aria-label={`Buy ${symbol} with USDC on Jupiter`}
     >
       Buy
@@ -74,6 +79,50 @@ export function GapPill({ value }: { value: number | null }) {
   );
 }
 
+/** Where the $1,000 buy sits against the Nasdaq print, on a -2% to +2% scale with the fair band shaded. */
+export function GapMeter({ gap, waiting }: { gap: number | null; waiting: string }) {
+  if (gap == null) {
+    return (
+      <div className="rounded-2xl bg-foam px-4 py-3">
+        <p className="text-sm text-muted">{waiting}</p>
+      </div>
+    );
+  }
+  const { left, off } = gapPosition(gap);
+  const tone = Math.abs(gap) < FAIR_BAND ? "bg-pine" : Math.abs(gap) < 1 ? "bg-gold" : "bg-clay";
+  const label =
+    Math.abs(gap) < 0.005 ? "The $1,000 buy is at the Nasdaq print" : `The $1,000 buy is ${formatGap(Math.abs(gap))} ${gap > 0 ? "above" : "below"} Nasdaq`;
+  return (
+    <div className="rounded-2xl bg-foam px-4 pb-2.5 pt-3">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span className="text-muted">Buy versus Nasdaq</span>
+        <GapPill value={gap} />
+      </div>
+      <div className="relative mt-3 h-2 rounded-full bg-white ring-1 ring-line" role="img" aria-label={label}>
+        <span
+          className="absolute inset-y-0 rounded-full bg-pine-soft"
+          style={{ left: `${50 - (FAIR_BAND / (2 * GAP_SCALE)) * 100}%`, right: `${50 - (FAIR_BAND / (2 * GAP_SCALE)) * 100}%` }}
+        />
+        <span className="absolute inset-y-[-3px] left-1/2 w-px bg-muted/50" />
+        <span
+          className={`gap-dot absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white ${tone}`}
+          style={{ left: `${left}%` }}
+        />
+      </div>
+      <div className="mt-1.5 flex justify-between text-xs text-muted">
+        <span>{off === "left" ? "‹ cheaper" : "cheaper"}</span>
+        <span>Nasdaq</span>
+        <span>{off === "right" ? "pricier ›" : "pricier"}</span>
+      </div>
+    </div>
+  );
+}
+
+/** A small coloured dot for a verdict, used in the ticker and the list view. */
+export function verdictDotClass(id: VerdictId) {
+  return id === "fair" ? "bg-[#3dbe8b]" : id === "wait" || id === "split" ? "bg-clay-bright" : id === "overnight" || id === "near" ? "bg-gold" : "bg-mist/60";
+}
+
 /** The small print under each card: Nasdaq, the $1,000 buy, impact, and the issuer legs. */
 export function VerdictDetail({ row, now }: { row: Quote; now: number }) {
   const buy = buyUsable(row.buyAt, now) ? row.buyPrice : null;
@@ -84,7 +133,7 @@ export function VerdictDetail({ row, now }: { row: Quote; now: number }) {
     <p className="text-sm leading-relaxed text-muted">
       {"Nasdaq "}
       {row.underlying === NO_PRINT_UNDERLYING ? "has no public print" : formatUsd(row.stockPrice)}
-      {buy == null ? " · The $1,000 buy is still loading" : ` · A $1,000 buy pays ${formatUsd(buy)}`}
+      {buy == null ? " · The $1,000 buy is still loading" : ` · A $1,000 buy pays ${formatUsd(buy)} a share`}
       {impact == null ? "" : ` and moves the price ${formatImpact(impact)}%`}
       {hint ? ` · ${hint}` : ""}
       {l.poolVersusIssuer != null && l.issuerVersusStock != null

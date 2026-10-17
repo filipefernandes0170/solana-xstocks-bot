@@ -1,12 +1,12 @@
 // Wallet reads for the desk: xStock holdings, the full portfolio, and the holder check. Server-only, read-only.
 //
 // Two intentional fixes versus the published desk (Oct 2026):
-// - Holdings value = amount x price per share (the pool prices the raw token, so divide by the multiplier).
-//   The published holdings lookup multiplied by the raw-token price; the page already corrected it on screen.
+// - Holdings value = wallet amount x Jupiter's usdPrice. Both are per share: the RPC's UI amount already
+//   includes the token's multiplier, and so does Jupiter's usdPrice (its raw-unit price is usdPricePrescaled).
+//   The published desk divided by the multiplier a second time, which undervalued NFLXx tenfold after its split.
 // - USDC and USDT are valued at Jupiter's price, or at $1 when Jupiter returns none. The published
 //   portfolio showed $0 for them whenever Jupiter left them out.
 
-import { perSharePrice } from "../lib/format";
 import { ETF_UNDERLYINGS, TOKEN_BY_MINT, USDC_MINT, USDT_MINT } from "../lib/tokens";
 import type { HolderStatus, Holding, HoldingsResult, PortfolioLine, PortfolioResult, Quote } from "../lib/types";
 import { env } from "./http";
@@ -54,7 +54,7 @@ export async function lookupHoldings(wallet: string): Promise<HoldingsResult> {
     const token = TOKEN_BY_MINT.get(mint);
     if (!token) continue;
     const quote = quotes.get(mint);
-    const perShare = perSharePrice(quote?.usdPrice ?? null, quote?.sharesPerToken ?? null);
+    const perShare = quote?.usdPrice ?? null;
     holdings.push({
       symbol: token.symbol,
       name: token.name,
@@ -83,7 +83,7 @@ export async function readPortfolio(wallet: string): Promise<PortfolioResult> {
       continue;
     }
     const quote = quotes.get(mint);
-    const perShare = perSharePrice(quote?.usdPrice ?? null, quote?.sharesPerToken ?? null);
+    const perShare = quote?.usdPrice ?? null;
     if (perShare == null) {
       unpriced += 1;
       continue;

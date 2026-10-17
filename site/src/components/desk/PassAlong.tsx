@@ -1,4 +1,4 @@
-import { formatUsd, multiplierLabel } from "../../lib/format";
+import { formatUsd } from "../../lib/format";
 import { TOKENS, TOKEN_BY_SYMBOL } from "../../lib/tokens";
 import type { Quote } from "../../lib/types";
 import { verdict } from "../../lib/verdict";
@@ -7,10 +7,8 @@ import { BuyLink } from "./parts";
 /** One plain sentence about a token versus its Nasdaq print. */
 export function plainLine(quote: Quote | undefined) {
   if (!quote || quote.usdPrice == null) return "The price for this name is reconnecting.";
-  const shares = multiplierLabel(quote.sharesPerToken);
-  const standsFor = shares ? ` stands for ${shares} shares and` : "";
   if (quote.stockPrice == null) {
-    return `One ${quote.name} token${standsFor} is ${formatUsd(quote.usdPrice)} on Solana. There is no public stock print to compare.`;
+    return `One ${quote.name} token is ${formatUsd(quote.usdPrice)} on Solana. There is no public stock print to compare.`;
   }
   const diff = quote.usdPrice - quote.stockPrice;
   const relation = diff < -0.005 ? "under" : diff > 0.005 ? "over" : "in line with";
@@ -18,7 +16,7 @@ export function plainLine(quote: Quote | undefined) {
     relation === "in line with"
       ? ""
       : `${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(diff))} `;
-  return `One ${quote.name} token${standsFor} is ${formatUsd(quote.usdPrice)} on Solana, ${amount}${relation} the Nasdaq print of ${formatUsd(quote.stockPrice)}.`;
+  return `One ${quote.name} token is ${formatUsd(quote.usdPrice)} on Solana, ${amount}${relation} the Nasdaq print of ${formatUsd(quote.stockPrice)}.`;
 }
 
 export function PassAlong({
@@ -40,7 +38,7 @@ export function PassAlong({
   const text = v ? `${plainLine(quote)} ${v.line}` : plainLine(quote);
   const token = TOKEN_BY_SYMBOL.get(symbol);
   return (
-    <section className="mt-4 panel p-5 ring-1 ring-line">
+    <section className="mt-10 panel p-5 ring-1 ring-line sm:p-7">
       <p className="text-sm text-amber">Pass this along</p>
       <h2 className="mt-2 max-w-3xl font-display text-2xl leading-snug text-ink sm:text-3xl">{text}</h2>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">

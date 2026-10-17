@@ -7,8 +7,8 @@
 // rate limit cannot take 19 quotes at once (see jupiter.ts). Only loads asked for by the browser's
 // polling refresh them; the server-rendered first page uses what is already there, so it stays fast.
 
-import { ETF_UNDERLYINGS, NO_PRINT_UNDERLYING, TOKENS, USDC_MINT } from "../lib/tokens";
-import type { Quote, QuotesResult, Rebase } from "../lib/types";
+import { ETF_UNDERLYINGS, NO_PRINT_UNDERLYING, TOKEN_BY_SYMBOL, TOKENS, USDC_MINT } from "../lib/tokens";
+import type { Quote, QuotesResult, Rebase, SizeCheck } from "../lib/types";
 import { getJson } from "./http";
 import { hasJupiterKey, jupiterGet } from "./jupiter";
 
@@ -102,27 +102,45 @@ function multiplierNow(config: JupiterPrice["scaledUiConfig"], now: number): { s
   };
 }
 
-/** One $1,000 USDC → token quote. Null when Jupiter has none, is rate limited, or the answer looks wrong. */
-async function oneBuy(mint: string, decimals: number, usdPrice: number | null): Promise<Buy | null> {
-  const params = new URLSearchParams({ inputMint: USDC_MINT, outputMint: mint, amount: "1000000000", slippageBps: "50" });
-  const data = await jupiterGet<{ outAmount?: string; priceImpactPct?: string }>(`/swap/v1/quote?${params}`, { maxWaitMs: 3000 });
+/**
+ * Shares received and the price paid per share. The pool trades on-chain units; a wallet shows each unit
+ * multiplied by the token's multiplier (splits and reinvested dividends), and one shown token tracks one share.
+ * Jupiter's usdPrice and the Nasdaq print are per share too, so this is what the buy is compared with.
+ */
+export function perShareFill(usd: number, outRaw: number, decimals: number, multiplier: number | null) {
+  const shares = (outRaw / 10 ** decimals) * (multiplier != null && multiplier > 0 ? multiplier : 1);
+  const price = usd / shares;
+  return Number.isFinite(shares) && shares > 0 && Number.isFinite(price) && price > 0 ? { shares, price } : null;
+}
+
+export type Fill = Buy & { shares: number };
+
+/** A USDC → token quote for `usd` dollars, priced per share. Null when Jupiter has none or is rate limited. */
+async function quoteBuy(mint: string, usd: number, decimals: number, multiplier: number | null, maxWaitMs: number): Promise<Fill | null> {
+  const params = new URLSearchParams({ inputMint: USDC_MINT, outputMint: mint, amount: String(Math.round(usd * 1e6)), slippageBps: "50" });
+  const data = await jupiterGet<{ outAmount?: string; priceImpactPct?: string }>(`/swap/v1/quote?${params}`, { maxWaitMs });
   if (!data) return null;
-  const out = Number(data.outAmount);
   const impactFrac = Number(data.priceImpactPct);
-  if (!Number.isFinite(out) || out <= 0 || !Number.isFinite(impactFrac) || impactFrac < 0) return null;
-  const tokens = out / 10 ** decimals;
-  const price = 1000 / tokens;
-  if (!Number.isFinite(tokens) || tokens <= 0 || !Number.isFinite(price) || price <= 0) return null;
-  if (usdPrice != null && usdPrice > 0 && (price > usdPrice * 5 || price < usdPrice / 5)) return null;
-  return { price, impactPct: impactFrac * 100, at: Date.now() };
+  const fill = perShareFill(usd, Number(data.outAmount), decimals, multiplier);
+  if (!fill || !Number.isFinite(impactFrac) || impactFrac < 0) return null;
+  return { price: fill.price, shares: fill.shares, impactPct: impactFrac * 100, at: Date.now() };
+}
+
+/** The $1,000 buy the verdict uses. Null when the answer is more than 5x away from the last trade. */
+async function oneBuy(quote: Quote): Promise<Buy | null> {
+  const fill = await quoteBuy(quote.mint, 1000, decimalsByMint.get(quote.mint) as number, quote.sharesPerToken, 3000);
+  if (!fill) return null;
+  const usdPrice = quote.usdPrice;
+  if (usdPrice != null && usdPrice > 0 && (fill.price > usdPrice * 5 || fill.price < usdPrice / 5)) return null;
+  return { price: fill.price, impactPct: fill.impactPct, at: fill.at };
 }
 
 /** Refreshes the oldest few buy quotes, one after another so Jupiter's per-second limit holds. */
 async function rotateBuys(base: Quote[]) {
-  const priceByMint = new Map(base.map((quote) => [quote.mint, quote.usdPrice]));
+  const byMint = new Map(base.map((quote) => [quote.mint, quote]));
   const candidates = base.filter((quote) => quote.usdPrice != null && decimalsByMint.has(quote.mint)).map((quote) => quote.mint);
   for (const mint of stalestMints(candidates, buys, buysPerRefresh())) {
-    const buy = await oneBuy(mint, decimalsByMint.get(mint) as number, priceByMint.get(mint) ?? null);
+    const buy = await oneBuy(byMint.get(mint) as Quote);
     if (buy) buys.set(mint, buy);
   }
   const now = Date.now();
@@ -200,6 +218,51 @@ export async function deskQuotes(options: { refreshBuys?: boolean } = {}): Promi
     inflight = null;
   });
   return inflight;
+}
+
+export const SIZE_MIN_USD = 10;
+export const SIZE_MAX_USD = 250_000;
+const SIZE_CACHE_MS = 20_000;
+const sizeCache = new Map<string, { at: number; result: SizeCheck }>();
+
+/**
+ * Size check: what a buy of `usd` dollars of one name really costs per share, from a live Jupiter quote at that size.
+ * Answers are shared for 20 s per name and amount, so repeated clicks do not use up Jupiter's rate limit.
+ */
+export async function sizeCheck(symbol: string, usd: number): Promise<SizeCheck> {
+  const token = TOKEN_BY_SYMBOL.get(symbol);
+  if (!token) return { ok: false, message: "Pick one of the names on the desk." };
+  const amount = Math.round(usd);
+  if (!Number.isFinite(amount) || amount < SIZE_MIN_USD || amount > SIZE_MAX_USD) {
+    return { ok: false, message: "Pick an amount from $10 to $250,000." };
+  }
+  const key = `${token.mint}:${amount}`;
+  const cached = sizeCache.get(key);
+  if (cached && Date.now() - cached.at < SIZE_CACHE_MS) return cached.result;
+
+  const quote = (await deskQuotes()).find((row) => row.mint === token.mint);
+  const decimals = decimalsByMint.get(token.mint);
+  if (!quote || quote.usdPrice == null || decimals == null) {
+    return { ok: false, message: "Prices are still loading. Try again in a few seconds." };
+  }
+  const fill = await quoteBuy(token.mint, amount, decimals, quote.sharesPerToken, 4000);
+  if (!fill) return { ok: false, message: "Jupiter is busy or has no route for this size. Try again in a few seconds." };
+  const result: SizeCheck = {
+    ok: true,
+    symbol: token.symbol,
+    usd: amount,
+    shares: fill.shares,
+    price: fill.price,
+    impactPct: fill.impactPct,
+    lastTrade: quote.usdPrice,
+    stockPrice: token.underlying === NO_PRINT_UNDERLYING ? null : quote.stockPrice,
+    marketState: quote.marketState,
+    at: fill.at,
+  };
+  const now = Date.now();
+  for (const [entry, value] of sizeCache) if (now - value.at >= SIZE_CACHE_MS) sizeCache.delete(entry);
+  sizeCache.set(key, { at: now, result });
+  return result;
 }
 
 export async function quotesResult(options: { refreshBuys?: boolean } = {}): Promise<QuotesResult> {

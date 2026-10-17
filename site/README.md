@@ -15,7 +15,7 @@ The website at https://xstocks-tracker.netlify.app (Netlify project `xstocks-tra
 
 1. **ETF prints fixed.** Nasdaq's quote API rejects SPY, QQQ and GLD as `assetclass=stocks` (HTTP 400), so the original never showed a Nasdaq print for SPYx, QQQx or GLDx. Here they use `assetclass=etf`. The bot had the same bug in `src/services/desk.ts`; it was fixed on 17 Oct 2026 (`src/services/nasdaq.ts`).
 2. **Cash valued.** On /portfolio, USDC and USDT were often worth $0 because Jupiter's price API leaves them out. Here they fall back to $1.
-3. **Holdings at price per share.** The desk's Portfolio tab lookup multiplied the raw-token price by the share amount. Here it divides by the multiplier, as /portfolio and the page itself already did. Nothing changes on screen.
+3. **Prices per share, everywhere.** Wallet amounts and Jupiter's `usdPrice` already include the token's multiplier (one shown token tracks one share; checked on 17 Oct 2026: NFLXx supply reads ×10 after its split, and `usdPricePrescaled` = `usdPrice` × multiplier). The original divided by the multiplier a second time ("per share" and holdings ten times too low on NFLXx) and compared the $1,000 buy, which Jupiter quotes in on-chain units, with the per-share Nasdaq print, so every gap was off by the multiplier (+0.17% on NVDAx, +0.33% on AAPLx, and NFLXx never got a buy quote). Now the buy is converted to a per-share price and holdings are amount × `usdPrice`.
 4. **More tokens priced on /portfolio.** The original's rule for which other tokens get priced is unknown. Here it prices up to 150 tokens, 50 per Jupiter request, one request at a time. Anything left without a price is counted in "N tokens had no price".
 5. **No Grok preview bridge.** The original carried Grok's editor bridge (a `postMessage` listener plus the zod library) and a link to `/__grok/manifest.webmanifest`, which returned 404. Neither did anything for visitors, so neither is here.
 6. **GLDx counts as an ETF** on /portfolio. This is not verified against the original, which was never seen holding GLDx.
@@ -36,6 +36,12 @@ The website at https://xstocks-tracker.netlify.app (Netlify project `xstocks-tra
 11. **`robots.txt` and `sitemap.xml`.**
 12. **Server logs** (`[par] …` lines in Netlify's function logs) say which source failed and why. They never contain wallet addresses, keys or the RPC address.
 13. **Fund weights:** /portfolio says the SPYx and QQQx top-ten weights may have changed once they are more than 90 days old (`HOLDINGS_AS_OF` in `src/lib/etf-holdings.ts`).
+
+## Redesign and new features (17 Oct 2026, second pass)
+
+- **Look:** a running price tape, a hero with the live counts, four live tiles (Nasdaq, Fair now, widest gap, next balance change), cards with a ticker badge per sector and a gap meter (−2% to +2%, fair band shaded), a list view and sorting (gap, 24h move, A–Z; remembered on the device), a tab bar that sticks while its content is on screen, and a new holder section.
+- **Size check (new):** pick a name and an amount ($10 to $250,000) for a live Jupiter quote at that size: shares, price per share, gap versus Nasdaq, dollars over or under the print, pool impact and a call (Fair / Close / Far, same thresholds as the verdict). Buy is hidden when the price is far off. One quote per name and amount is shared for 20 s. Server function `checkSize` (POST, never cached by the CDN).
+- **Holder section:** what $PAR unlocks in @ONPAR_BOT (Fair pings, the new morning brief, open bell, bag watch) with a deep link that turns the brief on, and the read-only wallet check.
 
 ## Run it
 
@@ -77,8 +83,8 @@ Safe order, with labels from Netlify's docs:
 ```
 src/
   routes/        __root.tsx (head, fonts, security headers, 404), index.tsx (desk + loader), portfolio.tsx
-  components/    Sky, SiteFooter, NotFound, desk/* (Desk, cards, crypto, gap chart, yield, glossary, why-hold)
-  lib/           site (URL, titles, cache and security headers), tokens, types, format, session (Nasdaq clock), verdict, wallet-standard, etf-holdings
+  components/    Sky, SiteFooter, NotFound, desk/* (Desk, Ticker, StatStrip, StockCard, StockList, SizeCheck, crypto, gap chart, yield, glossary, why-hold)
+  lib/           site (URL, titles, cache and security headers), brand (badge colours, gap scale), size, tokens, types, format, session (Nasdaq clock), verdict, wallet-standard, etf-holdings
   server/        functions.ts (the 6 server functions) + jupiter (rate limiter), quotes, offers, cryptos, solana, wallet, http
-tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts
+tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts
 ```

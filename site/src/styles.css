@@ -124,6 +124,50 @@
   animation: rise 0.56s ease-out both;
 }
 
+/* The running price tape at the top. Two equal copies slide by half their width, so the loop has no seam. */
+.ticker-window {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent);
+}
+
+.ticker-track {
+  animation: marquee 80s linear infinite;
+}
+
+.ticker:hover .ticker-track {
+  animation-play-state: paused;
+}
+
+/* Cards lift a little under the pointer. */
+.stock-card {
+  transition:
+    translate 0.2s ease-out,
+    box-shadow 0.2s ease-out;
+}
+
+@media (hover: hover) {
+  .stock-card:hover {
+    translate: 0 -2px;
+    box-shadow: 0 24px 54px #07141c55;
+  }
+}
+
+.gap-dot {
+  transition: left 0.6s ease-out;
+}
+
+.hero-title {
+  text-wrap: balance;
+}
+
+/* The holder section: a warm glow on the night sky. */
+.why-hold {
+  background:
+    radial-gradient(40rem 22rem at 100% 0%, #e0a04a26, transparent 70%),
+    radial-gradient(30rem 20rem at 0% 100%, #147a5833, transparent 70%),
+    var(--color-dusk);
+}
+
 .live-dot {
   width: 0.5rem;
   height: 0.5rem;
@@ -191,6 +235,12 @@
   }
 }
 
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @keyframes pulse {
   50% {
     opacity: 0.5;
@@ -217,8 +267,16 @@
   .rise,
   .live-dot,
   .tick-up,
-  .tick-down {
+  .tick-down,
+  .ticker-track {
     animation: none;
+  }
+  .ticker-window {
+    overflow-x: auto;
+  }
+  .stock-card,
+  .gap-dot {
+    transition: none;
   }
   .bird {
     transform: none;
