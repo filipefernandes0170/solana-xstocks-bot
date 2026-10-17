@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { TOKENIZED_STOCKS } from "../config/tokens.js";
 import type { DeskQuote } from "./desk.js";
-import { briefTeaser, briefText, cardText, pricesText, sizeText } from "./messages.js";
+import { briefTeaser, briefText, cardText, portfolioText, pricesText, sizeText } from "./messages.js";
 import { currentMultiplier, gapBar, inBriefWindow, isPreMarket, perShareFill, sizeCall, tradeVerdict } from "./verdict.js";
 
 // The size command module loads the config, which needs a bot token; it is never used here.
@@ -17,6 +17,36 @@ test("every bot mint matches the Par site's verified list", () => {
   for (const token of TOKENIZED_STOCKS) assert.equal(token.mint, siteMints.get(token.symbol), token.symbol);
   // NFLXx once pointed at Chevron's token (CVXx); this is the Netflix mint.
   assert.equal(TOKENIZED_STOCKS.find((t) => t.symbol === "NFLXx")?.mint, "XsEH7wWfJJu2ZT3UCFeVfALnVA6CP5ur7Ee11KmzVpL");
+});
+
+test("the bag leaves out dust worth under a cent and says so", () => {
+  const position = (symbol: string, amount: number, price: number) => ({
+    symbol,
+    name: symbol,
+    mint: `${symbol}-mint`,
+    amount,
+    decimals: 8,
+    rawAmount: 0n,
+    price,
+    usdValue: amount * price,
+    change24h: null,
+  });
+  const text = portfolioText(
+    "5B52aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaavyxG",
+    {
+      wallet: "5B52aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaavyxG",
+      totalUsd: 2.0001,
+      positions: [position("CRCLx", 0.0243, 82.3), position("SPCXx", 0.00001, 9.5), position("NVDAx", 0.00002, 0)],
+      change24hUsd: null,
+      change24hPct: null,
+    },
+    new Map(),
+  );
+  assert.ok(text.includes("2 positions"), text);
+  assert.ok(text.includes("CRCLx"));
+  assert.ok(!text.includes("SPCXx"));
+  assert.ok(text.includes("NVDAx</b> under 0.0001 shares"), text);
+  assert.ok(text.includes("1 position worth under $0.01 not shown"));
 });
 
 test("the multiplier in force switches at the effective time", () => {

@@ -49,8 +49,12 @@ function cents(value: number) {
 }
 
 function shares(value: number) {
+  if (value > 0 && value < 0.0001) return "under 0.0001";
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
 }
+
+/** Priced positions worth under half a cent show as $0.00; the bag leaves them out and counts them. */
+const DUST_USD = 0.005;
 
 function sizeLabel(usd: number) {
   return usd >= 1000 ? `$${usd / 1000}k` : `$${usd}`;
@@ -329,17 +333,20 @@ export function bagWatchText(note: string) {
 
 export function portfolioText(wallet: string, pf: PortfolioSummary, quotes: Map<string, DeskQuote>) {
   const short = `${wallet.slice(0, 4)}…${wallet.slice(-4)}`;
-  const lines = pf.positions.slice(0, 15).map((position) => {
+  const shown = pf.positions.filter((position) => !(position.price > 0 && position.usdValue < DUST_USD));
+  const dust = pf.positions.length - shown.length;
+  const lines = shown.slice(0, 15).map((position) => {
     const quote = quotes.get(position.symbol);
     const emoji = quote ? VERDICT_EMOJI[tradeVerdict(quote).id] : "⚪";
     return `${emoji} <b>${escapeHtml(position.symbol)}</b> ${shares(position.amount)} shares · <b>${cents(position.usdValue)}</b>${position.change24h != null ? ` · 24h ${pct(position.change24h)}` : ""}`;
   });
   return join([
     `💼 <b>Your bag</b> · <code>${escapeHtml(short)}</code>`,
-    `<b>${cents(pf.totalUsd)}</b>${pf.change24hPct != null ? ` · 24h ${pct(pf.change24hPct)}` : ""} · ${pf.positions.length} position${pf.positions.length === 1 ? "" : "s"}`,
+    `<b>${cents(pf.totalUsd)}</b>${pf.change24hPct != null ? ` · 24h ${pct(pf.change24hPct)}` : ""} · ${shown.length} position${shown.length === 1 ? "" : "s"}`,
     "",
     ...lines,
-    pf.positions.length > 15 && `<i>…and ${pf.positions.length - 15} more</i>`,
+    shown.length > 15 && `<i>…and ${shown.length - 15} more</i>`,
+    dust > 0 && `<i>${dust} position${dust === 1 ? "" : "s"} worth under $0.01 not shown</i>`,
     "",
     "Pings use this wallet while it holds $PAR. /watch · /brief · /bell",
   ]);
