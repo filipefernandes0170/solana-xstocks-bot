@@ -316,6 +316,17 @@ export function sizeUsage() {
   ].join("\n");
 }
 
+/** Sent after the site's "Watch this bag" link saved a wallet. `note` is the holder note (HTML). */
+export function bagWatchText(note: string) {
+  return [
+    "🔔 <b>Watching this bag</b>",
+    "A text when a name in it changes verdict or its pool gets thin, and the evening before a rebase changes your balance.",
+    "Send another address, or /portfolio &lt;address&gt;, to follow a different wallet.",
+    "",
+    note,
+  ].join("\n");
+}
+
 export function portfolioText(wallet: string, pf: PortfolioSummary, quotes: Map<string, DeskQuote>) {
   const short = `${wallet.slice(0, 4)}…${wallet.slice(-4)}`;
   const lines = pf.positions.slice(0, 15).map((position) => {

@@ -133,3 +133,16 @@ test("the site's favourites link watches known names only, at most 8", async () 
   assert.deepEqual(payloadSymbols("brief"), []);
   assert.equal(payloadSymbols("w-NVDAx-TSLAx-AAPLx-SPYx-QQQx-MSFTx-GOOGLx-AMZNx-METAx").length, 8);
 });
+
+test("the portfolio's bag link carries one valid public address", async () => {
+  const { payloadWallet } = await import("../bot/commands/portfolio.js");
+  const wallet = "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh";
+  assert.equal(payloadWallet(`p-${wallet}`), wallet);
+  assert.ok(`p-${wallet}`.length <= 64);
+  assert.equal(payloadWallet("p-0OIl"), null);
+  assert.equal(payloadWallet("p-1"), null);
+  assert.equal(payloadWallet(wallet), null);
+  assert.equal(payloadWallet("w-NVDAx"), null);
+  const { bagWatchText } = await import("./messages.js");
+  assert.ok(bagWatchText("note").endsWith("\n\nnote"));
+});

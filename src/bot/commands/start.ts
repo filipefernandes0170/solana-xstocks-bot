@@ -1,12 +1,15 @@
 import { Context } from "telegraf";
 import { upsertUser } from "../../db/index.js";
-import { startKeyboard, startText } from "../../services/messages.js";
+import { bagWatchText, startKeyboard, startText } from "../../services/messages.js";
+import { holderNote } from "../holderNote.js";
 import { briefReply } from "./brief.js";
+import { payloadWallet, portfolioReply } from "./portfolio.js";
 import { payloadSymbols, watchReply } from "./watch.js";
 
 /**
- * /start, including the site's deep links: ?start=brief turns the morning brief on, and ?start=w-NVDAx-TSLAx
- * (the Favourites "Watch in Telegram" button) watches those names.
+ * /start, including the site's deep links: ?start=brief turns the morning brief on, ?start=w-NVDAx-TSLAx
+ * (the Favourites "Watch in Telegram" button) watches those names, and ?start=p-<wallet> (the portfolio's
+ * "Watch this bag" button) saves that public address and shows its bag, which turns the bag texts on.
  */
 export async function startCommand(ctx: Context) {
   const from = ctx.from!;
@@ -21,4 +24,8 @@ export async function startCommand(ctx: Context) {
   if (payload === "brief") await briefReply(ctx, true);
   const symbols = payloadSymbols(payload);
   if (symbols.length > 0) await watchReply(ctx, symbols);
+  const wallet = payloadWallet(payload);
+  if (wallet && (await portfolioReply(ctx, wallet))) {
+    await ctx.reply(bagWatchText(await holderNote(from.id)), { parse_mode: "HTML" });
+  }
 }

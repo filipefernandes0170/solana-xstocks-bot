@@ -5,6 +5,15 @@ import { portfolioText } from "../../services/messages.js";
 import { buildPortfolio } from "../../services/portfolio.js";
 import { isValidSolanaAddress } from "../../services/solana.js";
 
+const ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+/** The wallet in a site link payload such as "p-<address>" (the portfolio's "Watch this bag" button), or null. */
+export function payloadWallet(payload: string) {
+  if (!payload.startsWith("p-")) return null;
+  const wallet = payload.slice(2);
+  return ADDRESS.test(wallet) && isValidSolanaAddress(wallet) ? wallet : null;
+}
+
 /** /portfolio <wallet>, or a pasted address: the xStocks in that wallet, valued per share, with each verdict. */
 export async function portfolioCommand(ctx: Context) {
   upsertUser(ctx.from!.id, ctx.from?.username, ctx.from?.first_name);
@@ -21,9 +30,17 @@ export async function portfolioCommand(ctx: Context) {
     wallet = user.wallet;
   }
 
+  await portfolioReply(ctx, wallet);
+}
+
+/**
+ * Saves the wallet and shows its bag. Shared by /portfolio, a pasted address and the site's "Watch this bag" link.
+ * The saved wallet is the one the bag texts follow. Returns false when the address is not valid.
+ */
+export async function portfolioReply(ctx: Context, wallet: string) {
   if (!isValidSolanaAddress(wallet)) {
     await ctx.reply("💼 That does not look like a Solana address.");
-    return;
+    return false;
   }
 
   setWallet(ctx.from!.id, wallet);
@@ -39,7 +56,7 @@ export async function portfolioCommand(ctx: Context) {
         `💼 No tracked xStocks in <code>${wallet.slice(0, 4)}…${wallet.slice(-4)}</code>.\nPar tracks NVDAx, TSLAx, AAPLx, SPYx, QQQx and more. /prices lists them all.`,
         { parse_mode: "HTML" },
       );
-      return;
+      return true;
     }
     await ctx.telegram.editMessageText(
       ctx.chat!.id,
@@ -52,4 +69,5 @@ export async function portfolioCommand(ctx: Context) {
     console.error("Portfolio failed:", err instanceof Error ? err.message : err);
     await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "💼 Could not read that wallet. Try again in a minute.");
   }
+  return true;
 }
