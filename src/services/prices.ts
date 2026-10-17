@@ -1,9 +1,6 @@
-import axios from "axios";
-import { config } from "../config/index.js";
 import { TOKENIZED_STOCKS } from "../config/tokens.js";
 import { savePriceSnapshot } from "../db/index.js";
-
-const JUPITER_PRICE_URL = "https://api.jup.ag/price/v3";
+import { jupiterGet } from "./jupiter.js";
 
 export interface PriceData {
   symbol: string;
@@ -13,8 +10,8 @@ export interface PriceData {
 }
 
 /**
- * Fetch live prices from Jupiter Price API v3.
- * Free tier works without key for moderate volume.
+ * Fetch live prices from Jupiter Price API v3, through the shared rate limiter.
+ * Without a JUPITER_API_KEY this uses Jupiter's keyless host.
  */
 export async function getPrices(mints?: string[]): Promise<Map<string, PriceData>> {
   const targetMints = mints ?? TOKENIZED_STOCKS.map(t => t.mint);
@@ -23,14 +20,12 @@ export async function getPrices(mints?: string[]): Promise<Map<string, PriceData
   for (let i = 0; i < targetMints.length; i += 40) {
     const chunk = targetMints.slice(i, i + 40);
     try {
-      const headers: Record<string, string> = {};
-      if (config.jupiterApiKey) headers["x-api-key"] = config.jupiterApiKey;
-
-      const { data } = await axios.get(JUPITER_PRICE_URL, {
-        params: { ids: chunk.join(",") },
-        headers,
-        timeout: 10_000,
-      });
+      const data = await jupiterGet<Record<string, { usdPrice?: number; priceChange24h?: number }>>(
+        "/price/v3",
+        { ids: chunk.join(",") },
+        { maxWaitMs: 8000, timeoutMs: 10_000 },
+      );
+      if (!data) continue;
 
       for (const mint of chunk) {
         const p = data[mint];
