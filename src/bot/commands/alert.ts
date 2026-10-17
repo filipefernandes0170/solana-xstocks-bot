@@ -1,60 +1,72 @@
 import { Context } from "telegraf";
-import { addAlert, getActiveAlerts, upsertUser } from "../../db/index.js";
-import { SYMBOL_TO_TOKEN } from "../../config/tokens.js";
+import { config } from "../../config/index.js";
+import { addAlert, clearAlerts, getActiveAlerts, upsertUser } from "../../db/index.js";
+import { SYMBOL_TO_TOKEN, lookupToken } from "../../config/tokens.js";
+
+const USAGE = [
+  "🚨 <b>Price alerts</b>",
+  `A one-off text when a name moves that much within ${config.bigMoveWindowMin} minutes. It turns itself off after it fires.`,
+  "",
+  "<code>/alert NVDAx up 5</code>",
+  "<code>/alert TSLAx down 3</code>",
+  "<code>/alert SPYx both 2</code>",
+  "",
+  "/alert list · your alerts",
+  "/alert clear · remove them all",
+].join("\n");
 
 export async function alertCommand(ctx: Context) {
   upsertUser(ctx.from!.id, ctx.from?.username, ctx.from?.first_name);
+  const parts = ((ctx.message as { text?: string })?.text ?? "").trim().split(/\s+/);
+  const sub = parts[1]?.toLowerCase();
 
-  const text = (ctx.message as any)?.text || "";
-  const parts = text.trim().split(/\s+/);
-
-  // /alert list
-  if (parts[1]?.toLowerCase() === "list") {
+  if (sub === "list") {
     const alerts = getActiveAlerts(ctx.from!.id);
     if (alerts.length === 0) {
-      return ctx.reply("You have no active alerts.\n\nSet one with:\n`/alert NVDAx up 5`", {
-        parse_mode: "Markdown",
-      });
+      await ctx.reply("🚨 No alerts on. Set one with <code>/alert NVDAx up 5</code>", { parse_mode: "HTML" });
+      return;
     }
-    let out = "*Your alerts*\n\n";
-    for (const a of alerts) {
-      out += `• ${a.symbol} ${a.direction} ${a.threshold_pct}%\n`;
-    }
-    return ctx.reply(out, { parse_mode: "Markdown" });
-  }
-
-  // /alert SYMBOL up|down|both PCT
-  if (parts.length < 4) {
-    return ctx.reply(
-`*Set a price alert*
-
-Usage:
-\`/alert NVDAx up 5\`
-\`/alert TSLAx down 3\`
-\`/alert SPYx both 5\`
-
-\`/alert list\` – show your alerts`,
-      { parse_mode: "Markdown" }
+    const arrow = (direction: string) => (direction === "up" ? "▲" : direction === "down" ? "▼" : "▲▼");
+    await ctx.reply(
+      ["🚨 <b>Your alerts</b>", ...alerts.map((a) => `${arrow(a.direction)} <b>${SYMBOL_TO_TOKEN.get(a.symbol)?.symbol ?? a.symbol}</b> ${a.direction} ${a.threshold_pct}%`), "", "/alert clear removes them all."].join(
+        "\n",
+      ),
+      { parse_mode: "HTML" },
     );
+    return;
   }
 
-  const symbol = parts[1].toUpperCase();
-  const direction = parts[2].toLowerCase();
-  const pct = parseFloat(parts[3]);
+  if (sub === "clear" || sub === "off") {
+    const removed = clearAlerts(ctx.from!.id);
+    await ctx.reply(removed > 0 ? `🚨 Removed ${removed} alert${removed === 1 ? "" : "s"}.` : "🚨 You had no alerts on.");
+    return;
+  }
 
-  if (!SYMBOL_TO_TOKEN.has(symbol)) {
-    return ctx.reply(`Unknown symbol: ${symbol}\nSupported: NVDAx, TSLAx, AAPLx, SPYx…`);
+  if (parts.length < 4) {
+    await ctx.reply(USAGE, { parse_mode: "HTML" });
+    return;
+  }
+
+  const token = lookupToken(parts[1]);
+  const direction = parts[2].toLowerCase();
+  const pct = Number(parts[3].replace(/%$/, ""));
+
+  if (!token) {
+    await ctx.reply("🚨 I don't know that name. Try /alert NVDAx up 5.");
+    return;
   }
   if (!["up", "down", "both"].includes(direction)) {
-    return ctx.reply("Direction must be: up | down | both");
+    await ctx.reply("🚨 The direction is up, down or both. Example: /alert NVDAx up 5");
+    return;
   }
-  if (isNaN(pct) || pct <= 0 || pct > 100) {
-    return ctx.reply("Threshold must be a number between 0 and 100");
+  if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+    await ctx.reply("🚨 The move is a number from 0 to 100. Example: /alert NVDAx up 5");
+    return;
   }
 
-  addAlert(ctx.from!.id, symbol, direction, pct);
+  addAlert(ctx.from!.id, token.symbol, direction, pct);
   await ctx.reply(
-    `✅ Alert set: *${symbol}* ${direction} *${pct}%*\n\nYou will be notified when the price moves that much within the monitoring window.`,
-    { parse_mode: "Markdown" }
+    `✅ Alert on: <b>${token.symbol}</b> ${direction} <b>${pct}%</b> within ${config.bigMoveWindowMin} minutes.\nOne text when it happens, then it turns itself off.`,
+    { parse_mode: "HTML" },
   );
 }

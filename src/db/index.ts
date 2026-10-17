@@ -73,6 +73,12 @@ db.exec(`
     PRIMARY KEY (telegram_id, day)
   );
 
+  CREATE TABLE IF NOT EXISTS brief_log (
+    telegram_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    PRIMARY KEY (telegram_id, day)
+  );
+
   CREATE TABLE IF NOT EXISTS rebase_sent (
     telegram_id INTEGER NOT NULL,
     symbol TEXT NOT NULL,
@@ -90,6 +96,7 @@ function addColumn(table: string, column: string, type: string) {
 
 addColumn("users", "holder_wallet", "TEXT");
 addColumn("users", "bell", "INTEGER DEFAULT 0");
+addColumn("users", "brief", "INTEGER DEFAULT 0");
 
 export function upsertUser(telegramId: number, username?: string, firstName?: string) {
   db.prepare(`
@@ -126,6 +133,27 @@ export function setBell(telegramId: number, on: boolean) {
   `).run(on ? 1 : 0, telegramId);
 }
 
+export function setBrief(telegramId: number, on: boolean) {
+  db.prepare(`
+    UPDATE users SET brief = ?, updated_at = strftime('%s','now')
+    WHERE telegram_id = ?
+  `).run(on ? 1 : 0, telegramId);
+}
+
+/** Users who asked for the morning brief. Whether it sends depends on the coin, checked when it goes out. */
+export function listBriefUsers() {
+  return db.prepare(`SELECT telegram_id, wallet, holder_wallet, bell FROM users WHERE brief = 1`).all() as UserRow[];
+}
+
+/** Brief log rows use telegram_id 0 for the public channel post. */
+export function briefAlreadySent(telegramId: number, day: string) {
+  return !!db.prepare(`SELECT 1 AS ok FROM brief_log WHERE telegram_id = ? AND day = ?`).get(telegramId, day);
+}
+
+export function markBriefSent(telegramId: number, day: string) {
+  db.prepare(`INSERT OR IGNORE INTO brief_log (telegram_id, day) VALUES (?, ?)`).run(telegramId, day);
+}
+
 export function getUser(telegramId: number) {
   return db.prepare(`SELECT * FROM users WHERE telegram_id = ?`).get(telegramId) as any;
 }
@@ -146,6 +174,11 @@ export function getActiveAlerts(telegramId?: number) {
 
 export function deactivateAlert(id: number) {
   db.prepare(`UPDATE alerts SET active = 0 WHERE id = ?`).run(id);
+}
+
+/** Turns off every active alert of one user; returns how many were on. */
+export function clearAlerts(telegramId: number) {
+  return db.prepare(`UPDATE alerts SET active = 0 WHERE telegram_id = ? AND active = 1`).run(telegramId).changes;
 }
 
 export function savePriceSnapshot(symbol: string, price: number) {

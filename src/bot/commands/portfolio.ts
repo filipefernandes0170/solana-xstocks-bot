@@ -1,78 +1,55 @@
 import { Context } from "telegraf";
 import { getUser, setWallet, upsertUser } from "../../db/index.js";
-import { isValidSolanaAddress } from "../../services/solana.js";
+import { getDeskQuotes } from "../../services/desk.js";
+import { portfolioText } from "../../services/messages.js";
 import { buildPortfolio } from "../../services/portfolio.js";
-import { formatUsd, formatPct, formatAmount, shortAddress } from "../../utils/format.js";
+import { isValidSolanaAddress } from "../../services/solana.js";
 
+/** /portfolio <wallet>, or a pasted address: the xStocks in that wallet, valued per share, with each verdict. */
 export async function portfolioCommand(ctx: Context) {
   upsertUser(ctx.from!.id, ctx.from?.username, ctx.from?.first_name);
-
-  const text = (ctx.message as any)?.text || "";
-  const parts = text.trim().split(/\s+/);
-  let wallet = parts[1];
-
+  let wallet = ((ctx.message as { text?: string })?.text ?? "").trim().split(/\s+/)[1];
   const user = getUser(ctx.from!.id);
 
   if (!wallet) {
     if (!user?.wallet) {
-      return ctx.reply(
-        "Please provide a wallet address:\n`/portfolio <solana_address>`\nor just paste the address.",
-        { parse_mode: "Markdown" }
-      );
+      await ctx.reply("💼 Paste a Solana address, or send <code>/portfolio &lt;address&gt;</code>. Par only reads balances.", {
+        parse_mode: "HTML",
+      });
+      return;
     }
     wallet = user.wallet;
   }
 
   if (!isValidSolanaAddress(wallet)) {
-    return ctx.reply("❌ Invalid Solana address.");
+    await ctx.reply("💼 That does not look like a Solana address.");
+    return;
   }
 
   setWallet(ctx.from!.id, wallet);
-
-  const msg = await ctx.reply("⏳ Fetching portfolio…");
+  const pending = await ctx.reply("💼 Reading the wallet…");
 
   try {
-    const pf = await buildPortfolio(wallet);
-
+    const [pf, quotes] = await Promise.all([buildPortfolio(wallet), getDeskQuotes().catch(() => [])]);
     if (pf.positions.length === 0) {
-      return ctx.telegram.editMessageText(
+      await ctx.telegram.editMessageText(
         ctx.chat!.id,
-        msg.message_id,
+        pending.message_id,
         undefined,
-        `No tokenized stocks found in \`${shortAddress(wallet)}\`\n\nSupported: NVDAx, TSLAx, AAPLx, SPYx, QQQx and more.`,
-        { parse_mode: "Markdown" }
+        `💼 No tracked xStocks in <code>${wallet.slice(0, 4)}…${wallet.slice(-4)}</code>.\nPar tracks NVDAx, TSLAx, AAPLx, SPYx, QQQx and more. /prices lists them all.`,
+        { parse_mode: "HTML" },
       );
+      return;
     }
-
-    let out = `📊 *Portfolio* · \`${shortAddress(wallet)}\`\n\n`;
-    out += `*Total Value:* ${formatUsd(pf.totalUsd)}`;
-    if (pf.change24hPct != null) {
-      out += `  (${formatPct(pf.change24hPct)} 24h)`;
-    }
-    out += `\n\n`;
-
-    for (const p of pf.positions.slice(0, 15)) {
-      const chg = p.change24h != null ? ` ${formatPct(p.change24h)}` : "";
-      out += `*${p.symbol}*  ${formatAmount(p.amount)}\n`;
-      out += `   ${formatUsd(p.usdValue)}  @ ${formatUsd(p.price)}${chg}\n\n`;
-    }
-
-    if (pf.positions.length > 15) {
-      out += `_…and ${pf.positions.length - 15} more_`;
-    }
-
-    out += `\n\nPings use this wallet while it holds the coin. /watch · /bell`;
-
-    await ctx.telegram.editMessageText(ctx.chat!.id, msg.message_id, undefined, out, {
-      parse_mode: "Markdown",
-    });
-  } catch (err: any) {
-    console.error(err);
     await ctx.telegram.editMessageText(
       ctx.chat!.id,
-      msg.message_id,
+      pending.message_id,
       undefined,
-      "❌ Failed to load portfolio. Try again later."
+      portfolioText(wallet, pf, new Map(quotes.map((quote) => [quote.symbol, quote]))),
+      { parse_mode: "HTML", link_preview_options: { is_disabled: true } },
     );
+  } catch (err) {
+    console.error("Portfolio failed:", err instanceof Error ? err.message : err);
+    await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "💼 Could not read that wallet. Try again in a minute.");
   }
 }

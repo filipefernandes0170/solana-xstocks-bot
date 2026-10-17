@@ -13,6 +13,9 @@ const envSchema = z.object({
   DESK_CHECK_CRON: z.string().default("* * * * *"),
   TOKEN_MINT: z.preprocess((value) => (value === "" ? undefined : value), z.string().min(32).optional()),
   HOLDER_MIN_TOKENS: z.coerce.number().default(0),
+  // Optional: a public Telegram channel (e.g. @parbrief or -100…) where the bot posts a short brief teaser.
+  // The bot must be an admin of that channel. Empty means no channel post.
+  BRIEF_CHANNEL_ID: z.preprocess((value) => (value === "" ? undefined : value), z.string().optional()),
 });
 
 export const env = envSchema.parse(process.env);
@@ -28,4 +31,5 @@ export const config = {
   deskCron: env.DESK_CHECK_CRON,
   tokenMint: env.TOKEN_MINT ?? "",
   holderMin: env.HOLDER_MIN_TOKENS,
+  briefChannelId: env.BRIEF_CHANNEL_ID ?? "",
 };

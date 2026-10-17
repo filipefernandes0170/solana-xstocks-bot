@@ -1,7 +1,11 @@
 import { Telegraf } from "telegraf";
 import type { InlineKeyboardMarkup } from "telegraf/types";
+import { config } from "../config/index.js";
 import {
   bellAlreadySent,
+  briefAlreadySent,
+  listBriefUsers,
+  markBriefSent,
   deleteBagSymbol,
   getBagState,
   getVerdictStates,
@@ -17,12 +21,15 @@ import {
 import { getTokenizedStockHoldings } from "./solana.js";
 import { getDeskQuotes, type DeskQuote } from "./desk.js";
 import { holderWallet, walletsHolding } from "./holder.js";
-import { bagText, bellText, buyKeyboard, fairText, rebaseText, richText } from "./messages.js";
+import { bagText, bellText, briefKeyboard, briefTeaser, briefText, buyKeyboard, fairText, rebaseText, richText, teaserKeyboard } from "./messages.js";
 import {
   etDay,
+  etParts,
   fairFlip,
   hasSignal,
   inBellWindow,
+  inBriefWindow,
+  isPreMarket,
   rebaseDue,
   richWhileClosed,
   toSnap,
@@ -44,7 +51,7 @@ const TITLES: Record<VerdictId, string> = {
 let running = false;
 const bagCache = new Map<string, { at: number; symbols: Map<string, number> }>();
 
-async function send(bot: Telegraf, chatId: number, text: string, markup?: InlineKeyboardMarkup) {
+async function send(bot: Telegraf, chatId: number | string, text: string, markup?: InlineKeyboardMarkup) {
   await bot.telegram.sendMessage(chatId, text, {
     parse_mode: "HTML",
     link_preview_options: { is_disabled: true },
@@ -111,12 +118,51 @@ async function sendBag(
   await send(bot, user.telegram_id, bagText(changes), buyKeyboard(buyable.map((change) => change.quote)));
 }
 
+/**
+ * The morning brief, for $PAR holders who turned it on: weekdays between 9:00 and 9:29 New York time, once a day,
+ * and only when Nasdaq reports pre-market (on market holidays it says Closed, so nothing goes out).
+ * With BRIEF_CHANNEL_ID set, a short public teaser goes to that channel too.
+ */
+async function sendBriefs(bot: Telegraf, quotes: DeskQuote[], now: number) {
+  if (!inBriefWindow(now)) return;
+  if (!isPreMarket(quotes.find((quote) => quote.marketState)?.marketState ?? null)) return;
+  const day = etDay(now);
+  const wall = etParts(now);
+  const minutesToOpen = Math.max(1, 9 * 60 + 30 - (wall.hour * 60 + wall.minute));
+
+  if (config.briefChannelId && !briefAlreadySent(0, day)) {
+    // Marked before sending, so a refusal (for example, the bot is not an admin there) is not retried every minute.
+    markBriefSent(0, day);
+    try {
+      await send(bot, config.briefChannelId, briefTeaser(quotes, now), teaserKeyboard());
+    } catch (err) {
+      console.warn("Brief channel post failed:", (err as Error).message);
+    }
+  }
+
+  const users = listBriefUsers().filter((user) => !briefAlreadySent(user.telegram_id, day));
+  if (users.length === 0) return;
+  const holders = await walletsHolding(users.map(holderWallet).filter(Boolean));
+  const text = briefText(quotes, now, minutesToOpen);
+  for (const user of users) {
+    const wallet = holderWallet(user);
+    if (!wallet || !holders.has(wallet)) continue;
+    try {
+      await send(bot, user.telegram_id, text, briefKeyboard());
+      markBriefSent(user.telegram_id, day);
+    } catch (err) {
+      console.warn("Brief failed", user.telegram_id, (err as Error).message);
+    }
+  }
+}
+
 export async function checkDesk(bot: Telegraf) {
   if (running) return;
   running = true;
   try {
     const quotes = await getDeskQuotes();
     if (quotes.length === 0) return;
+    await sendBriefs(bot, quotes, Date.now()).catch((err) => console.warn("Briefs failed:", (err as Error).message));
     const bySymbol = new Map(quotes.map((quote) => [quote.symbol, quote]));
     const snaps = new Map(quotes.map((quote) => [quote.symbol, toSnap(quote)]));
     const previous = getVerdictStates();

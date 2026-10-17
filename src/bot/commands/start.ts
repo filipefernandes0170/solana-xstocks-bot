@@ -1,27 +1,18 @@
 import { Context } from "telegraf";
 import { upsertUser } from "../../db/index.js";
+import { startKeyboard, startText } from "../../services/messages.js";
+import { briefReply } from "./brief.js";
 
+/** /start, including the deep link from the site's "Get the morning brief" button (t.me/ONPAR_BOT?start=brief). */
 export async function startCommand(ctx: Context) {
   const from = ctx.from!;
   upsertUser(from.id, from.username, from.first_name);
+  const payload = ((ctx.message as { text?: string })?.text ?? "").trim().split(/\s+/)[1] ?? "";
 
-  await ctx.reply(
-`Par
-
-The site is free. This bot texts you when a price becomes real, and only while your wallet holds $PAR.
-
-Type a name, like nvda
-Paste the wallet that holds the coin
-/watch NVDAx  – ping when it turns Fair, and when it is rich while the market is closed
-/watch all
-/bell         – one message at the Nasdaq open, with whatever is Fair
-/hold         – use a different wallet for the coin than for your xStocks
-
-Also
-/portfolio    – xStock bag
-/prices
-/yield
-/alert NVDAx up 5
-/help`,
-  );
+  await ctx.reply(startText(from.first_name), {
+    parse_mode: "HTML",
+    link_preview_options: { is_disabled: true },
+    reply_markup: startKeyboard(),
+  });
+  if (payload === "brief") await briefReply(ctx, true);
 }

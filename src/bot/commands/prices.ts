@@ -1,40 +1,22 @@
 import { Context } from "telegraf";
-import { getTopPrices } from "../../services/prices.js";
-import { formatUsd, formatPct } from "../../utils/format.js";
+import { getDeskQuotes } from "../../services/desk.js";
+import { pricesText } from "../../services/messages.js";
 
+/** /prices: every name with its verdict, price, gap and 24h move. */
 export async function pricesCommand(ctx: Context) {
-  const msg = await ctx.reply("⏳ Loading live prices…");
-
+  const pending = await ctx.reply("📈 Reading the desk…");
   try {
-    const prices = await getTopPrices(12);
-
-    if (prices.length === 0) {
-      return ctx.telegram.editMessageText(
-        ctx.chat!.id,
-        msg.message_id,
-        undefined,
-        "Could not fetch prices right now. Please try again."
-      );
+    const quotes = await getDeskQuotes();
+    if (quotes.length === 0 || !quotes.some((quote) => quote.usdPrice != null)) {
+      await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "📈 The price feed is busy. Try again in a minute.");
+      return;
     }
-
-    let out = `📈 *Top Tokenized Stocks*\n\n`;
-    for (const p of prices) {
-      const chg = p.priceChange24h != null ? `  ${formatPct(p.priceChange24h)}` : "";
-      out += `*${p.symbol}*  ${formatUsd(p.usdPrice)}${chg}\n`;
-    }
-
-    out += `\n_Prices via Jupiter_`;
-
-    await ctx.telegram.editMessageText(ctx.chat!.id, msg.message_id, undefined, out, {
-      parse_mode: "Markdown",
+    await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, pricesText(quotes), {
+      parse_mode: "HTML",
+      link_preview_options: { is_disabled: true },
     });
   } catch (err) {
-    console.error(err);
-    await ctx.telegram.editMessageText(
-      ctx.chat!.id,
-      msg.message_id,
-      undefined,
-      "❌ Failed to load prices."
-    );
+    console.error("Prices failed:", err instanceof Error ? err.message : err);
+    await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "📈 Could not read the desk. Try again.");
   }
 }

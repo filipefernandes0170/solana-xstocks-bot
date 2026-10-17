@@ -354,3 +354,98 @@ export function escapeHtml(value: string) {
     .replace(/</g, "\u0026lt;")
     .replace(/>/g, "\u0026gt;");
 }
+
+/**
+ * The multiplier in force now, from the mint's scaledUiAmountConfig. Wallets show on-chain units times this,
+ * and one shown token tracks one share, so a pool price per on-chain unit is divided by it.
+ * No config means the multiplier never changed: 1.
+ */
+export function currentMultiplier(
+  state:
+    | {
+        multiplier?: string | number | null;
+        newMultiplier?: string | number | null;
+        newMultiplierEffectiveTimestamp?: string | number | null;
+      }
+    | null
+    | undefined,
+  nowSec: number,
+) {
+  if (!state) return 1;
+  const current = Number(state.multiplier);
+  const next = Number(state.newMultiplier);
+  let at = Number(state.newMultiplierEffectiveTimestamp);
+  if (at > 1e12) at = Math.floor(at / 1000);
+  if (Number.isFinite(next) && next > 0 && Number.isFinite(at) && at <= nowSec) return next;
+  return Number.isFinite(current) && current > 0 ? current : null;
+}
+
+/** Shares received and the price per share for a buy of `usd`, from Jupiter's on-chain `outAmount`. */
+export function perShareFill(usd: number, outRaw: number, decimals: number, multiplier: number | null) {
+  const shares = (outRaw / 10 ** decimals) * (multiplier != null && multiplier > 0 ? multiplier : 1);
+  const price = usd / shares;
+  return Number.isFinite(shares) && shares > 0 && Number.isFinite(price) && price > 0 ? { shares, price } : null;
+}
+
+export type SizeTone = "fair" | "close" | "far" | "none";
+
+/** The call for a buy of any size. Same thresholds as the verdict: 0.4% gap, 1% and 2% impact. Mirrors the site. */
+export function sizeCall({ gap, impactPct, open }: { gap: number | null; impactPct: number; open: boolean }): {
+  tone: SizeTone;
+  title: string;
+  line: string;
+} {
+  if (gap == null) return { tone: "none", title: "No stock price to compare", line: "This name has no public Nasdaq print." };
+  const closedNote = open ? "" : " Nasdaq is closed, so the print is from the last session.";
+  if (Math.abs(gap) >= 1 || impactPct >= 2) {
+    return {
+      tone: "far",
+      title: "Far from the stock at this size",
+      line: `${impactPct >= 2 ? "This order moves the pool by more than 2%." : "This price is more than 1% away from the print."}${closedNote}`,
+    };
+  }
+  if (open && Math.abs(gap) < 0.4 && impactPct < 1) {
+    return { tone: "fair", title: "Fair at this size", line: "This buy sits within 0.4% of the Nasdaq print and barely moves the pool." };
+  }
+  return {
+    tone: "close",
+    title: open ? "Close, but not fair" : "Close, but the market is closed",
+    line: open ? "Within 1% of the print. Check the gap before you buy." : `Within 1% of the print.${closedNote}`,
+  };
+}
+
+/** Weekday window from 9:00 to 9:29 America/New_York: the half hour before the open, when the brief goes out. */
+export function inBriefWindow(now: number) {
+  const wall = etParts(now);
+  const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const weekday = names.indexOf(wall.weekday.slice(0, 3));
+  if (weekday < 1 || weekday > 5) return false;
+  const mins = wall.hour * 60 + wall.minute;
+  return mins >= 9 * 60 && mins < 9 * 60 + 30;
+}
+
+/** Nasdaq says "Pre-Market" on trading days before 9:30; on holidays it stays "Closed". */
+export function isPreMarket(state: string | null) {
+  return (state ?? "").toLowerCase().includes("pre");
+}
+
+/** A text gap meter from -2% to +2%: "cheap ────┼─●── rich". The dot sits at either end when it runs off the scale. */
+export function gapBar(gap: number | null) {
+  if (gap == null) return null;
+  const slots = 11;
+  const center = (slots - 1) / 2;
+  const clamped = Math.max(-2, Math.min(2, gap));
+  const at = Math.round(((clamped + 2) / 4) * (slots - 1));
+  const cells = Array.from({ length: slots }, (_, index) => (index === at ? "●" : index === center ? "┼" : "─"));
+  return `cheap ${cells.join("")} rich`;
+}
+
+export const VERDICT_EMOJI: Record<VerdictId, string> = {
+  fair: "🟢",
+  near: "🟡",
+  overnight: "🌙",
+  wait: "🔴",
+  split: "⚖️",
+  checking: "⏳",
+  unpriced: "⚪",
+};

@@ -33,7 +33,7 @@ export const TOKENIZED_STOCKS: TokenizedStock[] = [
   { symbol: "AMDx",  name: "AMD xStock", mint: "XsXcJ6GZ9kVnjqGsjBnktRcuwMBmvKWh8S93RefZ1rF", decimals: 8, underlying: "AMD", issuer: "xStocks" },
   { symbol: "HOODx", name: "Robinhood xStock", mint: "XsvNBAYkrDRNhA7wPHQfX3ZUXZyZLdnCQDfHZ56bzpg", decimals: 8, underlying: "HOOD", issuer: "xStocks" },
   { symbol: "MCDx",  name: "McDonald's xStock", mint: "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2", decimals: 8, underlying: "MCD", issuer: "xStocks" },
-  { symbol: "NFLXx", name: "Netflix xStock", mint: "XsNNMt7WTNA2sV3jrb1NNfNgapxRF5i4i6GcnTRRHts", decimals: 8, underlying: "NFLX", issuer: "xStocks" },
+  { symbol: "NFLXx", name: "Netflix xStock", mint: "XsEH7wWfJJu2ZT3UCFeVfALnVA6CP5ur7Ee11KmzVpL", decimals: 8, underlying: "NFLX", issuer: "xStocks" },
 ];
 
 export const MINT_TO_TOKEN = new Map(TOKENIZED_STOCKS.map(t => [t.mint, t]));

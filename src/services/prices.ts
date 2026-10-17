@@ -50,10 +50,3 @@ export async function getPrices(mints?: string[]): Promise<Map<string, PriceData
 
   return result;
 }
-
-export async function getTopPrices(limit = 12): Promise<PriceData[]> {
-  const prices = await getPrices();
-  return Array.from(prices.values())
-    .sort((a, b) => b.usdPrice - a.usdPrice)
-    .slice(0, limit);
-}

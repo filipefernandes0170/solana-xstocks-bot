@@ -1,4 +1,4 @@
-import { createBot } from "./bot/index.js";
+import { MENU_COMMANDS, createBot } from "./bot/index.js";
 import cron from "node-cron";
 import { config } from "./config/index.js";
 import { checkAlerts } from "./services/alerts.js";
@@ -10,19 +10,30 @@ const bot = createBot();
 bot.launch(() => {
   console.log("xStocks Telegram bot is running");
   if (!config.tokenMint) console.log("TOKEN_MINT is not set. Pings will not send until it is.");
+  // The command list Telegram shows next to the message box.
+  bot.telegram.setMyCommands(MENU_COMMANDS).catch((err) => console.warn("Could not set the command menu:", err.message));
 })
   .catch((err) => {
     console.error("Failed to launch bot:", err);
     process.exit(1);
   });
 
-cron.schedule(config.alertCron, () => {
-  checkAlerts(bot).catch((err) => console.error("Alert check failed:", err));
-});
+const tasks = [
+  cron.schedule(config.alertCron, () => {
+    checkAlerts(bot).catch((err) => console.error("Alert check failed:", err));
+  }),
+  cron.schedule(config.deskCron, () => {
+    checkDesk(bot).catch((err) => console.error("Desk check failed:", err));
+  }),
+];
 
-cron.schedule(config.deskCron, () => {
-  checkDesk(bot).catch((err) => console.error("Desk check failed:", err));
-});
+// Stop polling and the timers, then exit. Without this, node-cron kept the process alive and every
+// restart waited for systemd's 90 s timeout. A background quote round may still be running, so exit after 3 s.
+function shutdown(signal: string) {
+  for (const task of tasks) task.stop();
+  bot.stop(signal);
+  setTimeout(() => process.exit(0), 3000).unref();
+}
 
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));
+process.once("SIGTERM", () => shutdown("SIGTERM"));

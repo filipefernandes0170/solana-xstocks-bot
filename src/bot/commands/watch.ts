@@ -1,17 +1,16 @@
 import { Context } from "telegraf";
 import { lookupToken } from "../../config/tokens.js";
-import { config } from "../../config/index.js";
-import { addWatch, getUser, listWatches, removeWatch, upsertUser } from "../../db/index.js";
-import { holderWallet, walletsHolding } from "../../services/holder.js";
+import { addWatch, listWatches, removeWatch, upsertUser } from "../../db/index.js";
+import { holderNote } from "../holderNote.js";
 
-async function holdLine(telegramId: number) {
-  const user = getUser(telegramId);
-  const wallet = user ? holderWallet(user) : "";
-  if (!config.tokenMint) return "Pings stay off until the coin mint is set on the server.";
-  if (!wallet) return "Paste the wallet that holds the coin, or nothing will be sent.";
-  const holders = await walletsHolding([wallet]).catch(() => new Set<string>());
-  if (!holders.has(wallet)) return "This wallet does not hold the coin yet, so the ping will not send.";
-  return "You hold the coin. Pings are on.";
+const WHAT = "A ping arrives when a watched name turns 🟢 Fair, and when it trades rich while Nasdaq is closed.";
+
+/** Adds a watch and answers in the same words for /watch and the Watch buttons. */
+export async function watchReply(ctx: Context, symbol: string) {
+  upsertUser(ctx.from!.id, ctx.from?.username, ctx.from?.first_name);
+  addWatch(ctx.from!.id, symbol);
+  const label = symbol === "ALL" ? "every name" : `<b>${symbol}</b>`;
+  await ctx.reply(`🔔 Watching ${label}.\n${WHAT}\n\n${await holderNote(ctx.from!.id)}`, { parse_mode: "HTML" });
 }
 
 export async function watchCommand(ctx: Context) {
@@ -22,9 +21,17 @@ export async function watchCommand(ctx: Context) {
 
   if (!arg || arg === "list") {
     const rows = listWatches(ctx.from!.id);
-    const names = rows.length === 0 ? "nothing" : rows.map((row) => (row.symbol === "ALL" ? "every name" : row.symbol)).join(", ");
+    const names = rows.length === 0 ? "nothing yet" : rows.map((row) => (row.symbol === "ALL" ? "every name" : `<b>${row.symbol}</b>`)).join(", ");
     await ctx.reply(
-      `Watching ${names}.\n\n/watch NVDAx\n/watch all\n/watch off\n\nA ping arrives when a watched name turns Fair, and when it trades rich while Nasdaq is closed.\n${await holdLine(ctx.from!.id)}`,
+      [
+        `🔔 Watching ${names}.`,
+        WHAT,
+        "",
+        "/watch NVDAx · /watch all · /watch off · /watch off NVDAx",
+        "",
+        await holderNote(ctx.from!.id),
+      ].join("\n"),
+      { parse_mode: "HTML" },
     );
     return;
   }
@@ -33,26 +40,23 @@ export async function watchCommand(ctx: Context) {
     if (extra) {
       const token = lookupToken(extra);
       removeWatch(ctx.from!.id, token?.symbol ?? extra.toUpperCase());
+      await ctx.reply(`🔕 Stopped watching ${token?.symbol ?? extra.toUpperCase()}.`);
     } else {
       removeWatch(ctx.from!.id);
+      await ctx.reply("🔕 Stopped all watches.");
     }
-    await ctx.reply(extra ? `Stopped watching ${extra.toUpperCase()}.` : "Stopped all watches.");
     return;
   }
 
   if (arg === "all") {
-    addWatch(ctx.from!.id, "ALL");
-    await ctx.reply(`Watching every name.\nI'll text you when one turns Fair, and when one trades rich while Nasdaq is closed.\n${await holdLine(ctx.from!.id)}`);
+    await watchReply(ctx, "ALL");
     return;
   }
 
   const token = lookupToken(arg);
   if (!token) {
-    await ctx.reply("I don't know that name. Try /watch NVDAx or /watch all.");
+    await ctx.reply("🔔 I don't know that name. Try /watch NVDAx or /watch all.");
     return;
   }
-  addWatch(ctx.from!.id, token.symbol);
-  await ctx.reply(
-    `Watching ${token.symbol}.\nI'll text you when it turns Fair, and if it trades rich while Nasdaq is closed.\n${await holdLine(ctx.from!.id)}`,
-  );
+  await watchReply(ctx, token.symbol);
 }

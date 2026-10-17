@@ -1,35 +1,29 @@
 import { Context } from "telegraf";
-import { getYieldOpportunities } from "../../services/yield.js";
-import { formatPct } from "../../utils/format.js";
+import { lookupToken } from "../../config/tokens.js";
+import { yieldText } from "../../services/messages.js";
+import { getLendingOffers } from "../../services/yield.js";
 
+/** /yield, or /yield NVDAx: live Kamino lending rates for the xStocks. */
 export async function yieldCommand(ctx: Context) {
-  const msg = await ctx.reply("⏳ Checking yield opportunities…");
-
+  const arg = ((ctx.message as { text?: string })?.text ?? "").trim().split(/\s+/)[1];
+  const token = arg ? lookupToken(arg) : null;
+  if (arg && !token) {
+    await ctx.reply("💰 I don't know that name. Try /yield NVDAx, or /yield for every name.");
+    return;
+  }
+  const pending = await ctx.reply("💰 Reading Kamino…");
   try {
-    const opps = await getYieldOpportunities();
-
-    let out = `💰 *Yield Opportunities*\n\n`;
-    for (const y of opps) {
-      const apyStr = y.apy > 0 ? ` ~${formatPct(y.apy)} APY` : "";
-      out += `*${y.protocol}* · ${y.asset}${apyStr}\n`;
-      out += `${y.description}\n`;
-      if (y.link) out += `[Open](${y.link})\n`;
-      out += `\n`;
+    const offers = await getLendingOffers();
+    if (!offers) {
+      await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "💰 Kamino did not answer. Try again in a minute.");
+      return;
     }
-
-    out += `_APYs are approximate and change frequently. DYOR._`;
-
-    await ctx.telegram.editMessageText(ctx.chat!.id, msg.message_id, undefined, out, {
-      parse_mode: "Markdown",
+    await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, yieldText(offers, token?.symbol ?? null), {
+      parse_mode: "HTML",
       link_preview_options: { is_disabled: true },
     });
   } catch (err) {
-    console.error(err);
-    await ctx.telegram.editMessageText(
-      ctx.chat!.id,
-      msg.message_id,
-      undefined,
-      "❌ Failed to load yield data."
-    );
+    console.error("Yield failed:", err instanceof Error ? err.message : err);
+    await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "💰 Could not read the lending markets. Try again.");
   }
 }

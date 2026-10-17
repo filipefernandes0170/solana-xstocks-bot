@@ -3,20 +3,25 @@ import { config } from "../config/index.js";
 import { TOKENIZED_STOCKS } from "../config/tokens.js";
 import { jupiterGet, jupiterPaused } from "./jupiter.js";
 import { nasdaqQuoteUrl } from "./nasdaq.js";
-import { pendingRebase, tradeVerdict, type Rebase, type VerdictInput } from "./verdict.js";
+import { currentMultiplier, pendingRebase, perShareFill, tradeVerdict, type Rebase, type VerdictInput } from "./verdict.js";
 
 export type DeskQuote = VerdictInput & {
   name: string;
   mint: string;
   rebase: Rebase | null;
+  change24h: number | null;
+  /** The token's multiplier: splits and reinvested dividends added to balances since launch. */
+  sharesPerToken: number | null;
 };
+
+type MintInfo = { rebase: Rebase | null; decimals: number | null; multiplier: number | null };
 
 let cache: { at: number; quotes: DeskQuote[] } | null = null;
 let stockCache: { at: number; stocks: Record<string, { price: number; state: string }> } | null = null;
 let inflight: Promise<DeskQuote[]> | null = null;
-let rebaseCache: { at: number; rows: Map<string, { rebase: Rebase | null; decimals: number | null }> } | null = null;
+let rebaseCache: { at: number; rows: Map<string, MintInfo> } | null = null;
 
-type Buy ={ price: number; impactPct: number; at: number };
+type Buy = { price: number; impactPct: number; at: number };
 
 // The latest $1,000 buy quote per mint. Filled one request at a time in the background, so a
 // price lookup never waits for twenty quotes. A quote older than BUY_KEEP_MS is not shown.
@@ -61,13 +66,14 @@ async function mintRebases() {
         | undefined;
       if (!Array.isArray(value)) continue;
       const nowSec = Date.now() / 1000;
-      const rows = new Map<string, { rebase: Rebase | null; decimals: number | null }>();
+      const rows = new Map<string, MintInfo>();
       TOKENIZED_STOCKS.forEach((token, index) => {
         const info = value[index]?.data?.parsed?.info;
         const scaled = info?.extensions?.find((ext) => ext.extension === "scaledUiAmountConfig")?.state;
         rows.set(token.mint, {
           rebase: pendingRebase(scaled, nowSec),
           decimals: typeof info?.decimals === "number" ? info.decimals : null,
+          multiplier: info ? currentMultiplier(scaled, nowSec) : null,
         });
       });
       rebaseCache = { at: Date.now(), rows };
@@ -81,7 +87,7 @@ async function mintRebases() {
 
 async function jupiterMap() {
   const ids = TOKENIZED_STOCKS.map((token) => token.mint).join(",");
-  return jupiterGet<Record<string, { usdPrice?: number; stockData?: { price?: number; updatedAt?: string } }>>(
+  return jupiterGet<Record<string, { usdPrice?: number; priceChange24h?: number; stockData?: { price?: number; updatedAt?: string } }>>(
     "/price/v3",
     { ids },
     { maxWaitMs: 6000, timeoutMs: 12_000 },
@@ -126,35 +132,48 @@ async function stockPrints() {
 
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
-async function oneBuy(mint: string, decimals: number, usdPrice: number | null): Promise<Buy | null> {
+export type Fill = Buy & { shares: number };
+
+/**
+ * A USDC buy of `usd` dollars, priced per share. Jupiter's outAmount is in on-chain units; a wallet shows
+ * them times the multiplier, and one shown token tracks one share (the same unit as Jupiter's usdPrice
+ * and the Nasdaq print). Null when Jupiter has no route or is rate limited.
+ */
+async function quoteBuy(mint: string, usd: number, info: MintInfo, maxWaitMs: number): Promise<Fill | null> {
+  if (typeof info.decimals !== "number") return null;
   const data = await jupiterGet<{ outAmount?: string; priceImpactPct?: string }>(
     "/swap/v1/quote",
-    { inputMint: USDC_MINT, outputMint: mint, amount: "1000000000", slippageBps: "50" },
-    { maxWaitMs: 6000, timeoutMs: 8_000 },
+    { inputMint: USDC_MINT, outputMint: mint, amount: String(Math.round(usd * 1e6)), slippageBps: "50" },
+    { maxWaitMs, timeoutMs: 8_000 },
   );
-  const out = Number(data?.outAmount);
   const impactFrac = Number(data?.priceImpactPct);
-  if (!Number.isFinite(out) || out <= 0 || !Number.isFinite(impactFrac) || impactFrac < 0) return null;
-  const tokens = out / 10 ** decimals;
-  const price = 1000 / tokens;
-  if (!Number.isFinite(tokens) || tokens <= 0 || !Number.isFinite(price) || price <= 0) return null;
-  if (usdPrice != null && usdPrice > 0 && (price > usdPrice * 5 || price < usdPrice / 5)) return null;
-  return { price, impactPct: impactFrac * 100, at: Date.now() };
+  const fill = perShareFill(usd, Number(data?.outAmount), info.decimals, info.multiplier);
+  if (!fill || !Number.isFinite(impactFrac) || impactFrac < 0) return null;
+  return { price: fill.price, shares: fill.shares, impactPct: impactFrac * 100, at: Date.now() };
+}
+
+/** The $1,000 buy the verdict uses. Null when the answer is more than 5x away from the last trade. */
+async function oneBuy(quote: DeskQuote, info: MintInfo): Promise<Buy | null> {
+  const fill = await quoteBuy(quote.mint, 1000, info, 6000);
+  if (!fill) return null;
+  const usdPrice = quote.usdPrice;
+  if (usdPrice != null && usdPrice > 0 && (fill.price > usdPrice * 5 || fill.price < usdPrice / 5)) return null;
+  return { price: fill.price, impactPct: fill.impactPct, at: fill.at };
 }
 
 /** Quotes every name once, one request at a time, oldest quote first. Stops when Jupiter answers 429. */
-async function refreshBuys(quotes: DeskQuote[], mints: Map<string, { decimals: number | null }>) {
+async function refreshBuys(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
   const order = [...quotes].sort((a, b) => (buys.get(a.mint)?.at ?? 0) - (buys.get(b.mint)?.at ?? 0));
   for (const quote of order) {
     if (jupiterPaused()) break;
-    const decimals = mints.get(quote.mint)?.decimals;
-    if (typeof decimals !== "number") continue;
-    const buy = await oneBuy(quote.mint, decimals, quote.usdPrice);
+    const info = mints.get(quote.mint);
+    if (!info || typeof info.decimals !== "number") continue;
+    const buy = await oneBuy(quote, info);
     if (buy) buys.set(quote.mint, buy);
   }
 }
 
-function startBuyRefresh(quotes: DeskQuote[], mints: Map<string, { decimals: number | null }>) {
+function startBuyRefresh(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
   if (!buyRefresh) {
     buyRefresh = refreshBuys(quotes, mints)
       .catch((err) => console.error("Buy quotes failed:", err instanceof Error ? err.message : err))
@@ -213,6 +232,8 @@ async function loadQuotes(): Promise<DeskQuote[]> {
       buyImpactPct: null,
       buyAt: null,
       rebase: rebases.get(token.mint)?.rebase ?? null,
+      change24h: typeof fromJup?.priceChange24h === "number" ? fromJup.priceChange24h : null,
+      sharesPerToken: rebases.get(token.mint)?.multiplier ?? null,
     };
   });
   const refresh = startBuyRefresh(base, rebases);
@@ -250,4 +271,27 @@ export async function getDeskQuote(symbol: string) {
 
 export function describe(quote: DeskQuote) {
   return tradeVerdict(quote);
+}
+
+export const SIZE_MIN_USD = 10;
+export const SIZE_MAX_USD = 250_000;
+
+export type SizeResult =
+  | { ok: true; quote: DeskQuote; usd: number; shares: number; price: number; impactPct: number; at: number }
+  | { ok: false; message: string };
+
+/** /size: what a buy of `usd` dollars of one name really costs per share, from a live Jupiter quote. */
+export async function sizeQuote(symbol: string, usd: number): Promise<SizeResult> {
+  const amount = Math.round(usd);
+  if (!Number.isFinite(amount) || amount < SIZE_MIN_USD || amount > SIZE_MAX_USD) {
+    return { ok: false, message: "Pick an amount from $10 to $250,000." };
+  }
+  const quote = await getDeskQuote(symbol);
+  const info = (rebaseCache?.rows ?? (await mintRebases())).get(quote?.mint ?? "");
+  if (!quote || quote.usdPrice == null || !info || typeof info.decimals !== "number") {
+    return { ok: false, message: "Prices are still loading. Try again in a minute." };
+  }
+  const fill = await quoteBuy(quote.mint, amount, info, 10_000);
+  if (!fill) return { ok: false, message: "Jupiter is busy or has no route for this size. Try again in a minute." };
+  return { ok: true, quote, usd: amount, shares: fill.shares, price: fill.price, impactPct: fill.impactPct, at: fill.at };
 }
