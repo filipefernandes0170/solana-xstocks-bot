@@ -9,7 +9,7 @@ Estado verificado a **17 out 2026**. Este documento não contém chaves nem segr
 | Parte | Onde vive | Estado a 17 out |
 |---|---|---|
 | **Bot do Telegram** [@ONPAR_BOT](https://t.me/ONPAR_BOT) | Este repositório (`src/`), GitHub `filipefernandes0170/solana-xstocks-bot` (**privado** desde 17 out) | **Recuperado a 100%.** Compila e os testes passam (ver §3). Corre na VM, segundo o Filipe |
-| **Site "Par desk"** https://xstocks-tracker.netlify.app | Netlify, projeto `xstocks-tracker`, deploy `6aced2a4bac172109cf9f9c3` de 14 out | **Online, intacto.** O código original perdeu-se. Foi **reconstruído** em `site/` (ver §4). A versão publicada está guardada em `published-site/` |
+| **Site "Par desk"** https://xstocks-tracker.netlify.app | Netlify, projeto `xstocks-tracker`, ligado a este repositório (pasta `site/`) | **Online com a versão reconstruída** desde 17 out, 08:37 UTC (deploy `6ad3321104e3134362f024fe`). O original do Grok (deploy `6aced2a4bac172109cf9f9c3`) fica no Netlify para voltar atrás, e os ficheiros dele estão em `published-site/` |
 
 ## 2. Porque se perdeu o código-fonte do site
 
@@ -60,7 +60,9 @@ Diferenças **de propósito** (todas são correções):
 4. A página `/portfolio` passa a valorizar mais tokens (por exemplo cbBTC).
 5. Saiu a "ponte" de pré-visualização do Grok, que não fazia nada para os visitantes.
 
-**O site online continua a ser o original do Grok.** Para o substituir pelo reconstruído, falta um passo com a tua autorização: ligar o projeto Netlify a este repositório privado, com a pasta base `site`, e comparar uma pré-visualização antes de publicar.
+**Publicado a 17 out 2026, às 08:37 UTC**, a pedido do Filipe, depois de testar o deploy `6ad3321104e3134362f024fe` no endereço próprio dele: todas as páginas, separadores e funções de servidor, sem erros. O Filipe carregou em "Publish Deploy". A publicação automática continua **bloqueada**.
+
+Para voltar à versão do Grok: abrir https://app.netlify.com/projects/xstocks-tracker/deploys/6aced2a4bac172109cf9f9c3 e carregar em **"Publish Deploy"**.
 
 ## 5. Como correr
 
