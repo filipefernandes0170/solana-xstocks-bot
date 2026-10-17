@@ -1,0 +1,5 @@
+# The site moved to onpar.site on 17 Oct 2026. Every link to the old Netlify address (including the bot's older
+# messages and the old /verify and /api links) goes to the same path there. Deploy addresses
+# (<deploy-id>--xstocks-tracker.netlify.app) are a different host and are not affected.
+https://xstocks-tracker.netlify.app/*  https://onpar.site/:splat  301!
+http://xstocks-tracker.netlify.app/*  https://onpar.site/:splat  301!
