@@ -4,7 +4,7 @@
 import { impactHint } from "./format";
 import { isSessionOpen } from "./session";
 import { AROUND_THE_CLOCK, NO_PRINT_UNDERLYING } from "./tokens";
-import type { Rebase, Verdict, VerdictId } from "./types";
+import type { Quote, Rebase, Verdict, VerdictId } from "./types";
 
 /** Percent difference of a versus b. */
 export function gapPct(a: number | null | undefined, b: number | null | undefined) {
@@ -23,6 +23,21 @@ export function buyUsable(at: number | null | undefined, now: number) {
   if (at == null || !Number.isFinite(at)) return false;
   const age = now - at;
   return age >= -60_000 && age <= 90_000;
+}
+
+/**
+ * Keeps the newest $1,000 buy per name across polled answers. Netlify can serve two copies of the function,
+ * each holding only the buys it quoted itself, so one answer may carry fewer; a buy already held stays while
+ * it is still usable (90 s) unless the new answer has a newer one. Every buy kept is a real quote with its time.
+ */
+export function mergeBuys(previous: Quote[], next: Quote[], now: number): Quote[] {
+  const held = new Map(previous.map((quote) => [quote.mint, quote]));
+  return next.map((quote) => {
+    const old = held.get(quote.mint);
+    if (!old || old.buyAt == null || !buyUsable(old.buyAt, now)) return quote;
+    if (quote.buyAt != null && quote.buyAt >= old.buyAt) return quote;
+    return { ...quote, buyPrice: old.buyPrice, buyImpactPct: old.buyImpactPct, buyAt: old.buyAt };
+  });
 }
 
 export type Legs = { pool: number | null; poolVersusIssuer: number | null; issuerVersusStock: number | null };

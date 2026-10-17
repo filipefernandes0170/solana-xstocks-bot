@@ -4,7 +4,7 @@ import { formatGap, formatPct, formatUsd } from "../../lib/format";
 import { etClock, isSessionOpen, sessionLabel, sessionLine, timeToOpen } from "../../lib/session";
 import { TOKENS } from "../../lib/tokens";
 import type { CryptoRow, HolderStatus, HoldingsResult, Offer, Quote } from "../../lib/types";
-import { buyUsable, gapPct, verdict } from "../../lib/verdict";
+import { buyUsable, gapPct, mergeBuys, verdict } from "../../lib/verdict";
 import { checkHolder, getHoldings, getOffers, getQuotes } from "../../server/functions";
 import { SiteFooter } from "../SiteFooter";
 import { Sky } from "../Sky";
@@ -219,7 +219,7 @@ export function Desk({
         lastPrices.current.set(quote.symbol, quote.usdPrice);
       }
       setFeedError(null);
-      setQuotes(result.quotes);
+      setQuotes((previous) => mergeBuys(previous, result.quotes, Date.now()));
       setAsOf(result.asOf);
       if (Object.keys(moved).length > 0) {
         setTicks(moved);
