@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://xstocks-tracker.netlify.app/</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/bot</loc></url>
   <url><loc>https://xstocks-tracker.netlify.app/portfolio</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/NVDAx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/TSLAx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/AAPLx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/SPYx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/QQQx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/MSFTx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/GOOGLx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/AMZNx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/METAx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/CRCLx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/MSTRx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/COINx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/GLDx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/SPCXx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/PLTRx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/AMDx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/HOODx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/NFLXx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/MCDx</loc></url>
 </urlset>

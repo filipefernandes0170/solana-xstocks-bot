@@ -1,0 +1,13 @@
+{
+  "name": "par-brand",
+  "private": true,
+  "type": "module",
+  "description": "Renders the Par logo, favicons, link previews and the bot avatar into site/public and tools/brand/out.",
+  "scripts": {
+    "images": "node make-images.mjs"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "qrcode": "1.5.4"
+  }
+}
