@@ -130,3 +130,10 @@ Variáveis do site (todas opcionais): `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `TOKE
    - **Backpack Securities:** 6 tokens novos (SPCX, MU, TTWO, SKHY, DJT, AMD), com os endereços confirmados pela API oficial da Backpack. No bot, `amd` continua a ser o AMDx e `amd.us` é o da Backpack.
    - **Pools pequenas:** AMDx e NFLXx deixam de ser cotadas na compra de $1,000 (pool abaixo de $25k); o cartão diz porquê.
    - É preciso atualizar a VM para o bot ter tudo isto.
+13. **Funcionalidades para quem tem $PAR (17 out 2026, sexta volta).** Descrito em `site/README.md` ("Holder features") e no `README.md`.
+   - **Prova da carteira:** no bot, `/hold` dá um botão para a página `/verify` do site. Aí a carteira assina uma mensagem simples (não é uma transação, não pode mover fundos). O bot confirma a assinatura e só então conta a carteira como "holder". Antes, qualquer pessoa podia escrever o endereço de outra e ter as funcionalidades de graça.
+   - **Alertas de tamanho:** `/sizealert NVDAx 5000` avisa quando uma compra desse tamanho está, no máximo, 0,4% acima da Nasdaq (só com a bolsa aberta, só para quem tem $PAR).
+   - **Alertas dos dois tokens:** `/pairs` mostra qual dos dois tokens da mesma empresa é mais barato; `/pairs on` avisa quando a diferença passa 0,5 pontos.
+   - **Imagens para partilhar:** em cada ação, o botão de partilha tem "Save image".
+   - Corrigido: os botões "Size" e "Watch" dos cartões dos tokens da Backpack no bot não faziam nada.
+   - Ordem para publicar: primeiro o site (o bot precisa da página `/api/proof`), depois a VM.

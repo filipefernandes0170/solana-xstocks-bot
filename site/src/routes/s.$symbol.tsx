@@ -9,6 +9,7 @@ import { BuyLink, ChangePill, GapMeter, MultiplierNote, TickerBadge, VerdictDeta
 import { meterWaiting, type DeskRow } from "../components/desk/StockCard";
 import { YieldPanel } from "../components/desk/YieldPanel";
 import { ShareButton } from "../components/ShareButton";
+import { drawCardImage } from "../components/share/cardImage";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteNav } from "../components/SiteNav";
 import { GapHistory } from "../components/stock/GapHistory";
@@ -175,7 +176,12 @@ function StockView({ data }: { data: StockData }) {
                 </div>
                 <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5">
                   <BuyLink mint={token.mint} symbol={token.symbol} />
-                  <ShareButton title={`${token.symbol} on Par`} text={cardShareText(token.symbol, row.gap, row.verdict.title)} url={stockUrl(token.symbol)} />
+                  <ShareButton
+                    title={`${token.symbol} on Par`}
+                    text={cardShareText(token.symbol, row.gap, row.verdict.title)}
+                    url={stockUrl(token.symbol)}
+                    image={{ name: `par-${token.symbol}.png`, make: () => drawCardImage(row, Date.now(), stockUrl(token.symbol)) }}
+                  />
                   <a href={watchLink([token.symbol])} className="inline-flex h-11 items-center gap-1.5 rounded-full bg-foam px-4 text-sm font-medium text-ink ring-1 ring-line">
                     <Send className="size-4" aria-hidden />
                     Watch in Telegram

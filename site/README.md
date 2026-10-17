@@ -77,6 +77,14 @@ A look at the competition (Stocks on Solana lists 2,011 tokenized stocks with th
 - **Backpack Securities:** six tokens beside the 19 xStocks: SPCX, MU, TTWO, SKHY, DJT and AMD. Every mint is the one Backpack's own exchange API lists under "<SYMBOL>.US" (`api.backpack.exchange/api/v1/assets`, checked 17 Oct 2026); all share Backpack's issuer authority on chain and trade about 1:1 with the share. Cards and pages name the issuer; when one company has two tokens (SpaceX, AMD) the name page compares the two $1,000 buys (`OtherTokens`).
 - **Thin pools:** a pool under $25,000 (`THIN_POOL_USD`; AMDx and NFLXx today) gets no $1,000 buy quote; its card says the pool is too thin instead of loading. That keeps the rotation at 23 quoted names, 6 refreshes.
 
+## Holder features (17 Oct 2026, sixth pass)
+
+Reasons to hold $PAR are tools for traders; none is a return on the coin.
+
+- **Wallet proof** (`/verify`, `lib/walletProof.ts`, `server/walletProof.ts`): the bot's /hold makes a one-time code (128 random bits) and a button to `/verify?n=<code>`. The wallet signs a plain-text message (Wallet Standard `solana:signMessage`) that names the site, says it is not a transaction and carries the code. `submitWalletProof` (POST) checks the Ed25519 signature and keeps { address, signature } in Netlify Blobs (store `wallet-proofs`) for 15 minutes; `/api/proof?n=<code>` hands it to the bot (never cached). "Back to Telegram" opens `?start=v-<code>`; the bot checks the signature itself and that the code is this user's, fresh and unused before it saves the wallet. Holder status now uses only a proven wallet, since anyone can type someone else's public address. On a phone without a wallet the page offers "Open in Phantom" and "Open in Solflare" (their own browse links). A wallet that answers for other bytes than the message is refused.
+- **Size alerts** and **two-token pings** live in the bot (see the root README); the site's /bot page and the desk's "Why hold $PAR" list them.
+- **Share images:** the Share menu on every card and name page has "Save image": the card drawn in the browser (`components/share/cardImage.ts`, 1200 × 675) with the verdict, both prices, the gap meter, a plain sentence and the time in UTC. Phones also get "Share…" for the system sheet. The ranking image uses the same helpers (`components/share/canvas.ts`).
+
 ## Run it
 
 ```bash
@@ -117,17 +125,17 @@ Safe order, with labels from Netlify's docs:
 ```
 src/
   routes/        __root.tsx (head, fonts, security headers, 404), index.tsx (desk + loader), bot.tsx, s.$symbol.tsx, portfolio.tsx,
-                 ranking.tsx, api.ranking.ts (JSON for the bot)
+                 ranking.tsx, api.ranking.ts (JSON for the bot), verify.tsx (wallet proof), api.proof.ts (proof for the bot)
   components/    Logo, Backdrop, SiteNav, SiteFooter, ShareButton, NotFound, bot/PhoneDemo, stock/* (GapHistory, IssuerPowers, OtherTokens),
-                 ranking/saveImage,
+                 ranking/saveImage, share/* (canvas, cardImage),
                  portfolio/* (RealPrice, BagMap, BagYield, BagEvents, WatchBag, BagPromise),
                  desk/* (Desk, HeroLines, Ticker, StatStrip, StockCard, StockList, SizeCheck, SizeSheet, crypto, gap chart, yield, glossary, why-hold)
   lib/           site (URL, titles, cache and security headers), brand (badge colours, gap scale), size, share, history, botText,
-                 useFavourites, useLiveQuotes, bag, treemap, issuer, ranking, tokens, types, format, session (Nasdaq clock), verdict,
+                 useFavourites, useLiveQuotes, bag, treemap, issuer, ranking, walletProof, tokens, types, format, session (Nasdaq clock), verdict,
                  wallet-standard, etf-holdings
-  server/        functions.ts (the 12 server functions) + jupiter (rate limiter), quotes, history (and the ranking), issuer, offers,
+  server/        functions.ts (the 13 server functions) + jupiter (rate limiter), quotes, history (and the ranking), issuer, walletProof, offers,
                  cryptos, solana, wallet, http
 netlify/functions/record-gaps.mts   the scheduled gap recorder
 tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts, portfolio.test.ts,
-                 launch.test.ts
+                 launch.test.ts, proof.test.ts, share.test.ts
 ```

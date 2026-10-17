@@ -1,4 +1,4 @@
-// The desk's twelve server functions. Handlers run only on the server (a Netlify Function in production);
+// The desk's thirteen server functions. Handlers run only on the server (a Netlify Function in production);
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
@@ -12,6 +12,7 @@ import { exitCheck, quotesResult, sizeCheck } from "./quotes";
 import { env } from "./http";
 import { walletInput } from "./solana";
 import { holderStatus, lookupHoldings, readPortfolio } from "./wallet";
+import { submitProof } from "./walletProof";
 
 /**
  * Public market data: every visitor gets the same answer, so Netlify's CDN may share it for a few seconds.
@@ -97,3 +98,15 @@ export const checkExit = createServerFn({ method: "POST" })
     return { symbol: typeof raw?.symbol === "string" ? raw.symbol : "", shares: typeof raw?.shares === "number" ? raw.shares : Number.NaN };
   })
   .handler(({ data }) => exitCheck(data.symbol, data.shares));
+
+/**
+ * Wallet proof for @ONPAR_BOT (/verify): a signature of the proof message. Checked here and kept for 15 minutes
+ * for the bot, which checks it again. POST, never cached. A message signature cannot move funds.
+ */
+export const submitWalletProof = createServerFn({ method: "POST" })
+  .validator((input: unknown) => {
+    const raw = input as { nonce?: unknown; address?: unknown; signature?: unknown } | undefined;
+    const text = (value: unknown) => (typeof value === "string" ? value.trim().slice(0, 200) : "");
+    return { nonce: text(raw?.nonce), address: text(raw?.address), signature: text(raw?.signature) };
+  })
+  .handler(({ data }) => submitProof(data));

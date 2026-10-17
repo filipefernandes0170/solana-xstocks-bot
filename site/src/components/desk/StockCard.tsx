@@ -5,6 +5,7 @@ import { formatUsd } from "../../lib/format";
 import { ISSUER_LABEL, TOKENS, TOKEN_BY_SYMBOL } from "../../lib/tokens";
 import { cardShareText, stockUrl } from "../../lib/share";
 import { ShareButton } from "../ShareButton";
+import { drawCardImage } from "../share/cardImage";
 import type { Quote, Verdict } from "../../lib/types";
 import { rebaseLine, verdictBarClass, verdictPillClass } from "../../lib/verdict";
 import { BuyLink, ChangePill, GapMeter, MultiplierNote, TickerBadge, VerdictDetail } from "./parts";
@@ -135,7 +136,13 @@ export function StockCard({
 
           <div className="mt-auto pt-3">
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3">
-              <ShareButton title={`${row.symbol} on Par`} text={cardShareText(row.symbol, row.gap, row.verdict.title)} url={stockUrl(row.symbol)} label="" />
+              <ShareButton
+                title={`${row.symbol} on Par`}
+                text={cardShareText(row.symbol, row.gap, row.verdict.title)}
+                url={stockUrl(row.symbol)}
+                label=""
+                image={{ name: `par-${row.symbol}.png`, make: () => drawCardImage(row, Date.now(), stockUrl(row.symbol)) }}
+              />
               <button
                 type="button"
                 onClick={() => onSize(row.symbol)}

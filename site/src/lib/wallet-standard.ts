@@ -1,5 +1,6 @@
 // Minimal Wallet Standard discovery for Solana wallets (Phantom, Solflare, Backpack, …).
-// Par only reads the public address: it never asks a wallet to sign or send anything.
+// Par reads the public address. The one signature it ever asks for is the plain-text message on /verify, which
+// proves a wallet is yours to @ONPAR_BOT. It never asks a wallet to sign or send a transaction.
 
 export const SOLANA_MAINNET = "solana:mainnet";
 const ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -16,6 +17,9 @@ export type StandardWallet = {
   features: Record<string, unknown> & {
     "standard:connect"?: { connect: () => Promise<{ accounts?: readonly StandardAccount[] }> };
     "standard:disconnect"?: { disconnect: () => Promise<void> };
+    "solana:signMessage"?: {
+      signMessage: (...inputs: { account: StandardAccount; message: Uint8Array }[]) => Promise<readonly { signedMessage: Uint8Array; signature: Uint8Array }[]>;
+    };
   };
 };
 
@@ -138,21 +142,57 @@ function withTimeout<T>(ms: number, promise: Promise<T>) {
   });
 }
 
-/** Asks the wallet for its mainnet addresses (up to 8). No signing. */
-export async function connectWallet(wallet: StandardWallet) {
+/** Asks the wallet for its mainnet accounts (up to 8). No signing. */
+export async function connectAccounts(wallet: StandardWallet) {
   const feature = wallet.features["standard:connect"];
   if (typeof feature?.connect !== "function") throw new Error("unavailable");
   const result = await withTimeout(15_000, feature.connect());
   const seen = new Set<string>();
-  const addresses: string[] = [];
+  const accounts: StandardAccount[] = [];
   for (const account of result?.accounts ?? []) {
-    if (addresses.length >= MAX_ACCOUNTS) break;
+    if (accounts.length >= MAX_ACCOUNTS) break;
     if (validAccount(account) && !seen.has(account.address)) {
       seen.add(account.address);
-      addresses.push(account.address);
+      accounts.push(account);
     }
   }
-  return addresses;
+  return accounts;
+}
+
+/** Asks the wallet for its mainnet addresses (up to 8). No signing. */
+export async function connectWallet(wallet: StandardWallet) {
+  return (await connectAccounts(wallet)).map((account) => account.address);
+}
+
+/** Whether the wallet can sign a plain message (Ledger, for one, cannot). */
+export function canSignMessage(wallet: StandardWallet) {
+  return typeof wallet.features["solana:signMessage"]?.signMessage === "function";
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array) {
+  return a.length === b.length && a.every((byte, index) => byte === b[index]);
+}
+
+/**
+ * Asks the wallet to sign `message` with `account` and returns the 64-byte signature. Refuses an answer for
+ * other bytes than the ones asked for, so a wallet cannot slip in a different text.
+ */
+export async function signMessage(wallet: StandardWallet, account: StandardAccount, message: Uint8Array) {
+  const feature = wallet.features["solana:signMessage"];
+  if (typeof feature?.signMessage !== "function") throw new Error("unsupported");
+  const [output] = await withTimeout(120_000, feature.signMessage({ account, message }));
+  if (!output || !(output.signature instanceof Uint8Array) || output.signature.length !== 64) throw new Error("no signature");
+  if (output.signedMessage instanceof Uint8Array && !sameBytes(output.signedMessage, message)) throw new Error("altered");
+  return output.signature;
+}
+
+/** Plain words for a failed signature request. */
+export function signError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (/reject|cancel|denied|closed|declin/i.test(message)) return "Signing cancelled. Nothing was signed.";
+  if (message === "unsupported") return "This wallet cannot sign messages. Try Phantom, Solflare or Backpack.";
+  if (message === "timeout") return "The wallet did not answer. Try again.";
+  return "The wallet did not sign. Try again, or use another wallet.";
 }
 
 export async function disconnectWallet(wallet: StandardWallet | null) {

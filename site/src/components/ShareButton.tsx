@@ -1,10 +1,14 @@
-import { Check, Copy, Send, Share2 } from "lucide-react";
+import { Check, Copy, ImageDown, Send, Share2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { telegramShareUrl, xShareUrl } from "../lib/share";
+import { downloadBlob } from "./share/canvas";
+
+export type ShareImage = { name: string; make: () => Promise<Blob | null> };
 
 /**
- * Share a name or a size check. On phones it opens the system share sheet; elsewhere a small menu with
- * copy link, X and Telegram. The text is built at the moment of sharing from the numbers on screen.
+ * Share a name, a size check or the ranking. Without a picture, phones get the system share sheet and other screens
+ * a small menu (copy, X, Telegram). With a picture, every screen gets the menu, so "Save image" is always one tap
+ * away; phones also get "Share…" for the system sheet. The text is built at the moment of sharing.
  */
 export function ShareButton({
   title,
@@ -12,16 +16,22 @@ export function ShareButton({
   url,
   tone = "light",
   label = "Share",
+  image,
 }: {
   title: string;
   text: string;
   url: string;
   tone?: "light" | "dark";
   label?: string;
+  image?: ShareImage;
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [canShare, setCanShare] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function"), []);
 
   useEffect(() => {
     if (!open) return;
@@ -38,7 +48,7 @@ export function ShareButton({
 
   async function start() {
     const touch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
-    if (touch && typeof navigator.share === "function") {
+    if (!image && touch && typeof navigator.share === "function") {
       try {
         await navigator.share({ title, text, url });
         return;
@@ -47,6 +57,27 @@ export function ShareButton({
       }
     }
     setOpen((value) => !value);
+  }
+
+  async function systemShare() {
+    try {
+      await navigator.share({ title, text, url });
+      setOpen(false);
+    } catch {
+      // Cancelled: the menu stays open.
+    }
+  }
+
+  async function saveImage() {
+    if (!image) return;
+    setSaving(true);
+    try {
+      const blob = await image.make();
+      if (blob) downloadBlob(blob, image.name);
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function copy() {
@@ -76,6 +107,18 @@ export function ShareButton({
       </button>
       {open ? (
         <div role="menu" className="panel absolute bottom-full right-0 z-40 mb-2 w-56 p-1.5 ring-1 ring-line">
+          {image && canShare ? (
+            <button type="button" role="menuitem" onClick={() => void systemShare()} className={item}>
+              <Share2 className="size-4" aria-hidden />
+              Share…
+            </button>
+          ) : null}
+          {image ? (
+            <button type="button" role="menuitem" disabled={saving} onClick={() => void saveImage()} className={`${item} disabled:opacity-60`}>
+              <ImageDown className="size-4" aria-hidden />
+              {saving ? "Drawing…" : "Save image"}
+            </button>
+          ) : null}
           <button type="button" role="menuitem" onClick={() => void copy()} className={item}>
             {copied ? <Check className="size-4 text-pine" aria-hidden /> : <Copy className="size-4" aria-hidden />}
             {copied ? "Copied" : "Copy text and link"}

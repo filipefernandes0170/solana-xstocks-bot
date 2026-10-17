@@ -1,4 +1,4 @@
-import { BellRing, Briefcase, Send, Sunrise, Zap } from "lucide-react";
+import { ArrowLeftRight, BellRing, Briefcase, Send, Sunrise, Target, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import type { HolderStatus } from "../../lib/types";
 
@@ -19,9 +19,20 @@ const PERKS: { icon: ReactNode; title: string; line: string; tag?: string }[] = 
     line: "A text the moment a name you watch turns Fair, and when one trades rich while Nasdaq is closed.",
   },
   {
+    icon: <Target className="size-5" aria-hidden />,
+    title: "Size alerts",
+    tag: "New",
+    line: "A text when your own order size, not just $1,000, is within 0.4% of the Nasdaq print.",
+  },
+  {
+    icon: <ArrowLeftRight className="size-5" aria-hidden />,
+    title: "Two-token pings",
+    tag: "New",
+    line: "A text when one token of a company is 0.5 points cheaper to buy than the other.",
+  },
+  {
     icon: <Sunrise className="size-5" aria-hidden />,
     title: "Morning brief",
-    tag: "New",
     line: "Before the open on weekdays: the overnight gaps, the names closest to fair, and today's balance changes.",
   },
   {
@@ -59,9 +70,10 @@ export function WhyHold({
         The desk is free. The texts are for holders.
       </h2>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-mist">
-        Everything on this page stays free. @ONPAR_BOT sends these to any wallet that holds the coin, and stops when it no longer does.
+        Everything on this page stays free. @ONPAR_BOT sends these to holders who prove their wallet once with /hold (one signed message,
+        not a transaction), and stops when the wallet no longer holds the coin.
       </p>
-      <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {PERKS.map((perk) => (
           <li key={perk.title} className="rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/10">
             <div className="flex items-center justify-between gap-2">

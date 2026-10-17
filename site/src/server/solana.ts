@@ -9,10 +9,10 @@ const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 export const BAD_ADDRESS = "That does not look like a Solana address.";
 
-/** True for a base58 string that decodes to exactly 32 bytes (a Solana public key). */
-export function isSolanaAddress(value: string) {
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
-  let bytes: number[] = [];
+/** The bytes of a base58 string, most significant first; null when it has a character outside base58. */
+export function base58Decode(value: string): Uint8Array | null {
+  if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(value)) return null;
+  const bytes: number[] = [];
   for (const char of value) {
     let carry = BASE58.indexOf(char);
     for (let i = 0; i < bytes.length; i++) {
@@ -29,7 +29,12 @@ export function isSolanaAddress(value: string) {
     if (char !== "1") break;
     bytes.push(0);
   }
-  return bytes.length === 32;
+  return Uint8Array.from(bytes.reverse());
+}
+
+/** True for a base58 string that decodes to exactly 32 bytes (a Solana public key). */
+export function isSolanaAddress(value: string) {
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value) && base58Decode(value)?.length === 32;
 }
 
 /** An error's text for the server log, with anything that looks like an address blanked out. */

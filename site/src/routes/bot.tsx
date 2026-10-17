@@ -1,5 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BellRing, Briefcase, Check, LineChart, MessageSquare, Percent, QrCode, Ruler, Send, ShieldCheck, Sunrise, Wallet, Zap } from "lucide-react";
+import {
+  ArrowLeftRight,
+  BellRing,
+  Briefcase,
+  Check,
+  LineChart,
+  MessageSquare,
+  Percent,
+  QrCode,
+  Ruler,
+  Send,
+  ShieldCheck,
+  Sunrise,
+  Target,
+  Wallet,
+  Zap,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { Backdrop } from "../components/Backdrop";
 import { PhoneDemo } from "../components/bot/PhoneDemo";
@@ -41,7 +57,7 @@ export const Route = createFileRoute("/bot")({
 const STEPS = [
   { title: "Open @ONPAR_BOT", line: "Tap the button, then Start in Telegram. No sign-up, no wallet connection." },
   { title: "Send a name", line: "nvda, tesla or spy. You get the live card: the buy, Nasdaq, the gap and the verdict." },
-  { title: "Turn on the texts", line: "/watch a name, /brief for the morning and /bell for the open. They need $PAR in your wallet." },
+  { title: "Turn on the texts", line: "Prove your $PAR wallet once with /hold, then /watch a name, /sizealert your order, /brief and /bell." },
 ];
 
 const FREE: { icon: ReactNode; title: string; line: string }[] = [
@@ -50,10 +66,13 @@ const FREE: { icon: ReactNode; title: string; line: string }[] = [
   { icon: <Ruler className="size-5" aria-hidden />, title: "/size NVDAx 5000", line: "What your order really costs per share, from a live quote at that size." },
   { icon: <Wallet className="size-5" aria-hidden />, title: "/portfolio", line: "Paste a wallet to see its stock tokens, valued per share. Par only reads." },
   { icon: <Percent className="size-5" aria-hidden />, title: "/yield", line: "Live lending rates on Kamino for each name." },
+  { icon: <ArrowLeftRight className="size-5" aria-hidden />, title: "/pairs", line: "Same company, two tokens: which $1,000 buy is cheaper right now." },
 ];
 
 const HOLDERS: { icon: ReactNode; title: string; line: string }[] = [
   { icon: <Zap className="size-5" aria-hidden />, title: "Fair pings", line: "A text the moment a name you watch turns Fair, and when one trades rich while Nasdaq is closed." },
+  { icon: <Target className="size-5" aria-hidden />, title: "Size alerts", line: "A text when your own order size, not just $1,000, is within 0.4% of the Nasdaq print." },
+  { icon: <ArrowLeftRight className="size-5" aria-hidden />, title: "Two-token pings", line: "A text when one token of a company is 0.5 points cheaper to buy than the other." },
   { icon: <Sunrise className="size-5" aria-hidden />, title: "Morning brief", line: "Before the open on trading days: what is dearest and cheapest to buy, and today's balance changes." },
   { icon: <BellRing className="size-5" aria-hidden />, title: "Open bell", line: "One message as Nasdaq opens, with whatever is Fair and a Buy button for each." },
   { icon: <Briefcase className="size-5" aria-hidden />, title: "Bag watch", line: "A note when a stock in your wallet changes verdict, or its pool gets thin." },
@@ -64,12 +83,14 @@ const COMMANDS: [string, string][] = [
   ["/size NVDAx 5000", "Your order, per share"],
   ["/portfolio", "Your stock-token bag"],
   ["/week", "This week's ranking"],
+  ["/pairs", "Same company, two tokens"],
+  ["/sizealert NVDAx 5000", "A text when your size is fair"],
   ["/watch NVDAx", "Ping when it turns Fair"],
   ["/brief", "Morning brief on or off"],
   ["/bell", "Open bell on or off"],
   ["/yield NVDAx", "Lending rates"],
   ["/alert NVDAx up 5", "A one-off move alert"],
-  ["/hold <wallet>", "The wallet that holds $PAR"],
+  ["/hold", "Prove the wallet that holds $PAR"],
   ["/help", "How Par works"],
 ];
 
@@ -82,10 +103,19 @@ const VERDICTS: { id: "fair" | "near" | "overnight" | "wait" | "split"; emoji: s
 ];
 
 const questions = (coinLive: boolean): [string, string][] => [
-  ["Is it safe?", "Par never asks for a private key or a seed phrase, never asks you to sign anything, and never holds funds. It reads public balances and prices. Buy opens Jupiter, where you trade yourself."],
-  ["Does it cost anything?", "No. Par takes no fee. Cards, /prices, /size, /portfolio and /yield are free for everyone. The texts need $PAR in the wallet you give the bot: you hold it, you do not pay it."],
+  [
+    "Is it safe?",
+    "Par never asks for a private key or a seed phrase, never asks you to sign a transaction, and never holds funds. To prove a wallet holds $PAR you sign one plain message, which cannot move funds. Buy opens Jupiter, where you trade yourself.",
+  ],
+  [
+    "Does it cost anything?",
+    "No. Par takes no fee. Cards, /prices, /size, /portfolio, /pairs, /week and /yield are free for everyone. The texts need $PAR in a wallet you prove with /hold: you hold it, you do not pay it.",
+  ],
   coinLive
-    ? ["How does the bot know I hold $PAR?", "You paste the wallet that holds it, or send /hold with that address. The bot reads the balance on chain; it never moves anything."]
+    ? [
+        "How does the bot know I hold $PAR?",
+        "Send /hold. It gives you a link where your wallet signs one plain message to show it is yours. A typed address proves nothing, so the bot does not take one. Then it reads the balance on chain; it never moves anything.",
+      ]
     : ["Is $PAR live?", "Not yet. Until it is, the holder texts stay off and the bot says so. Everything else works today."],
   ["Where do the numbers come from?", "Token prices and buy quotes from Jupiter, stock prints from Nasdaq, lending rates from Kamino. Every number is live; none is made up."],
   ["Is this financial advice?", "No. Par shows whether a price matches the stock. Prices can be late or wrong, so check before you trade."],
