@@ -18,7 +18,8 @@ export type DeskQuote = VerdictInput & {
 };
 
 
-type MintInfo = { rebase: Rebase | null; decimals: number | null; multiplier: number | null };
+/** `paused`: the issuer has paused every transfer (Token-2022 pausable extension); null when the mint was not read. */
+type MintInfo = { rebase: Rebase | null; decimals: number | null; multiplier: number | null; paused: boolean | null };
 
 let cache: { at: number; quotes: DeskQuote[] } | null = null;
 type StockPrint = { price: number; state: string };
@@ -47,8 +48,9 @@ export function buysReady() {
   return firstBuyRoundDone;
 }
 
+// Every mint in one call, kept 5 minutes: multipliers rarely change, and a pause is noticed within minutes.
 async function mintRebases() {
-  if (rebaseCache && Date.now() - rebaseCache.at < 10 * 60_000) return rebaseCache.rows;
+  if (rebaseCache && Date.now() - rebaseCache.at < 5 * 60_000) return rebaseCache.rows;
   const urls = [config.rpcUrl, "https://api.mainnet-beta.solana.com"];
   for (const url of urls) {
     try {
@@ -74,6 +76,7 @@ async function mintRebases() {
                       multiplier?: string;
                       newMultiplier?: string;
                       newMultiplierEffectiveTimestamp?: number;
+                      paused?: boolean;
                     };
                   }>;
                 };
@@ -87,10 +90,13 @@ async function mintRebases() {
       TOKENIZED_STOCKS.forEach((token, index) => {
         const info = value[index]?.data?.parsed?.info;
         const scaled = info?.extensions?.find((ext) => ext.extension === "scaledUiAmountConfig")?.state;
+        const pausable = info?.extensions?.find((ext) => ext.extension === "pausableConfig")?.state;
         rows.set(token.mint, {
           rebase: pendingRebase(scaled, nowSec),
           decimals: typeof info?.decimals === "number" ? info.decimals : null,
           multiplier: info ? currentMultiplier(scaled, nowSec) : null,
+          // A mint without the pause extension cannot be paused.
+          paused: info ? pausable?.paused === true : null,
         });
       });
       rebaseCache = { at: Date.now(), rows };
@@ -100,6 +106,12 @@ async function mintRebases() {
     }
   }
   return rebaseCache?.rows ?? new Map();
+}
+
+/** Whether each token's transfers are paused on chain, by symbol; null for a mint that could not be read. */
+export async function pauseFlags(): Promise<Map<string, boolean | null>> {
+  const rows = await mintRebases();
+  return new Map(TOKENIZED_STOCKS.map((token) => [token.symbol, rows.get(token.mint)?.paused ?? null]));
 }
 
 async function jupiterMap() {

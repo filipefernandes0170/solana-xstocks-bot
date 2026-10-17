@@ -11,9 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BotRouteImport } from './routes/bot'
+import { Route as EventsRouteImport } from './routes/events'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as RankingRouteImport } from './routes/ranking'
 import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as ApiEventsRouteImport } from './routes/api.events'
 import { Route as ApiProofRouteImport } from './routes/api.proof'
 import { Route as ApiRankingRouteImport } from './routes/api.ranking'
 import { Route as SSymbolRouteImport } from './routes/s.$symbol'
@@ -26,6 +28,11 @@ const IndexRoute = IndexRouteImport.update({
 const BotRoute = BotRouteImport.update({
   id: '/bot',
   path: '/bot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortfolioRoute = PortfolioRouteImport.update({
@@ -41,6 +48,11 @@ const RankingRoute = RankingRouteImport.update({
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEventsRoute = ApiEventsRouteImport.update({
+  id: '/api/events',
+  path: '/api/events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiProofRoute = ApiProofRouteImport.update({
@@ -62,9 +74,11 @@ const SSymbolRoute = SSymbolRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bot': typeof BotRoute
+  '/events': typeof EventsRoute
   '/portfolio': typeof PortfolioRoute
   '/ranking': typeof RankingRoute
   '/verify': typeof VerifyRoute
+  '/api/events': typeof ApiEventsRoute
   '/api/proof': typeof ApiProofRoute
   '/api/ranking': typeof ApiRankingRoute
   '/s/$symbol': typeof SSymbolRoute
@@ -72,9 +86,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bot': typeof BotRoute
+  '/events': typeof EventsRoute
   '/portfolio': typeof PortfolioRoute
   '/ranking': typeof RankingRoute
   '/verify': typeof VerifyRoute
+  '/api/events': typeof ApiEventsRoute
   '/api/proof': typeof ApiProofRoute
   '/api/ranking': typeof ApiRankingRoute
   '/s/$symbol': typeof SSymbolRoute
@@ -83,9 +99,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/bot': typeof BotRoute
+  '/events': typeof EventsRoute
   '/portfolio': typeof PortfolioRoute
   '/ranking': typeof RankingRoute
   '/verify': typeof VerifyRoute
+  '/api/events': typeof ApiEventsRoute
   '/api/proof': typeof ApiProofRoute
   '/api/ranking': typeof ApiRankingRoute
   '/s/$symbol': typeof SSymbolRoute
@@ -95,9 +113,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/bot'
+    | '/events'
     | '/portfolio'
     | '/ranking'
     | '/verify'
+    | '/api/events'
     | '/api/proof'
     | '/api/ranking'
     | '/s/$symbol'
@@ -105,9 +125,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/bot'
+    | '/events'
     | '/portfolio'
     | '/ranking'
     | '/verify'
+    | '/api/events'
     | '/api/proof'
     | '/api/ranking'
     | '/s/$symbol'
@@ -115,9 +137,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/bot'
+    | '/events'
     | '/portfolio'
     | '/ranking'
     | '/verify'
+    | '/api/events'
     | '/api/proof'
     | '/api/ranking'
     | '/s/$symbol'
@@ -126,9 +150,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BotRoute: typeof BotRoute
+  EventsRoute: typeof EventsRoute
   PortfolioRoute: typeof PortfolioRoute
   RankingRoute: typeof RankingRoute
   VerifyRoute: typeof VerifyRoute
+  ApiEventsRoute: typeof ApiEventsRoute
   ApiProofRoute: typeof ApiProofRoute
   ApiRankingRoute: typeof ApiRankingRoute
   SSymbolRoute: typeof SSymbolRoute
@@ -150,6 +176,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BotRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/portfolio': {
       id: '/portfolio'
       path: '/portfolio'
@@ -169,6 +202,13 @@ declare module '@tanstack/react-router' {
       path: '/verify'
       fullPath: '/verify'
       preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/events': {
+      id: '/api/events'
+      path: '/api/events'
+      fullPath: '/api/events'
+      preLoaderRoute: typeof ApiEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/proof': {
@@ -198,9 +238,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BotRoute: BotRoute,
+  EventsRoute: EventsRoute,
   PortfolioRoute: PortfolioRoute,
   RankingRoute: RankingRoute,
   VerifyRoute: VerifyRoute,
+  ApiEventsRoute: ApiEventsRoute,
   ApiProofRoute: ApiProofRoute,
   ApiRankingRoute: ApiRankingRoute,
   SSymbolRoute: SSymbolRoute,

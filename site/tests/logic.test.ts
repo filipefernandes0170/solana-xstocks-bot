@@ -14,6 +14,7 @@ import {
   multiplierLabel,
   perSharePrice,
 } from "../src/lib/format";
+import { addDays, marketDay, nyDate } from "../src/lib/calendar";
 import { etClock, nextOpen, sessionLabel, sessionLine, timeToOpen, utcStamp } from "../src/lib/session";
 import { verdict } from "../src/lib/verdict";
 
@@ -34,7 +35,14 @@ test("formatters match the published desk", () => {
 });
 
 test("session clock matches the published desk", () => {
-  for (const s of golden.sessions) {
+  // The published desk did not know market holidays, so cases that touch one are checked in the holiday tests instead.
+  const touchesHoliday = (s: { t: number; nextOpen: number }) => {
+    for (let day = nyDate(s.t); day <= nyDate(s.nextOpen); day = addDays(day, 1)) if (marketDay(day)) return true;
+    return false;
+  };
+  const cases = golden.sessions.filter((s: { t: number; nextOpen: number }) => !touchesHoliday(s));
+  assert.ok(cases.length >= 100, `only ${cases.length} cases left`);
+  for (const s of cases) {
     assert.equal(nextOpen(s.t), s.nextOpen, `nextOpen(${s.t})`);
     assert.equal(timeToOpen(s.t), s.toOpen, `timeToOpen(${s.t})`);
     assert.equal(sessionLine(s.state, s.t), s.line, `sessionLine(${s.state}, ${s.t})`);

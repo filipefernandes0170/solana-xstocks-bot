@@ -85,6 +85,15 @@ Reasons to hold $PAR are tools for traders; none is a return on the coin.
 - **Size alerts** and **two-token pings** live in the bot (see the root README); the site's /bot page and the desk's "Why hold $PAR" list them.
 - **Share images:** the Share menu on every card and name page has "Save image": the card drawn in the browser (`components/share/cardImage.ts`, 1200 × 675) with the verdict, both prices, the gap meter, a plain sentence and the time in UTC. Phones also get "Share…" for the system sheet. The ranking image uses the same helpers (`components/share/canvas.ts`).
 
+## Events (17 Oct 2026, seventh pass)
+
+- **The page** (`/events`, `lib/events.ts`, `server/events.ts`): a timeline grouped by New York day, "Coming up" and "Last 14 days", with four cards on top (next day off, next balance change, transfers, latest key filing), filters (kind, company, favourites, key filings only) and a legend. Each item has its time (ET) and a link to its source. `?name=NVDAx` opens it on one company; every name page links there.
+- **SEC filings:** each company's list from `data.sec.gov/submissions` (fast), then each new filing's header file (`.hdr.sgml`, about 1 KB) for the exact time the SEC accepted it. The submissions JSON's own acceptance times were not used: on 17 Oct 2026 some were four hours off the filing pages. The per-company Atom feed (`cgi-bin/browse-edgar`) was tried and dropped: it took 10 to 60 seconds an answer. User-Agent `Par desk https://xstocks-tracker.netlify.app`, at most 5 requests a second, 10 lists and 12 headers a call, kept in Netlify Blobs (store `events`, key `sec-filings`); a list is read again after 5 minutes. CIKs come from `sec.gov/files/company_tickers.json` (`SEC_CIK`); SPY, QQQ and GLD are funds and have none. Shown: 8-K (named by its most consequential item), 6-K, 10-Q, 10-K, 20-F, S-1, F-1, S-4, F-4, DEF 14A and amendments. Insider trades, prospectus supplements and merger letters are left out. "Key" (texted by the bot): 8-K items 1.01, 1.02, 1.03, 1.05, 2.01, 2.02, 2.05, 2.06, 3.01, 4.02, 5.01, 5.02, and 6-K.
+- **On chain:** one `getMultipleAccounts` for every mint (kept 2 minutes): `scaledUiAmountConfig` gives balance changes ahead and those of the last 14 days, `pausableConfig.paused` gives pauses.
+- **Market days:** `lib/calendar.ts`, Nasdaq's 2026 schedule and NYSE's 2027–2028 list (the bot keeps the same list; a bot test compares them, and a site test fails when fewer than 12 months are left). The Nasdaq clock (`lib/session.ts`) now skips holidays and knows the 1:00 PM early closes.
+- `/api/events` serves the same list as JSON for the bot (CDN: 60 s, stale up to 120 s).
+- **/bot** now explains how the bot works and every feature, with its commands.
+
 ## Run it
 
 ```bash
@@ -125,17 +134,19 @@ Safe order, with labels from Netlify's docs:
 ```
 src/
   routes/        __root.tsx (head, fonts, security headers, 404), index.tsx (desk + loader), bot.tsx, s.$symbol.tsx, portfolio.tsx,
-                 ranking.tsx, api.ranking.ts (JSON for the bot), verify.tsx (wallet proof), api.proof.ts (proof for the bot)
+                 ranking.tsx, api.ranking.ts (JSON for the bot), verify.tsx (wallet proof), api.proof.ts (proof for the bot),
+                 events.tsx, api.events.ts (JSON for the bot)
   components/    Logo, Backdrop, SiteNav, SiteFooter, ShareButton, NotFound, bot/PhoneDemo, stock/* (GapHistory, IssuerPowers, OtherTokens),
                  ranking/saveImage, share/* (canvas, cardImage),
                  portfolio/* (RealPrice, BagMap, BagYield, BagEvents, WatchBag, BagPromise),
                  desk/* (Desk, HeroLines, Ticker, StatStrip, StockCard, StockList, SizeCheck, SizeSheet, crypto, gap chart, yield, glossary, why-hold)
   lib/           site (URL, titles, cache and security headers), brand (badge colours, gap scale), size, share, history, botText,
                  useFavourites, useLiveQuotes, bag, treemap, issuer, ranking, walletProof, tokens, types, format, session (Nasdaq clock), verdict,
+                 calendar (market days), events (SEC, mints, timeline),
                  wallet-standard, etf-holdings
-  server/        functions.ts (the 13 server functions) + jupiter (rate limiter), quotes, history (and the ranking), issuer, walletProof, offers,
+  server/        functions.ts (the 14 server functions) + jupiter (rate limiter), quotes, history (and the ranking), issuer, walletProof, events, offers,
                  cryptos, solana, wallet, http
 netlify/functions/record-gaps.mts   the scheduled gap recorder
 tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts, portfolio.test.ts,
-                 launch.test.ts, proof.test.ts, share.test.ts
+                 launch.test.ts, proof.test.ts, share.test.ts, events.test.ts
 ```

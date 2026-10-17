@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BellRing, Briefcase, Send, Sunrise, Target, Zap } from "lucide-react";
+import { ArrowLeftRight, Briefcase, CalendarDays, Send, Sunrise, Target, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import type { HolderStatus } from "../../lib/types";
 
@@ -31,14 +31,15 @@ const PERKS: { icon: ReactNode; title: string; line: string; tag?: string }[] = 
     line: "A text when one token of a company is 0.5 points cheaper to buy than the other.",
   },
   {
-    icon: <Sunrise className="size-5" aria-hidden />,
-    title: "Morning brief",
-    line: "Before the open on weekdays: the overnight gaps, the names closest to fair, and today's balance changes.",
+    icon: <CalendarDays className="size-5" aria-hidden />,
+    title: "Event texts",
+    tag: "New",
+    line: "Key SEC filings for the names you hold or watch, at most 5 a day, and an alert at once if a token's transfers are paused.",
   },
   {
-    icon: <BellRing className="size-5" aria-hidden />,
-    title: "Open bell",
-    line: "One message as Nasdaq opens, with whatever is Fair and a Buy button for each.",
+    icon: <Sunrise className="size-5" aria-hidden />,
+    title: "Brief and bell",
+    line: "Before the open on trading days, the overnight gaps and today's balance changes; as Nasdaq opens, whatever is Fair.",
   },
   {
     icon: <Briefcase className="size-5" aria-hidden />,

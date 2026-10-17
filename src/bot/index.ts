@@ -9,6 +9,7 @@ import { bellCommand } from "./commands/bell.js";
 import { briefCommand, briefReply } from "./commands/brief.js";
 import { sendCard } from "./commands/card.js";
 import { helpCommand } from "./commands/help.js";
+import { eventsCommand } from "./commands/events.js";
 import { confirmProof, holdCommand } from "./commands/hold.js";
 import { portfolioCommand } from "./commands/portfolio.js";
 import { pricesCommand } from "./commands/prices.js";
@@ -23,6 +24,7 @@ import { yieldCommand } from "./commands/yield.js";
 /** The command list Telegram shows in the menu next to the message box. */
 export const MENU_COMMANDS = [
   { command: "prices", description: "The whole desk: verdicts, prices and gaps" },
+  { command: "events", description: "Market days off, balance changes and SEC filings" },
   { command: "week", description: "This week's ranking: who stayed at the real price" },
   { command: "pairs", description: "Same company, two tokens: which is cheaper" },
   { command: "sizealert", description: "A text when your order size is at the real price ($PAR holders)" },
@@ -46,6 +48,7 @@ export function createBot() {
   bot.command("p", portfolioCommand);
   bot.command("prices", pricesCommand);
   bot.command("week", weekCommand);
+  bot.command("events", eventsCommand);
   bot.command("pairs", pairsCommand);
   bot.command("sizealert", sizeAlertCommand);
   bot.command("size", sizeCommand);

@@ -8,7 +8,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "node --import tsx --test src/services/verdict.test.ts src/services/nasdaq.test.ts src/services/jupiter.test.ts src/services/features.test.ts"
+    "test": "node --import tsx --test src/services/verdict.test.ts src/services/nasdaq.test.ts src/services/jupiter.test.ts src/services/features.test.ts src/services/events.test.ts"
   },
   "keywords": ["solana", "telegram", "xstocks", "rwa", "tokenized-stocks"],
   "license": "MIT",

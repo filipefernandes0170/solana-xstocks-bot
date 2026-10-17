@@ -4,6 +4,13 @@ import { config } from "../config/index.js";
 import {
   activeSizeAlerts,
   bellAlreadySent,
+  eventAlreadySent,
+  eventRecipients,
+  eventsSentOn,
+  getPauseStates,
+  markEventSent,
+  pruneEventLog,
+  savePauseState,
   briefAlreadySent,
   deactivateSizeAlert,
   markPairSent,
@@ -24,7 +31,19 @@ import {
   type UserRow,
 } from "../db/index.js";
 import { getTokenizedStockHoldings } from "./solana.js";
-import { buysReady, getDeskQuotes, sizeQuote, type DeskQuote } from "./desk.js";
+import { buysReady, getDeskQuotes, pauseFlags, sizeQuote, type DeskQuote } from "./desk.js";
+import { addDays } from "./calendar.js";
+import {
+  EVENT_TEXTS_PER_DAY,
+  fetchSiteFilings,
+  filingKeyboard,
+  filingText,
+  filingsToText,
+  mintKeyboard,
+  pauseText,
+  resumeText,
+} from "./events.js";
+import { SYMBOL_TO_TOKEN } from "../config/tokens.js";
 import { holderWallet, walletsHolding } from "./holder.js";
 import {
   bagText,
@@ -244,6 +263,131 @@ async function sendWeekly(bot: Telegraf, now: number) {
     await send(bot, config.briefChannelId, weekText(ranking), weekKeyboard());
   } catch (err) {
     console.warn("Ranking channel post failed:", (err as Error).message);
+  }
+}
+
+let eventsRunning = false;
+let lastPrune = 0;
+
+/**
+ * Every few minutes, for proven $PAR holders: a pause alert the moment a token they hold or watch stops transfers
+ * on chain (and a "resumed" text after), then key SEC filings for those names, at most EVENT_TEXTS_PER_DAY a day.
+ * The pause state is tracked even when no one is listening, so an old change is never sent late.
+ */
+export async function checkEvents(bot: Telegraf) {
+  if (eventsRunning) return;
+  eventsRunning = true;
+  try {
+    const now = Date.now();
+    const day = etDay(now);
+    const users = listPingUsers();
+    const proven = users.filter((user) => holderWallet(user));
+    const holding = await walletsHolding(proven.map(holderWallet));
+    const holders = proven.filter((user) => holding.has(holderWallet(user)));
+
+    const watched = new Map<number, string[]>();
+    for (const watch of listAllWatches()) watched.set(watch.telegram_id, [...(watched.get(watch.telegram_id) ?? []), watch.symbol]);
+    // The names a holder follows: the watch list, and the stock tokens in the bag wallet and the proven wallet.
+    // Read only when something is due, and once per run.
+    const follows = new Map<number, { all: boolean; symbols: Set<string> }>();
+    const followed = async (user: UserRow) => {
+      const known = follows.get(user.telegram_id);
+      if (known) return known;
+      const list = watched.get(user.telegram_id) ?? [];
+      const result = { all: list.includes("ALL"), symbols: new Set(list.filter((symbol) => symbol !== "ALL")) };
+      if (!result.all) {
+        for (const wallet of new Set([user.wallet, user.verified_wallet].filter((w): w is string => !!w))) {
+          try {
+            for (const [symbol, amount] of await bagHoldings(wallet)) if (amount > 0) result.symbols.add(symbol);
+          } catch (err) {
+            console.warn("Event bag read failed", user.telegram_id, (err as Error).message);
+          }
+        }
+      }
+      follows.set(user.telegram_id, result);
+      return result;
+    };
+
+    await pausePings(bot, holders, followed, now, day).catch((err) => console.warn("Pause alerts failed:", (err as Error).message));
+    await filingPings(bot, holders, followed, now, day).catch((err) => console.warn("Filing texts failed:", (err as Error).message));
+    if (now - lastPrune > 24 * 3600_000) {
+      pruneEventLog(addDays(day, -30));
+      lastPrune = now;
+    }
+  } catch (err) {
+    console.error("Event check failed:", err);
+  } finally {
+    eventsRunning = false;
+  }
+}
+
+type Followed = (user: UserRow) => Promise<{ all: boolean; symbols: Set<string> }>;
+
+async function pausePings(bot: Telegraf, holders: UserRow[], followed: Followed, now: number, day: string) {
+  const flags = await pauseFlags();
+  const states = getPauseStates();
+  for (const [symbol, paused] of flags) {
+    if (paused == null) continue;
+    const row = states.get(symbol);
+    // The first reading only records the state: nothing changed that anyone was told about.
+    if (!row) {
+      savePauseState(symbol, paused, now);
+      continue;
+    }
+    if ((row.paused === 1) === paused) continue;
+    savePauseState(symbol, paused, now);
+    const mint = SYMBOL_TO_TOKEN.get(symbol.toUpperCase())?.mint;
+    if (paused) {
+      const eventId = `pause:${symbol}:${now}`;
+      for (const user of holders) {
+        const follows = await followed(user);
+        if (!follows.all && !follows.symbols.has(symbol)) continue;
+        try {
+          await send(bot, user.telegram_id, pauseText(symbol), mint ? mintKeyboard(mint) : undefined);
+        } catch (err) {
+          console.warn("Pause alert failed", user.telegram_id, (err as Error).message);
+        }
+        markEventSent(user.telegram_id, eventId, day, false);
+      }
+    } else {
+      // Everyone told about the pause hears that it lifted, holder or not.
+      for (const telegramId of eventRecipients(`pause:${symbol}:${row.since}`)) {
+        try {
+          await send(bot, telegramId, resumeText(symbol));
+        } catch (err) {
+          console.warn("Resume text failed", telegramId, (err as Error).message);
+        }
+        markEventSent(telegramId, `resume:${symbol}:${now}`, day, false);
+      }
+    }
+  }
+}
+
+async function filingPings(bot: Telegraf, holders: UserRow[], followed: Followed, now: number, day: string) {
+  const listeners = holders.filter((user) => user.events !== 0);
+  if (listeners.length === 0) return;
+  const filings = await fetchSiteFilings();
+  if (!filings) return;
+  const due = filingsToText(filings, now);
+  if (due.length === 0) return;
+  for (const user of listeners) {
+    let sent = eventsSentOn(user.telegram_id, day);
+    for (const filing of due) {
+      if (sent >= EVENT_TEXTS_PER_DAY) break;
+      if (eventAlreadySent(user.telegram_id, filing.id)) continue;
+      const follows = await followed(user);
+      if (!follows.all && !filing.symbols.some((symbol) => follows.symbols.has(symbol))) continue;
+      let delivered = false;
+      try {
+        await send(bot, user.telegram_id, filingText(filing), filingKeyboard(filing));
+        delivered = true;
+        sent += 1;
+      } catch (err) {
+        console.warn("Filing text failed", user.telegram_id, (err as Error).message);
+      }
+      // Marked either way, so a blocked chat is not retried every few minutes; only delivered texts count.
+      markEventSent(user.telegram_id, filing.id, day, delivered);
+    }
   }
 }
 

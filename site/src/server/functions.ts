@@ -1,10 +1,11 @@
-// The desk's thirteen server functions. Handlers run only on the server (a Netlify Function in production);
+// The desk's fourteen server functions. Handlers run only on the server (a Netlify Function in production);
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
-import { PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE } from "../lib/site";
+import { EVENTS_CACHE, PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE } from "../lib/site";
 import { cryptosResult } from "./cryptos";
+import { eventsResult } from "./events";
 import { historyResult, rankingResult } from "./history";
 import { issuerResult } from "./issuer";
 import { offersResult } from "./offers";
@@ -56,6 +57,12 @@ export const getIssuer = createServerFn({ method: "GET" })
     setResponseHeader("Netlify-CDN-Cache-Control", STATIC_PAGE_CACHE);
     return issuerResult(data.symbol);
   });
+
+/** Filings, balance changes, pauses and market days for /events. Shared by the CDN for a minute. */
+export const getEvents = createServerFn({ method: "GET" }).handler(async () => {
+  setResponseHeader("Netlify-CDN-Cache-Control", EVENTS_CACHE);
+  return eventsResult();
+});
 
 /** Whether $PAR is live: the holder texts only work once TOKEN_MINT is set. Public, so shared like the prices. */
 export const getFlags = createServerFn({ method: "GET" }).handler(async () => {

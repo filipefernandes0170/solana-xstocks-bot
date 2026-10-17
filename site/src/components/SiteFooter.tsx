@@ -17,6 +17,9 @@ export function SiteFooter() {
         <a href="/ranking" className="text-foam underline decoration-gold/70 underline-offset-4">
           This week's ranking
         </a>
+        <a href="/events" className="text-foam underline decoration-gold/70 underline-offset-4">
+          Events and filings
+        </a>
       </p>
     </footer>
   );

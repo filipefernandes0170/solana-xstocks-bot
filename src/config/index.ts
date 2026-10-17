@@ -11,6 +11,8 @@ const envSchema = z.object({
   BIG_MOVE_WINDOW_MINUTES: z.coerce.number().default(60),
   ALERT_CHECK_INTERVAL_CRON: z.string().default("*/5 * * * *"),
   DESK_CHECK_CRON: z.string().default("* * * * *"),
+  // Pause alerts and SEC filing texts (/events).
+  EVENTS_CHECK_CRON: z.string().default("*/3 * * * *"),
   TOKEN_MINT: z.preprocess((value) => (value === "" ? undefined : value), z.string().min(32).optional()),
   HOLDER_MIN_TOKENS: z.coerce.number().default(0),
   // Optional: a public Telegram channel (e.g. @parbrief or -100…) where the bot posts a short brief teaser.
@@ -29,6 +31,7 @@ export const config = {
   bigMoveWindowMin: env.BIG_MOVE_WINDOW_MINUTES,
   alertCron: env.ALERT_CHECK_INTERVAL_CRON,
   deskCron: env.DESK_CHECK_CRON,
+  eventsCron: env.EVENTS_CHECK_CRON,
   tokenMint: env.TOKEN_MINT ?? "",
   holderMin: env.HOLDER_MIN_TOKENS,
   briefChannelId: env.BRIEF_CHANNEL_ID ?? "",

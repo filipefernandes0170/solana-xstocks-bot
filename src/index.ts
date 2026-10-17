@@ -3,7 +3,7 @@ import cron from "node-cron";
 import { config } from "./config/index.js";
 import { checkAlerts } from "./services/alerts.js";
 import { getDeskQuotes } from "./services/desk.js";
-import { checkDesk } from "./services/pings.js";
+import { checkDesk, checkEvents } from "./services/pings.js";
 
 const bot = createBot();
 
@@ -28,6 +28,9 @@ const tasks = [
   }),
   cron.schedule(config.deskCron, () => {
     checkDesk(bot).catch((err) => console.error("Desk check failed:", err));
+  }),
+  cron.schedule(config.eventsCron, () => {
+    checkEvents(bot).catch((err) => console.error("Event check failed:", err));
   }),
 ];
 

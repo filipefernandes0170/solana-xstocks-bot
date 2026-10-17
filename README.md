@@ -17,6 +17,7 @@ Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solan
 |---------|-------------|
 | `/start` | Welcome, with buttons; someone without a proven wallet gets "🔐 Prove my $PAR wallet" first (and under every holder feature). `?start=brief` turns the brief on; `?start=w-NVDAx-TSLAx` (the site's Favourites link) watches those names; `?start=p-<wallet>` (the portfolio's "Watch this bag") saves that address and shows its bag |
 | `/prices` | The whole desk: verdict, price, gap and 24h move for every name |
+| `/events` | The next 7 days: Nasdaq days off and early closes (`services/calendar.ts`), balance changes and paused tokens read on chain, and the key SEC filings of the last 7 days (from the site's `/api/events`). `?start=events` (the site's Events page) answers it. `/events on`, `/events off`: the filing texts (holders) |
 | `/week` | The last 7 days' ranking from the Par site: which names stayed closest to their Nasdaq print |
 | `/pairs` | Same company, two tokens (SpaceX, AMD): each $1,000 buy and which is cheaper. `/pairs on` (holders): a text when one is 0.5 points cheaper, at most once a day per company |
 | `/sizealert NVDAx 5000` | Holders: a one-off text when a buy of that size costs at most 0.4% over the Nasdaq print while Nasdaq is open. Up to 3; `/sizealert` lists, `/sizealert off [name]` clears |
@@ -34,7 +35,12 @@ Type a ticker (`nvda`) for one card, with Buy, three size checks and Watch butto
 
 With `BRIEF_CHANNEL_ID` set, the week's ranking also goes to that channel on Fridays between 16:15 and 16:59 New York time.
 
-Pings (`/watch`, `/brief`, `/bell`, `/sizealert`, `/pairs on` and bag changes) send only while the user's **proven** wallet (`/hold`) still holds `TOKEN_MINT`. A typed address no longer counts: anyone can paste someone else's public address. The proof is checked twice, on the site and again by the bot, and each code works once, for one Telegram user, for 15 minutes. Size alerts quote Jupiter at the user's size, at most 2 quotes a minute and each alert at most every 5 minutes, and only when the $1,000 buy is not already over 0.4%. Lookups, `/prices`, `/size`, `/portfolio` and `/yield` stay free. Buy opens Jupiter on that stock. The bot does not charge a fee.
+**Events** (every 3 minutes, `EVENTS_CHECK_CRON`), for proven holders:
+- **Filing texts:** key SEC filings (8-K results, deals, board or executive changes, warnings; 6-K reports) for the names in the user's bag wallet, proven wallet or watch list. The bot reads them from the site's `/api/events` (the site reads the SEC), texts only filings from the last 2 hours, each once, at most 5 a day per user (`event_log`). On by default; `/events off` stops them.
+- **Pause alerts:** the bot reads each mint's `pausableConfig.paused` with the multipliers (every 5 minutes) and keeps the last state in `pause_state`. When a token a holder holds or watches is paused, they get a text at once, and a "resumed" text when it lifts. No switch: it is about their funds. The first reading after a deploy only records the state.
+- **The brief** notes a day off or an early close before the next session.
+
+Pings (`/watch`, `/brief`, `/bell`, `/sizealert`, `/pairs on`, event texts and bag changes) send only while the user's **proven** wallet (`/hold`) still holds `TOKEN_MINT`. A typed address no longer counts: anyone can paste someone else's public address. The proof is checked twice, on the site and again by the bot, and each code works once, for one Telegram user, for 15 minutes. Size alerts quote Jupiter at the user's size, at most 2 quotes a minute and each alert at most every 5 minutes, and only when the $1,000 buy is not already over 0.4%. Lookups, `/prices`, `/size`, `/portfolio` and `/yield` stay free. Buy opens Jupiter on that stock. The bot does not charge a fee.
 
 Prices are per share: wallet amounts and Jupiter's `usdPrice` already include the token's multiplier (splits and reinvested dividends), and swap quotes are converted from on-chain units with the mint's `scaledUiAmountConfig`.
 

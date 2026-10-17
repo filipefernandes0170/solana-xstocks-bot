@@ -1,5 +1,5 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
-import { Send, Star } from "lucide-react";
+import { ArrowRight, CalendarDays, Send, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Backdrop } from "../components/Backdrop";
 import { NotFound } from "../components/NotFound";
@@ -15,6 +15,7 @@ import { SiteNav } from "../components/SiteNav";
 import { GapHistory } from "../components/stock/GapHistory";
 import { IssuerPowers } from "../components/stock/IssuerPowers";
 import { OtherTokens } from "../components/stock/OtherTokens";
+import { FILING_DAYS, SEC_CIK } from "../lib/events";
 import { formatUsd } from "../lib/format";
 import type { HistoryPoint } from "../lib/history";
 import type { IssuerResult } from "../lib/issuer";
@@ -209,6 +210,25 @@ function StockView({ data }: { data: StockData }) {
         </section>
 
         <IssuerPowers result={data.issuer} />
+
+        <Link
+          to="/events"
+          search={{ name: token.symbol }}
+          className="mt-6 flex items-center justify-between gap-4 rounded-2xl bg-dusk/80 px-5 py-4 ring-1 ring-white/10 hover:ring-white/25"
+        >
+          <span className="flex items-center gap-3">
+            <CalendarDays className="size-5 shrink-0 text-gold" aria-hidden />
+            <span>
+              <span className="block font-medium text-foam">Events for {token.name}</span>
+              <span className="block text-sm leading-relaxed text-mist">
+                {SEC_CIK[token.underlying]
+                  ? `SEC filings from the last ${FILING_DAYS} days, balance changes and market days off.`
+                  : "Balance changes and market days off. A fund files no company news."}
+              </span>
+            </span>
+          </span>
+          <ArrowRight className="size-5 shrink-0 text-foam" aria-hidden />
+        </Link>
 
         <SizeCheck symbol={sizeSymbol} onSymbol={setSizeSymbol} />
 

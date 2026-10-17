@@ -4,26 +4,27 @@ import { Logo } from "./Logo";
 
 const LINKS = [
   { to: "/", label: "Desk" },
+  { to: "/events", label: "Events" },
   { to: "/bot", label: "Bot" },
   { to: "/portfolio", label: "Portfolio" },
 ] as const;
 
-/** The bar at the top of every page: the mark, the three pages, and the bot. */
-export function SiteNav({ current }: { current: "/" | "/bot" | "/portfolio" | null }) {
+/** The bar at the top of every page: the mark, the four pages, and the bot. */
+export function SiteNav({ current }: { current: "/" | "/events" | "/bot" | "/portfolio" | null }) {
   return (
     <header className="relative z-20">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2.5 text-foam" aria-label="Par, the desk">
           <Logo size={36} />
-          <span className="font-display text-2xl leading-none">Par</span>
+          <span className="font-display text-2xl leading-none max-[359px]:hidden">Par</span>
         </Link>
-        <nav aria-label="Pages" className="flex items-center gap-1 text-sm sm:gap-2">
+        <nav aria-label="Pages" className="flex items-center gap-0.5 text-sm sm:gap-2">
           {LINKS.map((link) => (
             <Link
               key={link.to}
               to={link.to}
               aria-current={current === link.to ? "page" : undefined}
-              className={`rounded-full px-3 py-2 ${current === link.to ? "bg-white/10 text-foam" : "text-mist hover:text-foam"}`}
+              className={`rounded-full px-2.5 py-2 sm:px-3 ${current === link.to ? "bg-white/10 text-foam" : "text-mist hover:text-foam"}`}
             >
               {link.label}
             </Link>

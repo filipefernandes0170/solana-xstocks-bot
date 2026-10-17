@@ -3,6 +3,7 @@ import { getUser, upsertUser } from "../../db/index.js";
 import { bagWatchText, startKeyboard, startText } from "../../services/messages.js";
 import { holderNote } from "../holderNote.js";
 import { briefReply } from "./brief.js";
+import { eventsReply } from "./events.js";
 import { confirmProof } from "./hold.js";
 import { freshProofCode, proveKeyboardFor } from "../proof.js";
 import { payloadWallet, portfolioReply } from "./portfolio.js";
@@ -12,7 +13,8 @@ import { payloadSymbols, watchReply } from "./watch.js";
  * /start, including the site's deep links: ?start=brief turns the morning brief on, ?start=w-NVDAx-TSLAx
  * (the Favourites "Watch in Telegram" button) watches those names, and ?start=p-<wallet> (the portfolio's
  * "Watch this bag" button) saves that public address and shows its bag, which turns the bag texts on.
- * ?start=v-<code> comes back from the site after a wallet signed the proof message (see /hold).
+ * ?start=v-<code> comes back from the site after a wallet signed the proof message (see /hold), and
+ * ?start=events (the Events page) answers /events.
  */
 export async function startCommand(ctx: Context) {
   const from = ctx.from!;
@@ -32,6 +34,7 @@ export async function startCommand(ctx: Context) {
     reply_markup: startKeyboard(proofNonce),
   });
   if (payload === "brief") await briefReply(ctx, true);
+  if (payload === "events") await eventsReply(ctx);
   const symbols = payloadSymbols(payload);
   if (symbols.length > 0) await watchReply(ctx, symbols);
   const wallet = payloadWallet(payload);

@@ -14,6 +14,12 @@ export const SITE_DESCRIPTION = "Par says whether a tokenized stock on Solana is
  */
 export const PUBLIC_DATA_CACHE = "public, durable, s-maxage=10, stale-while-revalidate=20";
 
+/**
+ * /events and /api/events: shared for a minute, then served stale for up to two more while one call refreshes it.
+ * @ONPAR_BOT reads /api/events every few minutes for new filings, so this keeps its texts within minutes of the SEC.
+ */
+export const EVENTS_CACHE = "public, durable, s-maxage=60, stale-while-revalidate=120";
+
 /** /portfolio has no server data in its HTML (the wallet is read in the browser), so it can stay cached longer. */
 export const STATIC_PAGE_CACHE = "public, durable, s-maxage=300, stale-while-revalidate=600";
 

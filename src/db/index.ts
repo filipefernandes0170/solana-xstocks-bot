@@ -103,6 +103,20 @@ db.exec(`
     used INTEGER NOT NULL DEFAULT 0
   );
 
+  CREATE TABLE IF NOT EXISTS event_log (
+    telegram_id INTEGER NOT NULL,
+    event_id TEXT NOT NULL,
+    day TEXT NOT NULL,
+    capped INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (telegram_id, event_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS pause_state (
+    symbol TEXT PRIMARY KEY,
+    paused INTEGER NOT NULL,
+    since INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS rebase_sent (
     telegram_id INTEGER NOT NULL,
     symbol TEXT NOT NULL,
@@ -126,6 +140,8 @@ addColumn("users", "brief", "INTEGER DEFAULT 0");
 addColumn("users", "verified_wallet", "TEXT");
 addColumn("users", "verified_at", "INTEGER");
 addColumn("users", "pairs", "INTEGER DEFAULT 0");
+// Filing texts (/events): on unless the user turns them off. Pause alerts have no switch.
+addColumn("users", "events", "INTEGER DEFAULT 1");
 
 export function upsertUser(telegramId: number, username?: string, firstName?: string) {
   db.prepare(`
@@ -231,6 +247,48 @@ export function setPairs(telegramId: number, on: boolean) {
   db.prepare(`UPDATE users SET pairs = ?, updated_at = strftime('%s','now') WHERE telegram_id = ?`).run(on ? 1 : 0, telegramId);
 }
 
+export function setEvents(telegramId: number, on: boolean) {
+  db.prepare(`UPDATE users SET events = ?, updated_at = strftime('%s','now') WHERE telegram_id = ?`).run(on ? 1 : 0, telegramId);
+}
+
+export function eventAlreadySent(telegramId: number, eventId: string) {
+  return !!db.prepare(`SELECT 1 AS ok FROM event_log WHERE telegram_id = ? AND event_id = ?`).get(telegramId, eventId);
+}
+
+/** `capped`: the text counts toward the daily limit (filing texts do; pause alerts and failed sends do not). */
+export function markEventSent(telegramId: number, eventId: string, day: string, capped: boolean) {
+  db.prepare(`INSERT OR IGNORE INTO event_log (telegram_id, event_id, day, capped) VALUES (?, ?, ?, ?)`).run(telegramId, eventId, day, capped ? 1 : 0);
+}
+
+/** Filing texts sent to this user on a New York day. */
+export function eventsSentOn(telegramId: number, day: string) {
+  const row = db.prepare(`SELECT COUNT(*) AS n FROM event_log WHERE telegram_id = ? AND day = ? AND capped = 1`).get(telegramId, day) as { n: number };
+  return row.n;
+}
+
+/** Everyone who got one event text, such as a pause alert (for the matching "resumed" text). */
+export function eventRecipients(eventId: string) {
+  return (db.prepare(`SELECT telegram_id FROM event_log WHERE event_id = ?`).all(eventId) as { telegram_id: number }[]).map((row) => row.telegram_id);
+}
+
+export function pruneEventLog(beforeDay: string) {
+  db.prepare(`DELETE FROM event_log WHERE day < ?`).run(beforeDay);
+}
+
+export type PauseRow = { symbol: string; paused: number; since: number };
+
+/** The last pause flag seen on chain for each token, and since when. */
+export function getPauseStates() {
+  return new Map((db.prepare(`SELECT symbol, paused, since FROM pause_state`).all() as PauseRow[]).map((row) => [row.symbol, row]));
+}
+
+export function savePauseState(symbol: string, paused: boolean, since: number) {
+  db.prepare(`
+    INSERT INTO pause_state (symbol, paused, since) VALUES (?, ?, ?)
+    ON CONFLICT(symbol) DO UPDATE SET paused = excluded.paused, since = excluded.since
+  `).run(symbol, paused ? 1 : 0, since);
+}
+
 export function pairAlreadySent(telegramId: number, pair: string, day: string) {
   return !!db.prepare(`SELECT 1 AS ok FROM pair_log WHERE telegram_id = ? AND pair = ? AND day = ?`).get(telegramId, pair, day);
 }
@@ -255,7 +313,7 @@ export function setBrief(telegramId: number, on: boolean) {
 
 /** Users who asked for the morning brief. Whether it sends depends on the coin, checked when it goes out. */
 export function listBriefUsers() {
-  return db.prepare(`SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs FROM users WHERE brief = 1`).all() as UserRow[];
+  return db.prepare(`SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs, events FROM users WHERE brief = 1`).all() as UserRow[];
 }
 
 /** Brief log rows use telegram_id 0 for the public channel post, and -1 for the Friday ranking post. */
@@ -315,11 +373,13 @@ export type UserRow = {
   verified_wallet: string | null;
   bell: number;
   pairs: number;
+  /** 1 unless the user turned filing texts off with /events off. */
+  events: number;
 };
 
 export function listPingUsers(): UserRow[] {
   return db.prepare(`
-    SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs
+    SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs, events
     FROM users
     WHERE wallet IS NOT NULL OR verified_wallet IS NOT NULL OR bell = 1
   `).all() as UserRow[];

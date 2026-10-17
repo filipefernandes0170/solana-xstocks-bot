@@ -2,6 +2,13 @@
 
 O que ficou combinado para depois do lançamento, por ordem. Atualizado a 17 out 2026.
 
+## Eventos: o que já está e o que falta
+
+- **Feito (fase A, 17 out 2026):** página /events, /events no bot, textos de filings da SEC para holders (máximo 5 por dia), alertas de pausa, feriados e fechos antecipados no brief e no relógio da Nasdaq.
+- **Fase B:** datas de resultados com antecedência. Precisa de uma fonte de dados licenciada (custo); hoje o Par só avisa quando os resultados chegam à SEC.
+- **Fase C:** um resumo curto de cada filing, escrito por IA, sempre com o link para o original. Precisa de revisão legal (LEX) antes.
+- **Notícias:** só com uma fonte licenciada. Copiar notícias de sites não é permitido.
+
 ## Próximo update: Par na Robinhood Chain
 
 - A Robinhood Chain abriu na mainnet a 1 de julho de 2026, com stock tokens que negoceiam 24/7 e, segundo as notícias do lançamento, pools da Uniswap e da Pleiades e empréstimos na Morpho.

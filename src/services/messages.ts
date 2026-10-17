@@ -3,6 +3,7 @@
 import { Markup } from "telegraf";
 import type { InlineKeyboardMarkup } from "telegraf/types";
 import { SYMBOL_TO_TOKEN, TOKENIZED_STOCKS, siblingTokens } from "../config/tokens.js";
+import { marketNotes } from "./calendar.js";
 import type { DeskQuote, SizeResult } from "./desk.js";
 import type { PortfolioSummary } from "./portfolio.js";
 import { PAIR_POINTS, type CompanyPair } from "./pairs.js";
@@ -249,6 +250,7 @@ export function startText(firstName?: string) {
     "• /yield · live lending rates on Kamino",
     "• /week · who stayed at the real price this week",
     "• /pairs · same company, two tokens: which is cheaper",
+    "• /events · market days off, balance changes and SEC filings",
     "",
     "<b>For $PAR holders</b>",
     "• /watch · a text the moment a name turns Fair",
@@ -257,6 +259,7 @@ export function startText(firstName?: string) {
     "• /sizealert NVDAx 5000 · a text when your order is at the real price",
     "• /pairs on · a text when one token of a company is cheaper",
     "• Bag watch · a note when a stock you hold changes",
+    "• Event texts · key SEC filings for the names you hold or watch, and pause alerts",
     "• 🔐 Prove your $PAR wallet first: the button below, one signed message, not a transaction",
     "",
     "<i>Par takes no fee, never holds funds, and never asks you to sign a transaction.</i>",
@@ -286,10 +289,11 @@ export function helpText() {
     "/bell · the open bell, on or off",
     "/sizealert NVDAx 5000 · a text when your order size is within 0.4% of the print",
     "/pairs on · a text when one token of a company is 0.5 points cheaper",
+    "/events on · key SEC filings for the names you hold or watch, at most 5 a day; pause alerts always",
     "/hold · prove the wallet that holds $PAR: one signed message, not a transaction",
     "",
     "<b>Also</b>",
-    "/portfolio or /p · /prices · /week · /pairs · /yield NVDAx · /alert NVDAx up 5 · /alert list · /alert clear",
+    "/portfolio or /p · /prices · /events · /week · /pairs · /yield NVDAx · /alert NVDAx up 5 · /alert list · /alert clear",
     "",
     "<i>Buy opens Jupiter on that stock, paid with USDC. You pay the pool, not Par.</i>",
   ].join("\n");
@@ -452,9 +456,11 @@ const listGaps = (rows: { quote: DeskQuote; gap: number }[]) =>
 /** The holders' brief, sent in the half hour before the open. */
 export function briefText(quotes: DeskQuote[], now: number, minutesToOpen: number) {
   const { over, under, closest, movers, rebases } = briefParts(quotes, now);
+  const notes = marketNotes(now);
   return [
     `🌅 <b>Par morning brief</b> · ${escapeHtml(dayLabel(now))}`,
     `Nasdaq opens at 9:30 ET, in ${minutesToOpen} min. The tokens trade around the clock; this is what a $1,000 buy costs against the last Nasdaq print.`,
+    ...(notes.length > 0 ? ["", ...notes.map(escapeHtml)] : []),
     "",
     "🔴 <b>Dearest to buy</b>",
     over.length ? listGaps(over) : "Nothing costs more than the print.",
