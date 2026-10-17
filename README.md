@@ -94,6 +94,8 @@ Recommended: Railway free tier + Helius free RPC.
 
 ### Own VM (Debian/Ubuntu, e.g. Google Cloud e2-micro)
 
+The repository has been private since 17 Oct 2026. On the VM, `git clone` and `git pull` need GitHub access, for example a read-only deploy key. Never paste a token into a chat or a file in the repo.
+
 ```bash
 git clone https://github.com/filipefernandes0170/solana-xstocks-bot
 cd solana-xstocks-bot

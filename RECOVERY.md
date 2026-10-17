@@ -8,7 +8,7 @@ Estado verificado a **17 out 2026**. Este documento não contém chaves nem segr
 
 | Parte | Onde vive | Estado a 17 out |
 |---|---|---|
-| **Bot do Telegram** [@ONPAR_BOT](https://t.me/ONPAR_BOT) | Este repositório (`src/`), GitHub `filipefernandes0170/solana-xstocks-bot` (**público**) | **Recuperado a 100%.** Compila e os testes passam (ver §3) |
+| **Bot do Telegram** [@ONPAR_BOT](https://t.me/ONPAR_BOT) | Este repositório (`src/`), GitHub `filipefernandes0170/solana-xstocks-bot` (**privado** desde 17 out) | **Recuperado a 100%.** Compila e os testes passam (ver §3). Corre na VM (segundo o Filipe) |
 | **Site "Par desk"** https://xstocks-tracker.netlify.app | Netlify, projeto `xstocks-tracker`, deploy `6aced2a4bac172109cf9f9c3` de 14 out | **Online.** Só existe a versão construída (`published-site/`). **O código-fonte não está aqui** (ver §2) |
 
 ## 2. Porque falta o código-fonte do site
@@ -37,7 +37,9 @@ Estado verificado a **17 out 2026**. Este documento não contém chaves nem segr
    - faltavam 2 ficheiros que o site serve: o código da página `/portfolio` (`assets/portfolio-B9e0s4hd.js`) e o `favicon.ico`. Foram acrescentados;
    - os 6 ficheiros estáticos foram comparados byte a byte (sha256) com o site online e são iguais. A lista está em `published-site/README.md`;
    - um novo `.gitattributes` impede que o Git mude as quebras de linha nessa pasta. No Windows, isso fazia os ficheiros parecerem diferentes.
-5. Tudo está num ramo local, `recovery/2026-10-17`. **Nada foi enviado para o GitHub.**
+5. A pedido do Filipe:
+   - o repositório passou a **privado** (17 out; tinha 0 forks e 0 estrelas);
+   - estas alterações foram enviadas para o `main` no GitHub.
 
 ## 4. Como recuperar o código do site (tu, no Grok Bot)
 
@@ -75,8 +77,9 @@ Variáveis (só nomes): `TELEGRAM_BOT_TOKEN` (obrigatória), `SOLANA_RPC_URL`, `
 
 **Atenção:** só pode haver **uma** cópia do bot a correr com o mesmo token. Se o bot já estiver a correr na VM (`deploy/setup.sh`, serviço `par-bot`), não o corras também aqui, senão o Telegram responde `409 Conflict`.
 
-## 7. Por confirmar contigo
+## 7. Decisões (17 out)
 
-1. O bot ainda está a correr na VM (Google Cloud), ou parou?
-2. Onde queres guardar o código do site quando o recuperares: neste repositório público ou num privado novo?
-3. Envio o ramo `recovery/2026-10-17` para o GitHub? É público e o Netlify ignora as builds deste repositório (`netlify.toml`: `ignore = "exit 0"`), por isso **não** mexe no site online.
+1. **O bot corre na VM** (Google Cloud), segundo o Filipe. Confirmação rápida: no Telegram, manda `/start` ao [@ONPAR_BOT](https://t.me/ONPAR_BOT). Se responder, está a correr. **Não** o corras neste PC ao mesmo tempo.
+2. **Repositório privado.** O bot que já corre na VM não é afetado, porque a VM não se atualiza sozinha. Mas, numa próxima atualização manual na VM (`git pull`), o GitHub vai pedir autenticação. Nessa altura, o agente ajuda a pôr uma *deploy key* só de leitura na VM. Nunca se cola um token no chat.
+3. **O código do site,** quando vier do Grok, fica neste repositório privado (por exemplo numa pasta `site/`). Assim, nunca mais se perde.
+4. O Netlify ignora as builds deste repositório (`netlify.toml`: `ignore = "exit 0"`), por isso enviar para o GitHub **não** mexe no site online.
