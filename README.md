@@ -2,7 +2,7 @@
 
 Bot: [@ONPAR_BOT](https://t.me/ONPAR_BOT)
 
-Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solana: **NVDAx, AAPLx, SPYx, TSLAx, QQQx** and more.
+Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solana: 19 xStocks (**NVDAx, AAPLx, SPYx, TSLAx, QQQx** and more) and 6 Backpack Securities tokens (**SPCX, MU, TTWO, SKHY, DJT, AMD**).
 
 - A card per name: last trade, a live $1,000 buy priced per share, the Nasdaq print, the gap and a verdict
 - Size check: what any order really costs, from a live Jupiter quote at that size
@@ -17,6 +17,7 @@ Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solan
 |---------|-------------|
 | `/start` | Welcome, with buttons. `?start=brief` turns the brief on; `?start=w-NVDAx-TSLAx` (the site's Favourites link) watches those names; `?start=p-<wallet>` (the portfolio's "Watch this bag") saves that address and shows its bag |
 | `/prices` | The whole desk: verdict, price, gap and 24h move for every name |
+| `/week` | The last 7 days' ranking from the Par site: which names stayed closest to their Nasdaq print |
 | `/size NVDAx 5000` | Size check: shares, price per share, gap and pool impact at that size |
 | `/portfolio` or `/p` | Holdings per share, total value, each name's verdict |
 | `/yield`, `/yield NVDAx` | Live Kamino lending rates (Kraken's vault shown as its published target) |
@@ -27,7 +28,9 @@ Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solan
 | `/hold` | Wallet that holds the project coin |
 | `/help` | Full help |
 
-Type a ticker (`nvda`) for one card, with Buy, three size checks and Watch buttons.
+Type a ticker (`nvda`) for one card, with Buy, three size checks and Watch buttons. When a company has two tokens, a plain ticker (`amd`) means the xStock and Backpack's naming (`amd.us`) means Backpack's; each card names the other one. A pool under $25,000 (AMDx, NFLXx today) gets no $1,000 buy quote; its card says the pool is too thin.
+
+With `BRIEF_CHANNEL_ID` set, the week's ranking also goes to that channel on Fridays between 16:15 and 16:59 New York time.
 
 Pings (`/watch`, `/brief`, `/bell`, and bag changes) send only while that wallet still holds `TOKEN_MINT`. Lookups, `/prices`, `/size`, `/portfolio` and `/yield` stay free. Buy opens Jupiter on that stock. The bot does not charge a fee.
 

@@ -11,8 +11,8 @@ export interface TokenizedStock {
 }
 
 /**
- * Major tokenized stocks on Solana (primarily xStocks by Backed Finance).
- * Mint addresses verified from public sources (xstocks.fi, Solscan, Dune, etc.).
+ * Tokenized stocks on Solana: xStocks (Backed) and Backpack Securities. The list matches the Par site's (a test checks).
+ * Backpack mints are the ones Backpack's own exchange API lists under "<SYMBOL>.US" (checked 17 Oct 2026).
  */
 export const TOKENIZED_STOCKS: TokenizedStock[] = [
   { symbol: "NVDAx", name: "NVIDIA xStock", mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh", decimals: 8, underlying: "NVDA", issuer: "xStocks" },
@@ -34,22 +34,39 @@ export const TOKENIZED_STOCKS: TokenizedStock[] = [
   { symbol: "HOODx", name: "Robinhood xStock", mint: "XsvNBAYkrDRNhA7wPHQfX3ZUXZyZLdnCQDfHZ56bzpg", decimals: 8, underlying: "HOOD", issuer: "xStocks" },
   { symbol: "MCDx",  name: "McDonald's xStock", mint: "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2", decimals: 8, underlying: "MCD", issuer: "xStocks" },
   { symbol: "NFLXx", name: "Netflix xStock", mint: "XsEH7wWfJJu2ZT3UCFeVfALnVA6CP5ur7Ee11KmzVpL", decimals: 8, underlying: "NFLX", issuer: "xStocks" },
+  { symbol: "SPCX", name: "SpaceX by Backpack", mint: "SPCXxcqXj6e5dJDVNovHN8744zkbhM2bYudU45BimGb", decimals: 6, underlying: "SPCX", issuer: "Backpack" },
+  { symbol: "MU", name: "Micron by Backpack", mint: "MUxEsUKSMACyw5fZf68wxf5FLnZVhtU9CwH8uNNGay1", decimals: 6, underlying: "MU", issuer: "Backpack" },
+  { symbol: "TTWO", name: "Take-Two by Backpack", mint: "TTWofwAge91oFhZs7kpQdyrVRkmevgM88xijGvQFbKo", decimals: 6, underlying: "TTWO", issuer: "Backpack" },
+  { symbol: "SKHY", name: "SK hynix by Backpack", mint: "SKHYhSjuRWHgikq8eRKbtBbpABgJSkd7ytQV14i9EQ3", decimals: 6, underlying: "SKHY", issuer: "Backpack" },
+  { symbol: "DJT", name: "Trump Media by Backpack", mint: "DJTu7vi8norVzdVAffgvb39VP7wjKeTsgaMBJrzfxvoF", decimals: 6, underlying: "DJT", issuer: "Backpack" },
+  { symbol: "AMD", name: "AMD by Backpack", mint: "AMD8XwJXgQ9WV45Wyj9yFLejxzf2J6VM1PJY8bJEjeES", decimals: 6, underlying: "AMD", issuer: "Backpack" },
 ];
 
 export const MINT_TO_TOKEN = new Map(TOKENIZED_STOCKS.map(t => [t.mint, t]));
 export const SYMBOL_TO_TOKEN = new Map(TOKENIZED_STOCKS.map(t => [t.symbol.toUpperCase(), t]));
 export const KNOWN_MINTS = TOKENIZED_STOCKS.map(t => t.mint);
 
-/** One word from a chat: `nvda`, `nvdax`, or `nvidia`. */
+/**
+ * One word from a chat: `nvda`, `nvdax`, `nvidia`, or `amd.us` for Backpack's token.
+ * When a company has both tokens, a plain ticker (`amd`) means the xStock, as before Backpack was added;
+ * Backpack's own naming (`amd.us`) picks its token.
+ */
 export function lookupToken(input: string): TokenizedStock | null {
   const q = input.trim().toLowerCase();
   if (!q || /\s/.test(q) || q.length > 24) return null;
+  if (q.endsWith(".us")) {
+    const base = q.slice(0, -3).toUpperCase();
+    return TOKENIZED_STOCKS.find((token) => token.issuer === "Backpack" && token.symbol.toUpperCase() === base) ?? null;
+  }
   const upper = q.toUpperCase();
-  const direct = SYMBOL_TO_TOKEN.get(upper) ?? SYMBOL_TO_TOKEN.get(`${upper}X`);
+  const direct = SYMBOL_TO_TOKEN.get(`${upper}X`) ?? SYMBOL_TO_TOKEN.get(upper);
   if (direct) return direct;
   const under = TOKENIZED_STOCKS.find((token) => token.underlying?.toUpperCase() === upper);
   if (under) return under;
-  return (
-    TOKENIZED_STOCKS.find((token) => token.name.toLowerCase().replace(/ xstock$/, "") === q) ?? null
-  );
+  return TOKENIZED_STOCKS.find((token) => token.name.toLowerCase().replace(/ (xstock|by backpack)$/, "") === q) ?? null;
+}
+
+/** The other tokens of the same company (an xStock and a Backpack token can track the same share). */
+export function siblingTokens(token: TokenizedStock) {
+  return TOKENIZED_STOCKS.filter((other) => other.mint !== token.mint && other.underlying != null && other.underlying === token.underlying);
 }

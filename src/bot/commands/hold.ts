@@ -8,7 +8,7 @@ export async function holdCommand(ctx: Context) {
   const address = ((ctx.message as { text?: string })?.text ?? "").trim().split(/\s+/)[1];
   if (!address || !isValidSolanaAddress(address)) {
     await ctx.reply(
-      "👛 Send the wallet that holds $PAR:\n<code>/hold &lt;solana address&gt;</code>\n\nPings use this wallet. Your xStock bag can be a different one. Par only reads balances.",
+      "👛 Send the wallet that holds $PAR:\n<code>/hold &lt;solana address&gt;</code>\n\nPings use this wallet. Your stock-token bag can be a different one. Par only reads balances.",
       { parse_mode: "HTML" },
     );
     return;

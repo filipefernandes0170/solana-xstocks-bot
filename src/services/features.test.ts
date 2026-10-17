@@ -122,6 +122,8 @@ const quote = (over: Partial<DeskQuote>): DeskQuote => ({
   rebase: null,
   change24h: -1.3,
   sharesPerToken: 1.0057,
+  issuer: "xStocks",
+  poolUsd: 3_923_023,
   ...over,
 });
 
@@ -175,4 +177,61 @@ test("the portfolio's bag link carries one valid public address", async () => {
   assert.equal(payloadWallet("w-NVDAx"), null);
   const { bagWatchText } = await import("./messages.js");
   assert.ok(bagWatchText("note").endsWith("\n\nnote"));
+});
+
+test("/week reads the site's ranking and lists the closest and furthest names", async () => {
+  const { parseRanking } = await import("./ranking.js");
+  const { weekText } = await import("./messages.js");
+  const { inWeekWindow } = await import("./verdict.js");
+  const row = (symbol: string, near: number, typicalGap: number) => ({ symbol, readings: 10, near, typicalGap, lastGap: 0.1 });
+
+  const parsed = parseRanking({ rows: [row("AAPLx", 1, 0.08), { ...row("<b>", 1, 0), symbol: "<b>" }, { symbol: "NVDAx" }], readings: 10 });
+  assert.deepEqual(
+    parsed?.rows.map((r) => r.symbol),
+    ["AAPLx"],
+  );
+  assert.equal(parseRanking({ nope: true }), null);
+
+  assert.match(weekText(null), /could not be read/);
+  assert.match(weekText({ rows: [], readings: 0 }), /starts after about two hours/);
+  const seven = ["AAPLx", "NVDAx", "SPYx", "QQQx", "MSFTx", "TSLAx", "AMDx"].map((symbol, i) => row(symbol, 1 - i * 0.1, 0.05 + i * 0.2));
+  const text = weekText({ rows: seven, readings: 10 });
+  assert.ok(text.includes("1. <b>AAPLx</b> · 100% near · typical gap 0.05%"), text);
+  assert.ok(text.includes("🔴 <b>Furthest</b>\n1. <b>AMDx</b> · 40% near · typical gap 1.25%\n2. <b>TSLAx</b>"), text);
+  assert.ok(!text.includes("3. <b>MSFTx</b> · 60%"), "a name is never in both lists");
+
+  assert.equal(inWeekWindow(Date.parse("2026-10-16T20:20:00Z")), true); // Friday 16:20 ET
+  assert.equal(inWeekWindow(Date.parse("2026-10-16T20:00:00Z")), false); // Friday 16:00 ET, still the close
+  assert.equal(inWeekWindow(Date.parse("2026-10-15T20:20:00Z")), false); // Thursday
+});
+
+test("two tokens of one company: a plain ticker keeps meaning the xStock, Backpack's naming picks Backpack's", async () => {
+  const { lookupToken, siblingTokens } = await import("../config/tokens.js");
+  const { payloadSymbols } = await import("../bot/commands/watch.js");
+  const { otherTokensLine } = await import("./messages.js");
+  assert.equal(lookupToken("amd")?.symbol, "AMDx");
+  assert.equal(lookupToken("amdx")?.symbol, "AMDx");
+  assert.equal(lookupToken("amd.us")?.symbol, "AMD");
+  assert.equal(lookupToken("spcx")?.symbol, "SPCXx");
+  assert.equal(lookupToken("spacex")?.symbol, "SPCXx");
+  assert.equal(lookupToken("spcx.us")?.symbol, "SPCX");
+  assert.equal(lookupToken("mu")?.symbol, "MU");
+  assert.equal(lookupToken("micron")?.symbol, "MU");
+  assert.equal(lookupToken("nvda.us"), null);
+  assert.deepEqual(payloadSymbols("w-AMD-AMDx-MU"), ["AMD", "AMDx", "MU"]);
+  const amdx = lookupToken("amdx");
+  assert.deepEqual(
+    amdx ? siblingTokens(amdx).map((t) => t.symbol) : [],
+    ["AMD"],
+  );
+  assert.equal(otherTokensLine("AMDx"), "🔁 Also on Solana: <b>AMD</b> (Backpack). Send <code>amd.us</code> to compare.");
+  assert.equal(otherTokensLine("AMD"), "🔁 Also on Solana: <b>AMDx</b> (xStocks). Send <code>amdx</code> to compare.");
+  assert.equal(otherTokensLine("MU"), null);
+});
+
+test("a pool too thin for a $1,000 buy says so instead of loading forever", () => {
+  const nflx = quote({ symbol: "NFLXx", name: "Netflix", underlying: "NFLX", usdPrice: 69.7, stockPrice: 70, poolUsd: 4_432 });
+  assert.ok(cardText(nflx, tradeVerdict(nflx)).includes("🛒 The pool holds about $4,432, too thin to quote a $1,000 buy"));
+  const spy = quote({});
+  assert.ok(cardText(spy, tradeVerdict(spy)).includes("🛒 The $1,000 buy is still loading"));
 });

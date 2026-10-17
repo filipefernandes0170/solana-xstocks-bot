@@ -118,7 +118,7 @@ export function legsCancel(token: number | null, issuer: number | null, stock: n
 }
 
 export function tradeVerdict(row: VerdictInput, now = Date.now()): Verdict {
-  if (row.underlying === "SPCX" || row.stockPrice == null || (row.usdPrice == null && row.buyPrice == null)) {
+  if (row.stockPrice == null || (row.usdPrice == null && row.buyPrice == null)) {
     return {
       id: "unpriced",
       title: "No print",
@@ -422,6 +422,17 @@ export function inBriefWindow(now: number) {
   if (weekday < 1 || weekday > 5) return false;
   const mins = wall.hour * 60 + wall.minute;
   return mins >= 9 * 60 && mins < 9 * 60 + 30;
+}
+
+/** Pools under this many dollars are not quoted: a $1,000 buy there would move the price by percents. Same rule as the site. */
+export const THIN_POOL_USD = 25_000;
+
+/** Fridays from 16:15 to 16:59 New York time: after the close, when the week's ranking goes to the channel. */
+export function inWeekWindow(now: number) {
+  const wall = etParts(now);
+  if (!wall.weekday.startsWith("Fri")) return false;
+  const mins = wall.hour * 60 + wall.minute;
+  return mins >= 16 * 60 + 15 && mins < 17 * 60;
 }
 
 /** Nasdaq says "Pre-Market" on trading days before 9:30; on holidays it stays "Closed". */

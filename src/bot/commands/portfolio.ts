@@ -53,7 +53,7 @@ export async function portfolioReply(ctx: Context, wallet: string) {
         ctx.chat!.id,
         pending.message_id,
         undefined,
-        `💼 No tracked xStocks in <code>${wallet.slice(0, 4)}…${wallet.slice(-4)}</code>.\nPar tracks NVDAx, TSLAx, AAPLx, SPYx, QQQx and more. /prices lists them all.`,
+        `💼 No tracked stock tokens in <code>${wallet.slice(0, 4)}…${wallet.slice(-4)}</code>.\nPar tracks NVDAx, TSLAx, AAPLx, SPYx, MU, SPCX and more. /prices lists them all.`,
         { parse_mode: "HTML" },
       );
       return true;

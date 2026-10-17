@@ -1,18 +1,22 @@
 import axios from "axios";
 import { config } from "../config/index.js";
-import { TOKENIZED_STOCKS } from "../config/tokens.js";
+import { TOKENIZED_STOCKS, type TokenizedStock } from "../config/tokens.js";
 import { jupiterGet, jupiterPaused } from "./jupiter.js";
 import { nasdaqQuoteUrl } from "./nasdaq.js";
-import { currentMultiplier, pendingRebase, perShareFill, tradeVerdict, type Rebase, type VerdictInput } from "./verdict.js";
+import { THIN_POOL_USD, currentMultiplier, pendingRebase, perShareFill, tradeVerdict, type Rebase, type VerdictInput } from "./verdict.js";
 
 export type DeskQuote = VerdictInput & {
   name: string;
+  issuer: TokenizedStock["issuer"];
   mint: string;
   rebase: Rebase | null;
   change24h: number | null;
   /** The token's multiplier: splits and reinvested dividends added to balances since launch. */
   sharesPerToken: number | null;
+  /** The token's pool liquidity in dollars, from Jupiter. Under THIN_POOL_USD no $1,000 buy is quoted. */
+  poolUsd: number | null;
 };
+
 
 type MintInfo = { rebase: Rebase | null; decimals: number | null; multiplier: number | null };
 
@@ -100,7 +104,7 @@ async function mintRebases() {
 
 async function jupiterMap() {
   const ids = TOKENIZED_STOCKS.map((token) => token.mint).join(",");
-  return jupiterGet<Record<string, { usdPrice?: number; priceChange24h?: number; stockData?: { price?: number; updatedAt?: string } }>>(
+  return jupiterGet<Record<string, { usdPrice?: number; liquidity?: number; priceChange24h?: number; stockData?: { price?: number; updatedAt?: string } }>>(
     "/price/v3",
     { ids },
     { maxWaitMs: 6000, timeoutMs: 12_000 },
@@ -152,9 +156,7 @@ async function fetchPrints(symbols: string[]) {
 
 /** One round of prints; symbols that fail are asked once more a second later. */
 async function refreshPrints() {
-  const symbols = [...new Set(TOKENIZED_STOCKS.map((token) => token.underlying).filter(Boolean))].filter(
-    (symbol) => symbol !== "SPCX",
-  ) as string[];
+  const symbols = [...new Set(TOKENIZED_STOCKS.map((token) => token.underlying).filter(Boolean))] as string[];
   let failed = await fetchPrints(symbols);
   if (failed.length > 0) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -218,8 +220,7 @@ async function refreshBuys(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
   const order = [...quotes].sort((a, b) => (buys.get(a.mint)?.at ?? 0) - (buys.get(b.mint)?.at ?? 0));
   for (const quote of order) {
     if (jupiterPaused()) break;
-    // SpaceX has no Nasdaq print, so its buy could never be compared.
-    if (quote.underlying === "SPCX") continue;
+    if (quote.poolUsd != null && quote.poolUsd < THIN_POOL_USD) continue;
     const info = mints.get(quote.mint);
     if (!info || typeof info.decimals !== "number") continue;
     const buy = await oneBuy(quote, info);
@@ -275,7 +276,8 @@ async function loadQuotes(): Promise<DeskQuote[]> {
           : null;
     return {
       symbol: token.symbol,
-      name: token.name.replace(/ xStock$/, ""),
+      name: token.name.replace(/ (xStock|by Backpack)$/, ""),
+      issuer: token.issuer,
       mint: token.mint,
       underlying: token.underlying ?? token.symbol,
       usdPrice,
@@ -287,6 +289,7 @@ async function loadQuotes(): Promise<DeskQuote[]> {
       buyImpactPct: null,
       buyAt: null,
       rebase: rebases.get(token.mint)?.rebase ?? null,
+      poolUsd: typeof fromJup?.liquidity === "number" && Number.isFinite(fromJup.liquidity) ? fromJup.liquidity : null,
       change24h: typeof fromJup?.priceChange24h === "number" ? fromJup.priceChange24h : null,
       sharesPerToken: rebases.get(token.mint)?.multiplier ?? null,
     };

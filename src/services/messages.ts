@@ -2,10 +2,12 @@
 
 import { Markup } from "telegraf";
 import type { InlineKeyboardMarkup } from "telegraf/types";
-import { TOKENIZED_STOCKS } from "../config/tokens.js";
+import { SYMBOL_TO_TOKEN, TOKENIZED_STOCKS, siblingTokens } from "../config/tokens.js";
 import type { DeskQuote, SizeResult } from "./desk.js";
 import type { PortfolioSummary } from "./portfolio.js";
+import type { Ranking, RankRow } from "./ranking.js";
 import {
+  THIN_POOL_USD,
   VERDICT_EMOJI,
   basisPct,
   buyHref,
@@ -130,18 +132,18 @@ export function cardText(quote: DeskQuote, verdict: Verdict) {
   const slice = fresh ? poolSliceUsd(quote.buyImpactPct ?? null) : null;
   const bar = gapBar(gap);
   const nasdaq =
-    quote.underlying === "SPCX"
-      ? "🏛 Nasdaq: no public print"
+    quote.stockPrice == null
+      ? "🏛 Nasdaq: the print is not in yet"
       : `🏛 Nasdaq <b>${money(quote.stockPrice)}</b>${quote.marketState ? ` · ${escapeHtml(quote.marketState)}` : ""}`;
   return join([
-    `${VERDICT_EMOJI[verdict.id]} <b>${escapeHtml(quote.name)}</b> · ${escapeHtml(quote.symbol)}`,
+    `${VERDICT_EMOJI[verdict.id]} <b>${escapeHtml(quote.name)}</b> · ${escapeHtml(quote.symbol)}${quote.issuer === "Backpack" ? " · Backpack" : ""}`,
     `<b>${escapeHtml(verdict.title)}.</b> ${escapeHtml(verdict.line)}`,
     "",
     `💵 Last trade <b>${money(quote.usdPrice)}</b>${quote.change24h != null ? ` · 24h ${pct(quote.change24h)}` : ""}`,
-    quote.underlying === "SPCX"
-      ? null
-      : buy != null
-        ? `🛒 $1,000 buy <b>${money(buy)}</b> a share`
+    buy != null
+      ? `🛒 $1,000 buy <b>${money(buy)}</b> a share`
+      : quote.poolUsd != null && quote.poolUsd < THIN_POOL_USD
+        ? `🛒 The pool holds about ${dollars(quote.poolUsd)}, too thin to quote a $1,000 buy`
         : "🛒 The $1,000 buy is still loading",
     nasdaq,
     gap != null && `📏 Gap <b>${escapeHtml(gapLabel(gap))}</b>`,
@@ -154,7 +156,20 @@ export function cardText(quote: DeskQuote, verdict: Verdict) {
       quote.rebase.at * 1000 > now &&
       `📅 Rebase ${escapeHtml(rebaseWhen(quote.rebase))} UTC: ${quote.rebase.direction === "up" ? "your balance goes up" : "the multiplier drops"}. Don't trade through it.`,
     multiplierLine(quote) || null,
+    otherTokensLine(quote.symbol),
   ]);
+}
+
+/** The same company's token from another issuer, and what to send for its card (amd.us is Backpack's AMD). */
+export function otherTokensLine(symbol: string) {
+  const token = SYMBOL_TO_TOKEN.get(symbol.toUpperCase());
+  const others = token ? siblingTokens(token) : [];
+  if (others.length === 0) return null;
+  const names = others.map((other) => `<b>${escapeHtml(other.symbol)}</b> (${other.issuer})`).join(", ");
+  const send = others
+    .map((other) => `<code>${other.issuer === "Backpack" ? `${other.symbol.toLowerCase()}.us` : other.symbol.toLowerCase()}</code>`)
+    .join(" or ");
+  return `🔁 Also on Solana: ${names}. Send ${send} to compare.`;
 }
 
 export function fairText(quotes: DeskQuote[]) {
@@ -229,6 +244,7 @@ export function startText(firstName?: string) {
     "• /size NVDAx 5000 · what your order really costs",
     "• /portfolio · paste a wallet to see your bag",
     "• /yield · live lending rates on Kamino",
+    "• /week · who stayed at the real price this week",
     "",
     "<b>For $PAR holders</b>",
     "• /watch · a text the moment a name turns Fair",
@@ -264,7 +280,7 @@ export function helpText() {
     "/hold &lt;wallet&gt; · the wallet that holds the coin, if it is not your bag wallet",
     "",
     "<b>Also</b>",
-    "/portfolio or /p · /prices · /yield NVDAx · /alert NVDAx up 5 · /alert list · /alert clear",
+    "/portfolio or /p · /prices · /week · /yield NVDAx · /alert NVDAx up 5 · /alert list · /alert clear",
     "",
     "<i>Buy opens Jupiter on that stock, paid with USDC. You pay the pool, not Par.</i>",
   ].join("\n");
@@ -291,7 +307,7 @@ export function pricesText(quotes: DeskQuote[]) {
 
 export function sizeText(result: Extract<SizeResult, { ok: true }>) {
   const { quote } = result;
-  const gap = basisPct(result.price, quote.underlying === "SPCX" ? null : quote.stockPrice);
+  const gap = basisPct(result.price, quote.stockPrice);
   const call = sizeCall({ gap, impactPct: result.impactPct, open: isSessionOpen(quote.marketState) });
   const premium = gap == null || quote.stockPrice == null ? null : result.usd - result.shares * quote.stockPrice;
   return {
@@ -385,7 +401,7 @@ export function yieldText(offers: LendingOffer[], symbol: string | null) {
   }
   const rows = [...best.values()].sort((a, b) => (b.supplyApy ?? -1) - (a.supplyApy ?? -1));
   return [
-    "💰 <b>Lending rates on your xStocks</b> · live from Kamino",
+    "💰 <b>Lending rates on your stock tokens</b> · live from Kamino",
     "Best supply rate per name, and how much you can borrow against it:",
     "",
     ...rows.map(
@@ -406,7 +422,6 @@ function dayLabel(now: number) {
 
 function briefParts(quotes: DeskQuote[], now: number) {
   const priced = quotes
-    .filter((quote) => quote.underlying !== "SPCX")
     .map((quote) => ({ quote, gap: judgedGap(quote, now) }))
     .filter((row): row is { quote: DeskQuote; gap: number } => row.gap != null);
   const over = priced.filter((row) => row.gap > 0.02).sort((a, b) => b.gap - a.gap).slice(0, 3);
@@ -475,6 +490,42 @@ export function briefKeyboard(): InlineKeyboardMarkup {
 }
 
 /** Under the public channel teaser: links only, so nobody's tap makes the bot answer inside the channel. */
+function rankLine(row: RankRow, index: number) {
+  return `${index + 1}. <b>${escapeHtml(row.symbol)}</b> · ${Math.round(row.near * 100)}% near · typical gap ${row.typicalGap.toFixed(2)}%`;
+}
+
+/** /week and the Friday channel post: the names closest to and furthest from their Nasdaq print over 7 days. */
+export function weekText(ranking: Ranking | null) {
+  if (!ranking) return "🏆 The ranking could not be read right now. Try again in a minute.";
+  if (ranking.rows.length === 0) {
+    return [
+      "🏆 <b>The weekly ranking</b>",
+      "It starts after about two hours of a US session. Par records Monday to Friday while Nasdaq is open. Try again after the next open.",
+    ].join("\n");
+  }
+  const closest = ranking.rows.slice(0, 5);
+  const furthest = ranking.rows
+    .slice(-5)
+    .reverse()
+    .filter((row) => !closest.includes(row));
+  return join([
+    "🏆 <b>Last 7 days: who stayed at the real price?</b>",
+    "Share of open-market readings within 0.4% of the Nasdaq print.",
+    "",
+    "🟢 <b>Closest</b>",
+    ...closest.map(rankLine),
+    furthest.length > 0 && "",
+    furthest.length > 0 && "🔴 <b>Furthest</b>",
+    ...furthest.map(rankLine),
+    "",
+    "<i>The last trade against the print, every 15 minutes. Not the $1,000 buy, and no promise for next week.</i>",
+  ]);
+}
+
+export function weekKeyboard(): InlineKeyboardMarkup {
+  return Markup.inlineKeyboard([[Markup.button.url("🏆 See the full ranking", `${DESK_URL}/ranking`)]]).reply_markup;
+}
+
 export function teaserKeyboard(): InlineKeyboardMarkup {
   return Markup.inlineKeyboard([
     [Markup.button.url("🌅 Get the full brief", "https://t.me/ONPAR_BOT?start=brief")],

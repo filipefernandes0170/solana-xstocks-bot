@@ -145,7 +145,7 @@ export function listBriefUsers() {
   return db.prepare(`SELECT telegram_id, wallet, holder_wallet, bell FROM users WHERE brief = 1`).all() as UserRow[];
 }
 
-/** Brief log rows use telegram_id 0 for the public channel post. */
+/** Brief log rows use telegram_id 0 for the public channel post, and -1 for the Friday ranking post. */
 export function briefAlreadySent(telegramId: number, day: string) {
   return !!db.prepare(`SELECT 1 AS ok FROM brief_log WHERE telegram_id = ? AND day = ?`).get(telegramId, day);
 }

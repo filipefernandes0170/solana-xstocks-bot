@@ -15,13 +15,15 @@ import { pricesCommand } from "./commands/prices.js";
 import { replySize, sizeCommand, sizeMenu } from "./commands/size.js";
 import { startCommand } from "./commands/start.js";
 import { watchCommand, watchReply } from "./commands/watch.js";
+import { weekCommand } from "./commands/week.js";
 import { yieldCommand } from "./commands/yield.js";
 
 /** The command list Telegram shows in the menu next to the message box. */
 export const MENU_COMMANDS = [
   { command: "prices", description: "The whole desk: verdicts, prices and gaps" },
+  { command: "week", description: "This week's ranking: who stayed at the real price" },
   { command: "size", description: "What your order really costs: /size NVDAx 5000" },
-  { command: "portfolio", description: "Your xStock bag, valued per share" },
+  { command: "portfolio", description: "Your stock-token bag, valued per share" },
   { command: "watch", description: "A text when a name turns Fair ($PAR holders)" },
   { command: "brief", description: "Morning brief before the open ($PAR holders)" },
   { command: "bell", description: "One message at the Nasdaq open ($PAR holders)" },
@@ -39,6 +41,7 @@ export function createBot() {
   bot.command("portfolio", portfolioCommand);
   bot.command("p", portfolioCommand);
   bot.command("prices", pricesCommand);
+  bot.command("week", weekCommand);
   bot.command("size", sizeCommand);
   bot.command("yield", yieldCommand);
   bot.command("alert", alertCommand);

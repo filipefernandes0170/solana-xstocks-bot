@@ -1,5 +1,5 @@
 import { Context } from "telegraf";
-import { lookupToken } from "../../config/tokens.js";
+import { SYMBOL_TO_TOKEN, lookupToken } from "../../config/tokens.js";
 import { addWatch, listWatches, removeWatch, upsertUser } from "../../db/index.js";
 import { holderNote } from "../holderNote.js";
 
@@ -20,7 +20,8 @@ export function payloadSymbols(payload: string) {
   const symbols = payload
     .slice(2)
     .split("-")
-    .map((part) => lookupToken(part)?.symbol)
+    // The site sends exact symbols (AMD is Backpack's token, AMDx the xStock), so an exact match comes first.
+    .map((part) => (SYMBOL_TO_TOKEN.get(part.toUpperCase()) ?? lookupToken(part))?.symbol)
     .filter((symbol): symbol is string => Boolean(symbol));
   return [...new Set(symbols)].slice(0, 8);
 }

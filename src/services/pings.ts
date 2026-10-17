@@ -21,7 +21,8 @@ import {
 import { getTokenizedStockHoldings } from "./solana.js";
 import { buysReady, getDeskQuotes, type DeskQuote } from "./desk.js";
 import { holderWallet, walletsHolding } from "./holder.js";
-import { bagText, bellText, briefKeyboard, briefTeaser, briefText, buyKeyboard, fairText, rebaseText, richText, teaserKeyboard } from "./messages.js";
+import { bagText, bellText, briefKeyboard, briefTeaser, briefText, buyKeyboard, fairText, rebaseText, richText, teaserKeyboard, weekKeyboard, weekText } from "./messages.js";
+import { fetchRanking } from "./ranking.js";
 import {
   etDay,
   etParts,
@@ -29,6 +30,7 @@ import {
   hasSignal,
   inBellWindow,
   inBriefWindow,
+  inWeekWindow,
   isPreMarket,
   rebaseDue,
   richWhileClosed,
@@ -156,10 +158,27 @@ async function sendBriefs(bot: Telegraf, quotes: DeskQuote[], now: number) {
   }
 }
 
+/** With BRIEF_CHANNEL_ID set: the week's ranking goes to that channel once, on Friday after the close. */
+async function sendWeekly(bot: Telegraf, now: number) {
+  if (!config.briefChannelId || !inWeekWindow(now)) return;
+  const day = etDay(now);
+  if (briefAlreadySent(-1, day)) return;
+  const ranking = await fetchRanking();
+  if (!ranking || ranking.rows.length === 0) return;
+  // Marked before sending, so a refusal (the bot is not an admin there) is not retried every minute.
+  markBriefSent(-1, day);
+  try {
+    await send(bot, config.briefChannelId, weekText(ranking), weekKeyboard());
+  } catch (err) {
+    console.warn("Ranking channel post failed:", (err as Error).message);
+  }
+}
+
 export async function checkDesk(bot: Telegraf) {
   if (running) return;
   running = true;
   try {
+    await sendWeekly(bot, Date.now()).catch((err) => console.warn("Weekly ranking failed:", (err as Error).message));
     const quotes = await getDeskQuotes();
     if (quotes.length === 0) return;
     // Right after a restart, wait for the first round of buy quotes so no verdict is judged without them.

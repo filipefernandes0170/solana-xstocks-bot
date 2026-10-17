@@ -27,7 +27,9 @@ test("fair uses the $1,000 buy, not the last trade", () => {
   assert.equal(tradeVerdict({ ...base, marketState: "Closed" }, now).id, "overnight");
   assert.equal(tradeVerdict({ ...base, buyPrice: 102, marketState: "Closed" }, now).id, "wait");
   assert.equal(tradeVerdict({ ...base, buyImpactPct: 3 }, now).id, "wait");
-  assert.equal(tradeVerdict({ ...base, underlying: "SPCX", symbol: "SPCXx" }, now).id, "unpriced");
+  // SpaceX has traded on Nasdaq as SPCX since 12 June 2026: it is judged like any other name.
+  assert.equal(tradeVerdict({ ...base, underlying: "SPCX", symbol: "SPCXx" }, now).id, "fair");
+  assert.equal(tradeVerdict({ ...base, underlying: "SPCX", symbol: "SPCXx", stockPrice: null }, now).id, "unpriced");
 });
 
 test("a name with no overnight quote waits while the market is closed", () => {
