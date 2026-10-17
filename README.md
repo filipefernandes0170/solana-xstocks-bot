@@ -15,7 +15,7 @@ Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solan
 
 | Command | Description |
 |---------|-------------|
-| `/start` | Welcome, with buttons. `?start=brief` turns the brief on; `?start=w-NVDAx-TSLAx` (the site's Favourites link) watches those names; `?start=p-<wallet>` (the portfolio's "Watch this bag") saves that address and shows its bag |
+| `/start` | Welcome, with buttons; someone without a proven wallet gets "🔐 Prove my $PAR wallet" first (and under every holder feature). `?start=brief` turns the brief on; `?start=w-NVDAx-TSLAx` (the site's Favourites link) watches those names; `?start=p-<wallet>` (the portfolio's "Watch this bag") saves that address and shows its bag |
 | `/prices` | The whole desk: verdict, price, gap and 24h move for every name |
 | `/week` | The last 7 days' ranking from the Par site: which names stayed closest to their Nasdaq print |
 | `/pairs` | Same company, two tokens (SpaceX, AMD): each $1,000 buy and which is cheaper. `/pairs on` (holders): a text when one is 0.5 points cheaper, at most once a day per company |

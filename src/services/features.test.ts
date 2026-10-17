@@ -334,3 +334,17 @@ test("a size alert fires only while Nasdaq is open and the order is at most 0.4%
   );
   assert.ok(sizeAlertSetText("MU", 2500).startsWith("🎯 Set: a text when a $2,500 buy of <b>MU</b>"));
 });
+
+test("the welcome puts the wallet proof first for someone who has not proven one", async () => {
+  const { startKeyboard, startText } = await import("./messages.js");
+  const nonce = "0123456789abcdef0123456789abcdef";
+  const withProof = startKeyboard(nonce).inline_keyboard;
+  const first = withProof[0][0] as { text: string; url?: string };
+  assert.equal(first.text, "🔐 Prove my $PAR wallet");
+  assert.equal(first.url, `https://xstocks-tracker.netlify.app/verify?n=${nonce}`);
+  const without = startKeyboard().inline_keyboard;
+  assert.equal(without.length, withProof.length - 1);
+  assert.ok(!JSON.stringify(without).includes("/verify"));
+  assert.ok(startText("Ana").includes("Prove your $PAR wallet first"));
+  assert.ok(startText("Ana").includes("never asks you to sign a transaction"));
+});

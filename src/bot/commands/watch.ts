@@ -2,6 +2,7 @@ import { Context } from "telegraf";
 import { SYMBOL_TO_TOKEN, lookupToken } from "../../config/tokens.js";
 import { addWatch, listWatches, removeWatch, upsertUser } from "../../db/index.js";
 import { holderNote } from "../holderNote.js";
+import { proveKeyboardFor } from "../proof.js";
 
 const WHAT = "A ping arrives when a watched name turns 🟢 Fair, and when it trades rich while Nasdaq is closed.";
 
@@ -11,7 +12,10 @@ export async function watchReply(ctx: Context, symbols: string | string[]) {
   const list = Array.isArray(symbols) ? symbols : [symbols];
   for (const symbol of list) addWatch(ctx.from!.id, symbol);
   const label = list.includes("ALL") ? "every name" : list.map((symbol) => `<b>${symbol}</b>`).join(", ");
-  await ctx.reply(`🔔 Watching ${label}.\n${WHAT}\n\n${await holderNote(ctx.from!.id)}`, { parse_mode: "HTML" });
+  await ctx.reply(`🔔 Watching ${label}.\n${WHAT}\n\n${await holderNote(ctx.from!.id)}`, {
+    parse_mode: "HTML",
+    reply_markup: proveKeyboardFor(ctx.from!.id),
+  });
 }
 
 /** The names in a site link payload such as "w-NVDAx-TSLAx": known names only, at most 8. */
@@ -44,7 +48,7 @@ export async function watchCommand(ctx: Context) {
         "",
         await holderNote(ctx.from!.id),
       ].join("\n"),
-      { parse_mode: "HTML" },
+      { parse_mode: "HTML", reply_markup: proveKeyboardFor(ctx.from!.id) },
     );
     return;
   }

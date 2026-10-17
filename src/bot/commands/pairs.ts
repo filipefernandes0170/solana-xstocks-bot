@@ -4,6 +4,7 @@ import { getDeskQuotes } from "../../services/desk.js";
 import { pairsText } from "../../services/messages.js";
 import { PAIR_POINTS, companyPairs } from "../../services/pairs.js";
 import { holderNote } from "../holderNote.js";
+import { proveKeyboardFor } from "../proof.js";
 
 /** /pairs: the companies with two tokens and which $1,000 buy is cheaper (free). /pairs on|off: the ping (holders). */
 export async function pairsCommand(ctx: Context) {
@@ -15,7 +16,7 @@ export async function pairsCommand(ctx: Context) {
     setPairs(telegramId, true);
     await ctx.reply(
       `🔁 On: a text when one token of a company is ${PAIR_POINTS} points cheaper than the other, at most once a day per company.\n\n${await holderNote(telegramId)}`,
-      { parse_mode: "HTML" },
+      { parse_mode: "HTML", reply_markup: proveKeyboardFor(telegramId) },
     );
     return;
   }

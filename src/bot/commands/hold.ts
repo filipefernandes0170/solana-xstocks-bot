@@ -1,8 +1,9 @@
 import { Context } from "telegraf";
-import { createProof, getProof, getUser, latestProof, markProofUsed, pruneProofs, setVerifiedWallet, upsertUser } from "../../db/index.js";
+import { getProof, getUser, latestProof, markProofUsed, setVerifiedWallet, upsertUser } from "../../db/index.js";
 import { holdText, proofKeyboard, provenText } from "../../services/messages.js";
-import { fetchSiteProof, isNonce, newNonce, proofFresh, proofMessage, verifyProof } from "../../services/walletProof.js";
+import { fetchSiteProof, isNonce, proofFresh, proofMessage, verifyProof } from "../../services/walletProof.js";
 import { holderNote } from "../holderNote.js";
+import { freshProofCode } from "../proof.js";
 
 /**
  * /hold: prove the wallet that holds $PAR. Makes a one-time code and a button to the site, where the wallet signs
@@ -20,10 +21,7 @@ export async function holdCommand(ctx: Context) {
     await ctx.reply("👛 Your proven wallet is removed. Send /hold to prove one again.");
     return;
   }
-  const now = Date.now();
-  pruneProofs(now - 24 * 60 * 60_000);
-  const nonce = newNonce();
-  createProof(ctx.from!.id, nonce, now);
+  const nonce = freshProofCode(ctx.from!.id);
   const user = getUser(ctx.from!.id);
   await ctx.reply(holdText(user?.verified_wallet ?? null), { parse_mode: "HTML", reply_markup: proofKeyboard(nonce) });
 }

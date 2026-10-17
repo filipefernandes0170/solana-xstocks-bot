@@ -115,8 +115,10 @@ export function sizeKeyboard(result: Extract<SizeResult, { ok: true }>, tone: Si
   return Markup.inlineKeyboard(rows).reply_markup;
 }
 
-export function startKeyboard(): InlineKeyboardMarkup {
+/** The welcome buttons. With a proof code, the first row proves the $PAR wallet (see /hold). */
+export function startKeyboard(proofNonce: string | null = null): InlineKeyboardMarkup {
   return Markup.inlineKeyboard([
+    ...(proofNonce ? [[Markup.button.url("🔐 Prove my $PAR wallet", `${DESK_URL}/verify?n=${proofNonce}`)]] : []),
     [Markup.button.callback("📈 The desk", "menu:prices"), Markup.button.callback("📏 Size check", "menu:size")],
     [Markup.button.callback("🌅 Morning brief", "menu:brief"), Markup.button.callback("🔔 Watch every name", "menu:watchall")],
     [Markup.button.url("🌐 Open the Par site", DESK_URL)],
@@ -255,7 +257,7 @@ export function startText(firstName?: string) {
     "• /sizealert NVDAx 5000 · a text when your order is at the real price",
     "• /pairs on · a text when one token of a company is cheaper",
     "• Bag watch · a note when a stock you hold changes",
-    "• /hold · prove the wallet that holds $PAR first",
+    "• 🔐 Prove your $PAR wallet first: the button below, one signed message, not a transaction",
     "",
     "<i>Par takes no fee, never holds funds, and never asks you to sign a transaction.</i>",
   ].join("\n");

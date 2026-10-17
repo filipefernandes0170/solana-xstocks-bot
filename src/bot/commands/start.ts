@@ -1,9 +1,10 @@
 import { Context } from "telegraf";
-import { upsertUser } from "../../db/index.js";
+import { getUser, upsertUser } from "../../db/index.js";
 import { bagWatchText, startKeyboard, startText } from "../../services/messages.js";
 import { holderNote } from "../holderNote.js";
 import { briefReply } from "./brief.js";
 import { confirmProof } from "./hold.js";
+import { freshProofCode, proveKeyboardFor } from "../proof.js";
 import { payloadWallet, portfolioReply } from "./portfolio.js";
 import { payloadSymbols, watchReply } from "./watch.js";
 
@@ -23,16 +24,18 @@ export async function startCommand(ctx: Context) {
     return;
   }
 
+  // Someone who has not proven a wallet sees the proof button first, so a holder can do it straight away.
+  const proofNonce = getUser(from.id)?.verified_wallet ? null : freshProofCode(from.id);
   await ctx.reply(startText(from.first_name), {
     parse_mode: "HTML",
     link_preview_options: { is_disabled: true },
-    reply_markup: startKeyboard(),
+    reply_markup: startKeyboard(proofNonce),
   });
   if (payload === "brief") await briefReply(ctx, true);
   const symbols = payloadSymbols(payload);
   if (symbols.length > 0) await watchReply(ctx, symbols);
   const wallet = payloadWallet(payload);
   if (wallet && (await portfolioReply(ctx, wallet))) {
-    await ctx.reply(bagWatchText(await holderNote(from.id)), { parse_mode: "HTML" });
+    await ctx.reply(bagWatchText(await holderNote(from.id)), { parse_mode: "HTML", reply_markup: proveKeyboardFor(from.id) });
   }
 }

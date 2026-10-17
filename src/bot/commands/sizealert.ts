@@ -4,6 +4,7 @@ import { addSizeAlert, clearSizeAlerts, listSizeAlerts, upsertUser } from "../..
 import { SIZE_MAX_USD, SIZE_MIN_USD } from "../../services/desk.js";
 import { MAX_SIZE_ALERTS, sizeAlertListText, sizeAlertSetText, sizeAlertUsage } from "../../services/messages.js";
 import { holderNote } from "../holderNote.js";
+import { proveKeyboardFor } from "../proof.js";
 import { parseAmount } from "./size.js";
 
 /**
@@ -17,7 +18,10 @@ export async function sizeAlertCommand(ctx: Context) {
   const first = parts[0]?.toLowerCase();
 
   if (!first) {
-    await ctx.reply(`${sizeAlertListText(listSizeAlerts(telegramId))}\n\n${sizeAlertUsage()}\n\n${await holderNote(telegramId)}`, { parse_mode: "HTML" });
+    await ctx.reply(`${sizeAlertListText(listSizeAlerts(telegramId))}\n\n${sizeAlertUsage()}\n\n${await holderNote(telegramId)}`, {
+      parse_mode: "HTML",
+      reply_markup: proveKeyboardFor(telegramId),
+    });
     return;
   }
 
@@ -53,5 +57,8 @@ export async function sizeAlertCommand(ctx: Context) {
     return;
   }
   addSizeAlert(telegramId, token.symbol, amount);
-  await ctx.reply(`${sizeAlertSetText(token.symbol, amount)}\n\n${await holderNote(telegramId)}`, { parse_mode: "HTML" });
+  await ctx.reply(`${sizeAlertSetText(token.symbol, amount)}\n\n${await holderNote(telegramId)}`, {
+    parse_mode: "HTML",
+    reply_markup: proveKeyboardFor(telegramId),
+  });
 }
