@@ -4,16 +4,18 @@
 // the 24h change and the shares-per-token multiplier (both from Jupiter's price API).
 //
 // Buy quotes are refreshed in rotation, a few per load and the oldest first, because Jupiter's
-// rate limit cannot take 19 quotes at once (see jupiter.ts). Only loads asked for by the browser's
+// rate limit cannot take 25 quotes at once (see jupiter.ts). Only loads asked for by the browser's
 // polling refresh them; the server-rendered first page uses what is already there, so it stays fast.
 
-import { ETF_UNDERLYINGS, NO_PRINT_UNDERLYING, TOKEN_BY_SYMBOL, TOKENS, USDC_MINT } from "../lib/tokens";
+import { THIN_POOL_USD } from "../lib/brand";
+import { ETF_UNDERLYINGS, TOKEN_BY_SYMBOL, TOKENS, USDC_MINT } from "../lib/tokens";
 import type { ExitCheck, Quote, QuotesResult, Rebase, SizeCheck } from "../lib/types";
 import { getJson } from "./http";
 import { jupiterGet } from "./jupiter";
 
 type JupiterPrice = {
   usdPrice?: number;
+  liquidity?: number;
   priceChange24h?: number;
   decimals?: number;
   stockData?: { price?: number; updatedAt?: string };
@@ -39,7 +41,7 @@ const decimalsByMint = new Map<string, number>();
 
 /**
  * Buy quotes per refresh: 4. With the price request that makes 5, one full 10 s window (see jupiter.ts),
- * with or without a key. 18 names take about 5 refreshes; when a refresh comes every ~20 s, most buys are
+ * with or without a key. 25 names take about 7 refreshes; when a refresh comes every ~10 to 15 s, most buys are
  * under the 90 s a buy stays usable, and the page keeps the newest it has seen (mergeBuys).
  */
 export function buysPerRefresh() {
@@ -99,7 +101,7 @@ async function fetchPrints(symbols: string[]) {
 
 /** One round of prints; symbols that fail are asked once more a second later. */
 async function refreshPrints() {
-  const symbols = [...new Set(TOKENS.map((token) => token.underlying))].filter((symbol) => symbol !== NO_PRINT_UNDERLYING);
+  const symbols = [...new Set(TOKENS.map((token) => token.underlying))];
   let failed = await fetchPrints(symbols);
   if (failed.length > 0) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -174,9 +176,9 @@ async function oneBuy(quote: Quote): Promise<Buy | null> {
 /** Refreshes the oldest few buy quotes, one after another so Jupiter's per-second limit holds. */
 async function rotateBuys(base: Quote[]) {
   const byMint = new Map(base.map((quote) => [quote.mint, quote]));
-  // SpaceX has no Nasdaq print, so its buy could never be compared; it is not quoted.
+  // A pool under THIN_POOL_USD is not quoted: a $1,000 buy there says more about the pool than the price.
   const candidates = base
-    .filter((quote) => quote.usdPrice != null && quote.underlying !== NO_PRINT_UNDERLYING && decimalsByMint.has(quote.mint))
+    .filter((quote) => quote.usdPrice != null && decimalsByMint.has(quote.mint) && !(quote.poolUsd != null && quote.poolUsd < THIN_POOL_USD))
     .map((quote) => quote.mint);
   for (const mint of stalestMints(candidates, buys, buysPerRefresh())) {
     const buy = await oneBuy(byMint.get(mint) as Quote);
@@ -211,7 +213,7 @@ async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
         : geckoPrice != null && Number.isFinite(geckoPrice)
           ? geckoPrice
           : null;
-    const print = token.underlying === NO_PRINT_UNDERLYING ? undefined : stocks[token.underlying];
+    const print = stocks[token.underlying];
     return {
       symbol: token.symbol,
       name: token.name,
@@ -229,6 +231,7 @@ async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
       issuerPrice: Number.isFinite(issuerRaw) && issuerRaw > 0 ? issuerRaw : null,
       issuerAt: Number.isFinite(issuerAt) ? issuerAt : null,
       rebase,
+      poolUsd: typeof jup?.liquidity === "number" && Number.isFinite(jup.liquidity) ? jup.liquidity : null,
     };
   });
 
@@ -294,7 +297,7 @@ export async function sizeCheck(symbol: string, usd: number): Promise<SizeCheck>
     price: fill.price,
     impactPct: fill.impactPct,
     lastTrade: quote.usdPrice,
-    stockPrice: token.underlying === NO_PRINT_UNDERLYING ? null : quote.stockPrice,
+    stockPrice: quote.stockPrice,
     marketState: quote.marketState,
     at: fill.at,
   };
@@ -362,7 +365,7 @@ export async function exitCheck(symbol: string, shares: number): Promise<ExitChe
     price,
     impactPct: impactFrac * 100,
     lastTrade: quote.usdPrice,
-    stockPrice: token.underlying === NO_PRINT_UNDERLYING ? null : quote.stockPrice,
+    stockPrice: quote.stockPrice,
     marketState: quote.marketState,
     at: Date.now(),
   };

@@ -1,7 +1,7 @@
 import { Bell, CalendarClock, DoorOpen, LayoutDashboard, Scale, Sprout } from "lucide-react";
 
 const PROMISES = [
-  { icon: Scale, title: "At the real price", line: "Every xStock you hold next to the same shares at the Nasdaq print." },
+  { icon: Scale, title: "At the real price", line: "Every stock token you hold next to the same shares at the Nasdaq print." },
   { icon: DoorOpen, title: "Exit price", line: "What selling each position would return right now, quoted at your size." },
   { icon: LayoutDashboard, title: "Your bag as a map", line: "Every position sized by its value and coloured by sector." },
   { icon: Bell, title: "Watch it in Telegram", line: "One tap, and the bot texts you when your bag needs a look." },

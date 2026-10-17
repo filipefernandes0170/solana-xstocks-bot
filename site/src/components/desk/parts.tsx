@@ -1,7 +1,6 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { FAIR_BAND, GAP_SCALE, gapPosition, sectorColours } from "../../lib/brand";
 import { formatGap, formatImpact, formatPct, formatUsd, impactHint, jupiterBuyUrl, multiplierLabel } from "../../lib/format";
-import { NO_PRINT_UNDERLYING } from "../../lib/tokens";
 import type { Quote, VerdictId } from "../../lib/types";
 import { buyUsable, legs } from "../../lib/verdict";
 
@@ -80,7 +79,20 @@ export function GapPill({ value }: { value: number | null }) {
 }
 
 /** Where the $1,000 buy sits against the Nasdaq print, on a -2% to +2% scale with the fair band shaded. */
-export function GapMeter({ gap, waiting }: { gap: number | null; waiting: string }) {
+export function GapMeter({ gap, waiting, loading = false }: { gap: number | null; waiting: string; loading?: boolean }) {
+  if (gap == null && loading) {
+    // Same shape as the meter, shimmering, so the card does not jump when the buy arrives.
+    return (
+      <div className="rounded-2xl bg-foam px-4 pb-2.5 pt-3" aria-busy="true">
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted">Buy versus Nasdaq</span>
+          <span className="shimmer h-5 w-24 rounded-full" aria-hidden />
+        </div>
+        <div className="shimmer mt-3 h-2 rounded-full" aria-hidden />
+        <p className="mt-1.5 text-xs text-muted">{waiting}</p>
+      </div>
+    );
+  }
   if (gap == null) {
     return (
       <div className="rounded-2xl bg-foam px-4 py-3">
@@ -132,8 +144,8 @@ export function VerdictDetail({ row, now }: { row: Quote; now: number }) {
   return (
     <p className="text-sm leading-relaxed text-muted">
       {"Nasdaq "}
-      {row.underlying === NO_PRINT_UNDERLYING ? "has no public print" : formatUsd(row.stockPrice)}
-      {row.underlying === NO_PRINT_UNDERLYING ? "" : buy == null ? " · The $1,000 buy is still loading" : ` · A $1,000 buy pays ${formatUsd(buy)} a share`}
+      {row.stockPrice == null ? "print not in yet" : formatUsd(row.stockPrice)}
+      {buy == null ? " · The $1,000 buy is still loading" : ` · A $1,000 buy pays ${formatUsd(buy)} a share`}
       {impact == null ? "" : ` and moves the price ${formatImpact(impact)}%`}
       {hint ? ` · ${hint}` : ""}
       {l.poolVersusIssuer != null && l.issuerVersusStock != null

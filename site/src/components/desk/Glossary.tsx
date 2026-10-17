@@ -24,7 +24,7 @@ const TERMS = [
       "The pool and the issuer mark disagree, and those two gaps cancel, so the token looks close to the stock. The buy only catches the pool.",
   },
   { word: "Checking", meaning: "A price or the issuer mark is still loading. This is not a buy signal." },
-  { word: "No print", meaning: "There is no public stock price to judge the token against." },
+  { word: "No print", meaning: "The Nasdaq print has not come in, so the token is not judged yet." },
   {
     word: "Rich",
     meaning:

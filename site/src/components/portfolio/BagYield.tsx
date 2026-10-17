@@ -27,7 +27,7 @@ export function BagYield({ lines, offers, error }: { lines: PortfolioLine[]; off
           <p className="mt-2 text-sm leading-relaxed text-muted">
             {"If you lent "}
             {money(idea.lent)}
-            {" of your xStocks on Kamino at today's best supply rate for each, about "}
+            {" of your stock tokens on Kamino at today's best supply rate for each, about "}
             {formatRate(idea.rate)}
             {" overall. It is paid in more of the same token, not in cash."}
           </p>

@@ -1,6 +1,6 @@
 // Gap history: every 15 minutes during US trading hours, the last trade of each name against its Nasdaq print.
 // netlify/functions/record-gaps.mts writes one Netlify Blob per UTC day; getHistory reads the last few days.
-// The $1,000 buy is not recorded: quoting 18 names would take longer than a scheduled function may run.
+// The $1,000 buy is not recorded: quoting 25 names would take longer than a scheduled function may run.
 
 import { gapPct } from "./verdict";
 

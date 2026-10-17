@@ -70,6 +70,24 @@ export function timeToOpen(now: number) {
   return hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
 }
 
+/** The day of the next open in words: "today", "tomorrow" or a weekday such as "Monday" (holidays are not modelled). */
+export function opensDay(now: number) {
+  const open = nextOpen(now);
+  const a = newYorkParts(now);
+  const b = newYorkParts(open);
+  const days = Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "tomorrow";
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "long" }).format(new Date(open));
+}
+
+/** One calm line for when the regular session is not open: where Nasdaq stands and when it opens. */
+export function closedLine(state: string | null, now: number) {
+  const label = sessionLabel(state, now);
+  const where = label === "Closed" || label === "Open" ? "Nasdaq is closed" : `Nasdaq is in ${label.toLowerCase()}`;
+  return `${where}. It opens ${opensDay(now)} at 9:30 ET, and nothing is called fair until then.`;
+}
+
 export function sessionLine(state: string | null, now: number) {
   return isSessionOpen(state)
     ? "Nasdaq is open. The gap is the live difference versus the print."

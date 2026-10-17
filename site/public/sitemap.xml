@@ -3,6 +3,7 @@
   <url><loc>https://xstocks-tracker.netlify.app/</loc></url>
   <url><loc>https://xstocks-tracker.netlify.app/bot</loc></url>
   <url><loc>https://xstocks-tracker.netlify.app/portfolio</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/ranking</loc></url>
   <url><loc>https://xstocks-tracker.netlify.app/s/NVDAx</loc></url>
   <url><loc>https://xstocks-tracker.netlify.app/s/TSLAx</loc></url>
   <url><loc>https://xstocks-tracker.netlify.app/s/AAPLx</loc></url>
@@ -22,4 +23,10 @@
   <url><loc>https://xstocks-tracker.netlify.app/s/HOODx</loc></url>
   <url><loc>https://xstocks-tracker.netlify.app/s/NFLXx</loc></url>
   <url><loc>https://xstocks-tracker.netlify.app/s/MCDx</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/SPCX</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/MU</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/TTWO</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/SKHY</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/DJT</loc></url>
+  <url><loc>https://xstocks-tracker.netlify.app/s/AMD</loc></url>
 </urlset>

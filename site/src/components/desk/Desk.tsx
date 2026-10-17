@@ -1,12 +1,15 @@
-import { ArrowRight, Bell, LayoutGrid, List, Ruler, Search, Send, Star, Wallet } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowRight, Bell, LayoutGrid, List, Ruler, Search, Send, Star, Trophy, Wallet } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { formatGap, formatPct, formatUsd } from "../../lib/format";
-import { etClock, sessionLabel, sessionLine } from "../../lib/session";
+import { nearLabel } from "../../lib/ranking";
+import { closedLine, etClock, isSessionOpen, sessionLabel, sessionLine } from "../../lib/session";
 import { TOKENS } from "../../lib/tokens";
 import { useFavourites, watchLink } from "../../lib/useFavourites";
 import type { CryptoRow, HolderStatus, HoldingsResult, Offer, Quote } from "../../lib/types";
 import { buyUsable, gapPct, mergeBuys, verdict } from "../../lib/verdict";
-import { checkHolder, getHoldings, getOffers, getQuotes } from "../../server/functions";
+import { checkHolder, getHoldings, getOffers, getQuotes, getRanking } from "../../server/functions";
+import type { RankingResult } from "../../server/history";
 import { SiteFooter } from "../SiteFooter";
 import { Backdrop } from "../Backdrop";
 import { SiteNav } from "../SiteNav";
@@ -16,7 +19,7 @@ import { Glossary } from "./Glossary";
 import { HeroLines } from "./HeroLines";
 import { PassAlong } from "./PassAlong";
 import { BuyLink, ChangePill, TickerBadge } from "./parts";
-import { SizeCheck } from "./SizeCheck";
+import { SizeSheet } from "./SizeSheet";
 import { StatStrip } from "./StatStrip";
 import { StockCard, type DeskRow } from "./StockCard";
 import { StockList } from "./StockList";
@@ -105,6 +108,7 @@ function emptyQuote(token: (typeof TOKENS)[number]): Quote {
     issuerPrice: null,
     issuerAt: null,
     rebase: null,
+    poolUsd: null,
   };
 }
 
@@ -164,6 +168,8 @@ export function Desk({
   const [yieldSymbol, setYieldSymbol] = useState("NVDAx");
   const [passSymbol, setPassSymbol] = useState("NVDAx");
   const [sizeSymbol, setSizeSymbol] = useState("NVDAx");
+  const [sizeOpen, setSizeOpen] = useState(false);
+  const [ranking, setRanking] = useState<RankingResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
@@ -190,6 +196,19 @@ export function Desk({
   useEffect(() => {
     for (const quote of initial) if (quote.usdPrice != null) lastPrices.current.set(quote.symbol, quote.usdPrice);
   }, [initial]);
+
+  // The week's leader for the teaser under the stat tiles. Shared by the CDN for 5 minutes; nothing shows until there is one.
+  useEffect(() => {
+    let alive = true;
+    getRanking()
+      .then((result) => {
+        if (alive) setRanking(result);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     saveSetting(ALERTS_KEY, JSON.stringify(alerts));
@@ -338,6 +357,9 @@ export function Desk({
   );
   const marketState = quotes.find((q) => q.marketState)?.marketState ?? null;
   const session = sessionLine(marketState, now);
+  const sessionOpen = isSessionOpen(marketState);
+  // Before the first answer, or before the browser has its own clock, the session is not known yet.
+  const sessionKnown = mounted && quotes.some((q) => q.usdPrice != null);
   const widest = gapRows.find((row) => row.gap != null);
   const fairNames = rows
     .filter((row) => row.verdict.id === "fair")
@@ -360,7 +382,7 @@ export function Desk({
 
   function openSize(symbol: string) {
     setSizeSymbol(symbol);
-    window.setTimeout(() => document.getElementById("size-check")?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
+    setSizeOpen(true);
   }
 
   /** Switching tabs from further down the page brings the tab content back into view. */
@@ -461,6 +483,10 @@ export function Desk({
               >
                 {fairNames.length === 1 ? `${closestFair.symbol} is the fair one.` : `${closestFair.symbol} is the closest fair name.`}
               </button>
+            ) : !sessionKnown ? (
+              <p className="mt-2 text-lg text-foam">Loading the live prices…</p>
+            ) : !sessionOpen ? (
+              <p className="mt-2 max-w-xl text-lg leading-snug text-foam">{closedLine(marketState, now)}</p>
             ) : (
               <button
                 type="button"
@@ -468,7 +494,7 @@ export function Desk({
                 disabled={!widest}
                 className="mt-2 block text-left text-lg text-foam underline decoration-gold/70 underline-offset-4 disabled:no-underline"
               >
-                {widest ? `Nothing is fair. The widest gap is ${widest.symbol}.` : "Checking which name is fair."}
+                {widest ? `Nothing is fair right now. The widest gap is ${widest.symbol}.` : "Waiting for the $1,000 buys."}
               </button>
             )}
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -496,7 +522,7 @@ export function Desk({
               How the bot works
             </a>
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-mist">
-              An xStock tracks the share. It is not the share, it does not vote, and a dividend shows up as more tokens, not cash.
+              A tokenized stock tracks the share. It is not the share, it does not vote, and a dividend shows up as more tokens, not cash.
             </p>
           </div>
           <HeroLines rows={rows} age={age} feedError={feedError} onPick={jumpTo} />
@@ -513,6 +539,28 @@ export function Desk({
           onPick={jumpTo}
         />
 
+        {ranking && ranking.rows.length > 0 ? (
+          <Link
+            to="/ranking"
+            className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-dusk/80 px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-dusk"
+          >
+            <span className="flex min-w-0 items-center gap-2 text-mist">
+              <Trophy className="size-4 shrink-0 text-gold" aria-hidden />
+              <span>
+                <span className="font-medium text-foam">Last 7 days: </span>
+                {ranking.rows[0].symbol}
+                {" stayed nearest to Nasdaq, "}
+                {nearLabel(ranking.rows[0].near)}
+                {" of the time."}
+              </span>
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-1 font-medium text-foam">
+              Ranking
+              <ArrowRight className="size-4" aria-hidden />
+            </span>
+          </Link>
+        ) : null}
+
         {feedError ? <p className="mt-4 rounded-2xl bg-clay-soft px-4 py-3 text-sm text-clay">{feedError}</p> : null}
         {hits.length > 0 ? (
           <p className="mt-4 rounded-2xl bg-pine-soft px-4 py-3 text-sm text-pine">
@@ -522,8 +570,6 @@ export function Desk({
             {" live. Open Alerts to review."}
           </p>
         ) : null}
-
-        <SizeCheck symbol={sizeSymbol} onSymbol={setSizeSymbol} />
 
         {/* The tab bar sticks to the top only while the tab content is on screen. */}
         <div id="sections" className="mt-10 scroll-mt-0">
@@ -627,6 +673,12 @@ export function Desk({
                   </a>
                 </div>
               ) : null}
+              {sessionKnown && !sessionOpen ? (
+                <p className="mt-4 rounded-2xl bg-dusk/80 px-4 py-3 text-sm leading-relaxed text-mist ring-1 ring-white/10">
+                  <span className="font-medium text-foam">{closedLine(marketState, now)}</span>
+                  {" Tokens keep trading on Solana, so gaps drift. Overnight means Kraken quotes that name around the clock, which is still not the Nasdaq print. Each card's own line is under Details."}
+                </p>
+              ) : null}
               {visible.length === 0 ? (
                 <p className="panel mt-4 px-5 py-10 text-base leading-relaxed text-muted ring-1 ring-line">
                   {filter === "fair"
@@ -646,7 +698,7 @@ export function Desk({
                   }}
                 />
               ) : (
-                <ul className="mt-4 grid gap-4 lg:grid-cols-2">
+                <ul className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {visible.map((row) => (
                     <StockCard
                       key={row.mint}
@@ -656,6 +708,7 @@ export function Desk({
                       onSize={openSize}
                       favourite={favourites.includes(row.symbol)}
                       onFavourite={toggleFavourite}
+                      sessionOpen={sessionOpen}
                     />
                   ))}
                 </ul>
@@ -666,8 +719,8 @@ export function Desk({
                 </button>
               ) : null}
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-mist">
-                Buy opens Jupiter, selling USDC for that xStock. You pay the pool, not Par. These are not Backpack stock tokens, even when the company
-                name matches.
+                Buy opens Jupiter, selling USDC for that token. You pay the pool, not Par. Each card names its issuer, xStocks or Backpack
+                Securities: the same company can have two tokens, each with its own pool and its own price.
               </p>
             </section>
           ) : null}
@@ -743,7 +796,7 @@ export function Desk({
                       {holdings.holdings.length === 1 ? "" : "s"}
                     </p>
                     {holdings.holdings.length === 0 ? (
-                      <p className="mt-6 text-sm text-muted">No tracked xStocks in this wallet. Prices above still cover the major names.</p>
+                      <p className="mt-6 text-sm text-muted">No tracked stock tokens in this wallet. Prices above still cover the major names.</p>
                     ) : (
                       <ul className="mt-5 divide-y divide-line">
                         {holdings.holdings.map((h) => {
@@ -940,6 +993,7 @@ export function Desk({
         <Glossary />
         <SiteFooter />
       </div>
+      <SizeSheet open={sizeOpen} symbol={sizeSymbol} onSymbol={setSizeSymbol} onClose={() => setSizeOpen(false)} />
     </>
   );
 }

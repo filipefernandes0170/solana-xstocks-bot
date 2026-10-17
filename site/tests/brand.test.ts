@@ -65,6 +65,7 @@ test("the /bot card meter matches the bot's", () => {
     issuerPrice: 213.75,
     issuerAt: 1_000_000,
     rebase: null,
+    poolUsd: 3_171_158,
   } satisfies Quote;
   const card = botCard(quote, 1_030_000);
   assert.ok(card.head.endsWith("NVIDIA · NVDAx"));

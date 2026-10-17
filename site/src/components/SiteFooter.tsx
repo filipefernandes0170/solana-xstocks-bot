@@ -10,9 +10,12 @@ export function SiteFooter() {
         Sources: token prices and the $1,000 buy from Jupiter (GeckoTerminal as a backup), stock prints from Nasdaq, lending rates from
         Kamino, coin prices from CoinGecko.
       </p>
-      <p className="mt-3">
+      <p className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
         <a href="https://t.me/ONPAR_BOT" className="text-foam underline decoration-gold/70 underline-offset-4">
           @ONPAR_BOT on Telegram
+        </a>
+        <a href="/ranking" className="text-foam underline decoration-gold/70 underline-offset-4">
+          This week's ranking
         </a>
       </p>
     </footer>

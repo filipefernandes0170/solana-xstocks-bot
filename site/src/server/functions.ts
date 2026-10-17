@@ -1,11 +1,12 @@
-// The desk's ten server functions. Handlers run only on the server (a Netlify Function in production);
+// The desk's twelve server functions. Handlers run only on the server (a Netlify Function in production);
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 import { PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE } from "../lib/site";
 import { cryptosResult } from "./cryptos";
-import { historyResult } from "./history";
+import { historyResult, rankingResult } from "./history";
+import { issuerResult } from "./issuer";
 import { offersResult } from "./offers";
 import { exitCheck, quotesResult, sizeCheck } from "./quotes";
 import { env } from "./http";
@@ -39,6 +40,20 @@ export const getHistory = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     setResponseHeader("Netlify-CDN-Cache-Control", STATIC_PAGE_CACHE);
     return historyResult(data.symbol);
+  });
+
+/** The last week's ranking: which names stayed closest to their Nasdaq print. Shared for 5 minutes. */
+export const getRanking = createServerFn({ method: "GET" }).handler(async () => {
+  setResponseHeader("Netlify-CDN-Cache-Control", STATIC_PAGE_CACHE);
+  return rankingResult();
+});
+
+/** What one name's issuer can still do, read from its mint account. Shared for 5 minutes. */
+export const getIssuer = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ symbol: String((input as { symbol?: unknown } | undefined)?.symbol ?? "") }))
+  .handler(async ({ data }) => {
+    setResponseHeader("Netlify-CDN-Cache-Control", STATIC_PAGE_CACHE);
+    return issuerResult(data.symbol);
   });
 
 /** Whether $PAR is live: the holder texts only work once TOKEN_MINT is set. Public, so shared like the prices. */

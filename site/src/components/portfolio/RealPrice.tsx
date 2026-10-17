@@ -173,7 +173,7 @@ export function RealPrice({
       </div>
       <p className="mt-3 text-sm leading-relaxed">
         {markLine}
-        {totals.unprinted > 0 ? " SpaceX has no public stock price, so it is left out of these sums." : ""}
+        {totals.unprinted > 0 ? " Names whose Nasdaq print has not come in are left out of these sums." : ""}
       </p>
 
       <div className="mt-6 rounded-2xl bg-foam p-4 sm:p-5">

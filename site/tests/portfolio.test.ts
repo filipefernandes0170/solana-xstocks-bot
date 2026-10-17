@@ -36,6 +36,7 @@ function quote(symbol: string, fields: Partial<Quote> = {}): Quote {
     issuerPrice: null,
     issuerAt: null,
     rebase: null,
+    poolUsd: null,
     ...fields,
   };
 }

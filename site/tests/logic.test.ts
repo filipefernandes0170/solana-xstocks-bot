@@ -46,6 +46,21 @@ test("session clock matches the published desk", () => {
 
 test("verdicts match the published desk", () => {
   for (const [i, c] of golden.verdicts.entries()) {
+    // Intended difference: the published desk treated SpaceX (SPCX) as having no Nasdaq print. It has traded on
+    // Nasdaq since 12 June 2026, so SPCXx is now judged like any other name (next test).
+    if (c.row.underlying === "SPCX") continue;
     assert.deepEqual(verdict(c.row, golden.now), c.verdict, `verdict #${i} ${JSON.stringify(c.row)}`);
   }
+});
+
+test("SpaceX is judged against its Nasdaq print like any other name", () => {
+  const cases = golden.verdicts.filter((c: { row: { underlying: string } }) => c.row.underlying === "SPCX");
+  assert.ok(cases.length > 0);
+  for (const c of cases) {
+    // Same row under a name with no special rule: the answer must be identical.
+    const asMicrosoft = verdict({ ...c.row, symbol: "MSFTx", underlying: "MSFT" }, golden.now);
+    assert.deepEqual(verdict(c.row, golden.now), asMicrosoft, JSON.stringify(c.row));
+  }
+  const judged = cases.map((c: { row: Parameters<typeof verdict>[0] }) => verdict(c.row, golden.now).id);
+  assert.ok(judged.some((id: string) => id !== "unpriced"), "a SpaceX row with a print gets a real verdict");
 });

@@ -66,6 +66,17 @@ The website at https://xstocks-tracker.netlify.app (Netlify project `xstocks-tra
 - **Saved wallet:** a wallet read on /portfolio or on the desk's Portfolio tab is kept on the device (`xstocks-wallet`, the desk's key) and offered as one button next time. Disconnect or Forget clears it. The address never goes in the page URL.
 - **Desk:** the Portfolio tab keeps its quick summary and links to the full page.
 
+## Before launch (17 Oct 2026, fifth pass)
+
+A look at the competition (Stocks on Solana lists 2,011 tokenized stocks with the last trade against the issuer's mark; RWA.xyz and RWA Trails chart the market; Trojan and Bankr trade) left Par's edge as the price you would actually pay or get, against Nasdaq, with a verdict. This pass sharpens that.
+
+- **SpaceX has a print.** SPCX has traded on Nasdaq since 12 June 2026, so SPCXx is judged like any name. A name is left unjudged only when its print is missing (stockPrice null), never by ticker. The 44 golden cases that encoded the old rule are skipped on purpose and a test checks SpaceX is judged exactly like any other name.
+- **Desk redesign:** the cards come right after the hero and the stat tiles (the Size check is a dialog, `SizeSheet`, opened by Size on a card or in the hero); cards are short, with the legs, impact and multiplier under Details; while Nasdaq is closed one banner says so (`closedLine`: "It opens Monday at 9:30 ET") and each card's line moves under Details; a missing $1,000 buy shimmers instead of printing a sentence; three columns from 1280 px. On a phone the first card is about a third higher and each card about half as tall.
+- **What the issuer can do** (`/s/<SYMBOL>`, `IssuerPowers`): one read of the mint account (`getIssuer`, cached 10 minutes) lists the Token-2022 powers: a permanent delegate (can move or burn tokens from any wallet), freeze, pause (and whether transfers are paused now), a transfer hook, the multiplier and the mint authority, each with the address that holds it.
+- **The week's ranking** (`/ranking`, `lib/ranking.ts`): from the gap history, the share of open-market readings each name spent within 0.4% of its print over 7 days, closest first; names need two hours of readings. Share, "Save image" (a 1200 × 675 PNG drawn in the browser, nothing uploaded), a teaser on the desk and a footer link. `/api/ranking` serves the same as JSON for the bot (`/week`, and a Friday post to `BRIEF_CHANNEL_ID`).
+- **Backpack Securities:** six tokens beside the 19 xStocks: SPCX, MU, TTWO, SKHY, DJT and AMD. Every mint is the one Backpack's own exchange API lists under "<SYMBOL>.US" (`api.backpack.exchange/api/v1/assets`, checked 17 Oct 2026); all share Backpack's issuer authority on chain and trade about 1:1 with the share. Cards and pages name the issuer; when one company has two tokens (SpaceX, AMD) the name page compares the two $1,000 buys (`OtherTokens`).
+- **Thin pools:** a pool under $25,000 (`THIN_POOL_USD`; AMDx and NFLXx today) gets no $1,000 buy quote; its card says the pool is too thin instead of loading. That keeps the rotation at 23 quoted names, 6 refreshes.
+
 ## Run it
 
 ```bash
@@ -105,13 +116,18 @@ Safe order, with labels from Netlify's docs:
 
 ```
 src/
-  routes/        __root.tsx (head, fonts, security headers, 404), index.tsx (desk + loader), bot.tsx, s.$symbol.tsx, portfolio.tsx
-  components/    Logo, Backdrop, SiteNav, SiteFooter, ShareButton, NotFound, bot/PhoneDemo, stock/GapHistory,
+  routes/        __root.tsx (head, fonts, security headers, 404), index.tsx (desk + loader), bot.tsx, s.$symbol.tsx, portfolio.tsx,
+                 ranking.tsx, api.ranking.ts (JSON for the bot)
+  components/    Logo, Backdrop, SiteNav, SiteFooter, ShareButton, NotFound, bot/PhoneDemo, stock/* (GapHistory, IssuerPowers, OtherTokens),
+                 ranking/saveImage,
                  portfolio/* (RealPrice, BagMap, BagYield, BagEvents, WatchBag, BagPromise),
-                 desk/* (Desk, HeroLines, Ticker, StatStrip, StockCard, StockList, SizeCheck, crypto, gap chart, yield, glossary, why-hold)
+                 desk/* (Desk, HeroLines, Ticker, StatStrip, StockCard, StockList, SizeCheck, SizeSheet, crypto, gap chart, yield, glossary, why-hold)
   lib/           site (URL, titles, cache and security headers), brand (badge colours, gap scale), size, share, history, botText,
-                 useFavourites, useLiveQuotes, bag, treemap, tokens, types, format, session (Nasdaq clock), verdict, wallet-standard, etf-holdings
-  server/        functions.ts (the 10 server functions) + jupiter (rate limiter), quotes, history, offers, cryptos, solana, wallet, http
+                 useFavourites, useLiveQuotes, bag, treemap, issuer, ranking, tokens, types, format, session (Nasdaq clock), verdict,
+                 wallet-standard, etf-holdings
+  server/        functions.ts (the 12 server functions) + jupiter (rate limiter), quotes, history (and the ranking), issuer, offers,
+                 cryptos, solana, wallet, http
 netlify/functions/record-gaps.mts   the scheduled gap recorder
-tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts, portfolio.test.ts
+tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts, portfolio.test.ts,
+                 launch.test.ts
 ```

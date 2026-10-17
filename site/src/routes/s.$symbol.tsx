@@ -6,22 +6,25 @@ import { NotFound } from "../components/NotFound";
 import { HeroLines } from "../components/desk/HeroLines";
 import { SizeCheck } from "../components/desk/SizeCheck";
 import { BuyLink, ChangePill, GapMeter, MultiplierNote, TickerBadge, VerdictDetail } from "../components/desk/parts";
-import type { DeskRow } from "../components/desk/StockCard";
+import { meterWaiting, type DeskRow } from "../components/desk/StockCard";
 import { YieldPanel } from "../components/desk/YieldPanel";
 import { ShareButton } from "../components/ShareButton";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteNav } from "../components/SiteNav";
 import { GapHistory } from "../components/stock/GapHistory";
+import { IssuerPowers } from "../components/stock/IssuerPowers";
+import { OtherTokens } from "../components/stock/OtherTokens";
 import { formatUsd } from "../lib/format";
 import type { HistoryPoint } from "../lib/history";
+import type { IssuerResult } from "../lib/issuer";
 import { cardShareText, stockUrl } from "../lib/share";
 import { PUBLIC_DATA_CACHE, SITE_URL } from "../lib/site";
-import { TOKENS } from "../lib/tokens";
+import { ISSUER_LABEL, TOKENS } from "../lib/tokens";
 import type { Offer, Quote } from "../lib/types";
 import { useFavourites, watchLink } from "../lib/useFavourites";
 import { useLiveQuotes } from "../lib/useLiveQuotes";
 import { buyUsable, gapPct, rebaseLine, verdict, verdictPillClass } from "../lib/verdict";
-import { getHistory, getOffers, getQuotes } from "../server/functions";
+import { getHistory, getIssuer, getOffers, getQuotes } from "../server/functions";
 
 function tokenFor(param: string) {
   return TOKENS.find((token) => token.symbol.toLowerCase() === param.toLowerCase());
@@ -38,7 +41,7 @@ export const Route = createFileRoute("/s/$symbol")({
     const image = `${SITE_URL}/og/s/${token.symbol}.png`;
     return {
       meta: [
-        { title: `${token.symbol} · ${token.name} · Par` },
+        { title: `${token.symbol} · ${token.name}${token.issuer === "Backpack" ? " by Backpack" : ""} · Par` },
         { name: "description", content: description },
         { property: "og:title", content: title },
         { property: "og:description", content: description },
@@ -55,8 +58,21 @@ export const Route = createFileRoute("/s/$symbol")({
   loader: async ({ params }) => {
     const token = tokenFor(params.symbol);
     if (!token) throw notFound();
-    const [quotes, offers, history] = await Promise.all([getQuotes(), getOffers(), getHistory({ data: { symbol: token.symbol } })]);
-    return { symbol: token.symbol, quotes: quotes.quotes, asOf: quotes.asOf, offers: offers.offers, offersError: offers.ok ? null : offers.message, history: history.points };
+    const [quotes, offers, history, issuer] = await Promise.all([
+      getQuotes(),
+      getOffers(),
+      getHistory({ data: { symbol: token.symbol } }),
+      getIssuer({ data: { symbol: token.symbol } }),
+    ]);
+    return {
+      symbol: token.symbol,
+      quotes: quotes.quotes,
+      asOf: quotes.asOf,
+      offers: offers.offers,
+      offersError: offers.ok ? null : offers.message,
+      history: history.points,
+      issuer,
+    };
   },
   component: StockPage,
 });
@@ -68,6 +84,7 @@ type StockData = {
   offers: Offer[];
   offersError: string | null;
   history: HistoryPoint[];
+  issuer: IssuerResult;
 };
 
 function StockPage() {
@@ -110,6 +127,8 @@ function StockView({ data }: { data: StockData }) {
               <p className="text-sm text-mist">
                 {token.symbol}
                 {" · "}
+                {ISSUER_LABEL[token.issuer]}
+                {" · "}
                 {token.sector}
                 {" · tracks "}
                 {token.underlying}
@@ -144,7 +163,7 @@ function StockView({ data }: { data: StockData }) {
                   </div>
                 </div>
                 <div className="mt-5">
-                  <GapMeter gap={row.gap} waiting={row.underlying === "SPCX" ? "SpaceX has no public stock price to compare." : "Waiting for a live $1,000 buy quote."} />
+                  <GapMeter gap={row.gap} waiting={meterWaiting(row).text} loading={meterWaiting(row).loading} />
                 </div>
                 <p className="mt-5 text-lg leading-relaxed">{row.verdict.line}</p>
                 {row.rebase && row.rebase.at * 1000 > live.now ? (
@@ -170,6 +189,8 @@ function StockView({ data }: { data: StockData }) {
           {row ? <HeroLines rows={[row]} age={live.age} feedError={live.feedError} onPick={() => undefined} /> : null}
         </section>
 
+        <OtherTokens symbol={token.symbol} quotes={live.quotes} now={live.now} />
+
         <section aria-labelledby="history-title" className="panel mt-8 p-6 text-ink ring-1 ring-line sm:p-7">
           <p className="text-sm font-medium text-amber">Last 7 days</p>
           <h2 id="history-title" className="mt-1 font-display text-3xl">
@@ -180,6 +201,8 @@ function StockView({ data }: { data: StockData }) {
             <GapHistory symbol={token.symbol} points={data.history} />
           </div>
         </section>
+
+        <IssuerPowers result={data.issuer} />
 
         <SizeCheck symbol={sizeSymbol} onSymbol={setSizeSymbol} />
 

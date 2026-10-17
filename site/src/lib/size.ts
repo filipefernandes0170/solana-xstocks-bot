@@ -12,7 +12,7 @@ export function sizeCall({ gap, impactPct, open }: { gap: number | null; impactP
   title: string;
   line: string;
 } {
-  if (gap == null) return { tone: "none", title: "No stock price to compare", line: "This name has no public Nasdaq print." };
+  if (gap == null) return { tone: "none", title: "No stock price to compare", line: "The Nasdaq print is not in yet, so this size is not judged." };
   const closedNote = open ? "" : " Nasdaq is closed, so the print is from the last session.";
   if (Math.abs(gap) >= 1 || impactPct >= 2) {
     return {

@@ -1,11 +1,11 @@
 // Scheduled: every 15 minutes, 12:00 to 21:45 UTC, Monday to Friday (US pre-market to after the close).
 // Records each name's last trade on Solana (Jupiter's per-share usdPrice) and its Nasdaq print into one
-// Netlify Blob per UTC day, for the gap history on /s/<symbol>. One Jupiter request and 18 Nasdaq requests
+// Netlify Blob per UTC day, for the gap history on /s/<symbol>. One Jupiter request and one Nasdaq request per company
 // per run; about 880 runs a month, roughly 10 of the free plan's 300 credits.
 
 import { getStore } from "@netlify/blobs";
 import { HISTORY_STORE, dayKey, type Snapshot } from "../../src/lib/history";
-import { ETF_UNDERLYINGS, NO_PRINT_UNDERLYING, TOKENS } from "../../src/lib/tokens";
+import { ETF_UNDERLYINGS, TOKENS } from "../../src/lib/tokens";
 
 async function json<T>(url: string, headers: Record<string, string>): Promise<T | null> {
   try {
@@ -28,7 +28,7 @@ export default async () => {
     return;
   }
 
-  const symbols = [...new Set(TOKENS.map((token) => token.underlying))].filter((symbol) => symbol !== NO_PRINT_UNDERLYING);
+  const symbols = [...new Set(TOKENS.map((token) => token.underlying))];
   const prints = new Map<string, { price: number; state: string }>();
   await Promise.all(
     symbols.map(async (symbol) => {

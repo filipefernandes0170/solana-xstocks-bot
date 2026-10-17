@@ -17,12 +17,24 @@ const SECTOR_COLOURS: Record<string, { bg: string; fg: string }> = {
   Brokerage: { bg: "#2a4d2a", fg: "#d9f5cf" },
   Media: { bg: "#5a1f24", fg: "#ffd6d9" },
   Restaurants: { bg: "#5c3412", fg: "#ffe0c2" },
+  Gaming: { bg: "#3a2a5c", fg: "#e6dcff" },
 };
 
 const FALLBACK = { bg: "#143240", fg: "#e7f3ee" };
 
 export function sectorColours(sector: string) {
   return SECTOR_COLOURS[sector] ?? FALLBACK;
+}
+
+/**
+ * Pools under this many dollars are too thin for a $1,000 buy to mean anything (it would move the price by
+ * percents), so they are not quoted: the rotation's few requests go to the names a buy can judge.
+ */
+export const THIN_POOL_USD = 25_000;
+
+/** "$4.4k" */
+export function poolLabel(usd: number) {
+  return usd >= 1_000_000 ? `$${(usd / 1_000_000).toFixed(1)}M` : usd >= 1_000 ? `$${(usd / 1_000).toFixed(1)}k` : `$${Math.round(usd)}`;
 }
 
 /** The gap scale on each card runs from -2% to +2%; the fair band is the 0.4% the verdict uses. */

@@ -28,7 +28,7 @@ import {
 import { getOffers, getPortfolio } from "../server/functions";
 
 const DESCRIPTION =
-  "Your Solana wallet's xStocks next to the shares they track: the Nasdaq value, a live exit price, possible yield and coming rebases. Read-only.";
+  "Your Solana wallet's stock tokens next to the shares they track: the Nasdaq value, a live exit price, possible yield and coming rebases. Read-only.";
 
 export const Route = createFileRoute("/portfolio")({
   headers: () => ({ "Netlify-CDN-Cache-Control": STATIC_PAGE_CACHE }),
@@ -340,7 +340,7 @@ function PortfolioPage() {
           <p className="text-sm font-medium text-gold">Portfolio</p>
           <h1 className="hero-title mt-2 max-w-3xl font-display text-4xl leading-[1.05] sm:text-6xl">Your bag, at the real price.</h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-mist">
-            Connect or paste a Solana wallet. Par reads the public balances, sets each xStock next to the shares it tracks, and shows what a sale would really
+            Connect or paste a Solana wallet. Par reads the public balances, sets each stock token next to the shares it tracks, and shows what a sale would really
             return. It never asks you to sign anything.
           </p>
         </header>
@@ -516,7 +516,7 @@ function PortfolioPage() {
                   {live.feedError
                     ? "Live prices paused; values are from the wallet read."
                     : live.quotes.length > 0
-                      ? `xStocks marked live, ${live.age}s ago`
+                      ? `Stock tokens marked live, ${live.age}s ago`
                       : "Loading live prices…"}
                 </p>
               </div>
@@ -566,12 +566,12 @@ function PortfolioPage() {
         ) : null}
         {book && rows.length === 0 && lines.some(isXStock) ? (
           <p className="panel mt-6 p-5 text-sm leading-relaxed text-muted ring-1 ring-line">
-            {live.feedError ? "Live prices are paused, so the Nasdaq comparison waits. Try again in a minute." : "Loading live prices for your xStocks…"}
+            {live.feedError ? "Live prices are paused, so the Nasdaq comparison waits. Try again in a minute." : "Loading live prices for your stock tokens…"}
           </p>
         ) : null}
         {book && rows.length === 0 && !lines.some(isXStock) ? (
           <p className="panel mt-6 p-5 text-sm leading-relaxed text-ink ring-1 ring-line">
-            No xStocks in this wallet, so there is no Nasdaq comparison, exit price or rebase to show. The desk lists every name Par tracks.
+            No tracked stock tokens in this wallet, so there is no Nasdaq comparison, exit price or rebase to show. The desk lists every name Par tracks.
           </p>
         ) : null}
 

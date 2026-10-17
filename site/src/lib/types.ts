@@ -20,6 +20,8 @@ export type Quote = {
   issuerPrice: number | null;
   issuerAt: number | null;
   rebase: Rebase | null;
+  /** The token's pool liquidity in dollars, from Jupiter. Under THIN_POOL_USD no $1,000 buy is quoted. */
+  poolUsd: number | null;
 };
 
 export type QuotesResult =

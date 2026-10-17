@@ -48,7 +48,7 @@ const FREE: { icon: ReactNode; title: string; line: string }[] = [
   { icon: <MessageSquare className="size-5" aria-hidden />, title: "A card per name", line: "Last trade, a live $1,000 buy, the Nasdaq print, the gap and a verdict." },
   { icon: <LineChart className="size-5" aria-hidden />, title: "/prices", line: "Every name at a glance, with its verdict and gap." },
   { icon: <Ruler className="size-5" aria-hidden />, title: "/size NVDAx 5000", line: "What your order really costs per share, from a live quote at that size." },
-  { icon: <Wallet className="size-5" aria-hidden />, title: "/portfolio", line: "Paste a wallet to see its xStocks, valued per share. Par only reads." },
+  { icon: <Wallet className="size-5" aria-hidden />, title: "/portfolio", line: "Paste a wallet to see its stock tokens, valued per share. Par only reads." },
   { icon: <Percent className="size-5" aria-hidden />, title: "/yield", line: "Live lending rates on Kamino for each name." },
 ];
 
@@ -62,7 +62,8 @@ const HOLDERS: { icon: ReactNode; title: string; line: string }[] = [
 const COMMANDS: [string, string][] = [
   ["/prices", "The whole desk"],
   ["/size NVDAx 5000", "Your order, per share"],
-  ["/portfolio", "Your xStock bag"],
+  ["/portfolio", "Your stock-token bag"],
+  ["/week", "This week's ranking"],
   ["/watch NVDAx", "Ping when it turns Fair"],
   ["/brief", "Morning brief on or off"],
   ["/bell", "Open bell on or off"],

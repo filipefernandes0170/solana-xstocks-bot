@@ -149,13 +149,14 @@ write(
 // Per-name previews: badge in the sector's colours, the token and the company. No prices: they would be stale.
 const tokensSource = readFileSync(join(site, "src", "lib", "tokens.ts"), "utf8");
 const tokens = [
-  ...tokensSource.matchAll(/symbol: "(\w+)", name: "([^"]+)", mint: "\w+", underlying: "(\w+)", sector: "([^"]+)"/g),
-].map((m) => ({ symbol: m[1], name: m[2], underlying: m[3], sector: m[4] }));
+  ...tokensSource.matchAll(/symbol: "(\w+)", name: "([^"]+)", mint: "\w+", underlying: "(\w+)", sector: "([^"]+)", issuer: "(\w+)"/g),
+].map((m) => ({ symbol: m[1], name: m[2], underlying: m[3], sector: m[4], issuer: m[5] }));
 const brandSource = readFileSync(join(site, "src", "lib", "brand.ts"), "utf8");
 const sectors = new Map(
   [...brandSource.matchAll(/(?:"([^"]+)"|(\w+)): \{ bg: "(#[0-9a-f]{6})", fg: "(#[0-9a-f]{6})" \}/g)].map((m) => [m[1] ?? m[2], { bg: m[3], fg: m[4] }]),
 );
-if (tokens.length !== 19) throw new Error(`Expected 19 tokens, found ${tokens.length}`);
+const expected = (tokensSource.match(/\{ symbol: "/g) ?? []).length;
+if (tokens.length !== expected) throw new Error(`Expected ${expected} tokens, found ${tokens.length}`);
 
 for (const token of tokens) {
   const colours = sectors.get(token.sector) ?? { bg: COLORS.dusk, fg: COLORS.foam };
@@ -167,7 +168,7 @@ for (const token of tokens) {
   <rect x="80" y="196" width="132" height="132" rx="28" fill="${colours.bg}"/>
   <text x="146" y="${262 + badgeText / 3}" text-anchor="middle" font-family="Outfit" font-weight="500" font-size="${badgeText}" fill="${colours.fg}">${esc(token.underlying)}</text>
   <text x="240" y="290" ${fraunces} font-size="100" fill="${COLORS.foam}">${esc(token.symbol)}</text>
-  <text x="244" y="336" font-family="Outfit" font-size="34" fill="${COLORS.mist}">${esc(token.name)} · ${esc(token.sector)}</text>
+  <text x="244" y="336" font-family="Outfit" font-size="34" fill="${COLORS.mist}">${esc(token.name)} · ${token.issuer === "Backpack" ? "Backpack Securities" : esc(token.sector)}</text>
   <text x="80" y="448" font-family="Outfit" font-weight="500" font-size="40" fill="${COLORS.foam}">Is the token at the share price?</text>
   <text x="80" y="504" font-family="Outfit" font-size="34" fill="${COLORS.gold}">Check it live on Par</text>`),
       1200,

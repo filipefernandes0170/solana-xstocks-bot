@@ -80,7 +80,7 @@ export type RealPriceRow = {
   quote: Quote;
   /** The shares at the last trade on Solana. */
   marked: number;
-  /** The same shares at the Nasdaq print. Null without a print (SpaceX) or while it loads. */
+  /** The same shares at the Nasdaq print. Null while the print is not in. */
   atNasdaq: number | null;
   /** Last trade versus the print, in percent. */
   tokenGap: number | null;

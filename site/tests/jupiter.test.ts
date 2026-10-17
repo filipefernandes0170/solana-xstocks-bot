@@ -32,9 +32,11 @@ test("the host follows the key; the pace is 1 request per 2 s either way", () =>
 });
 
 test("a full rotation of buy quotes fits inside the 90 s a buy quote stays usable", () => {
-  // The browser polls every 10 s, so each name is quoted again within this many seconds.
-  // SpaceX is not quoted (no Nasdaq print), so 18 names rotate, 4 per refresh: about 5 refreshes.
-  assert.ok(Math.ceil((TOKENS.length - 1) / 4) * 10 <= 50);
+  // The browser polls every 10 s and each refresh quotes buysPerRefresh() names, so every name is quoted again within
+  // this many seconds. 25 names need 7 refreshes (6 while the two thin pools, AMDx and NFLXx, are skipped): 70 s at most.
+  // When the CDN stretches refreshes past 10 s, the page keeps each name's newest buy (mergeBuys) until it is 90 s old.
+  assert.equal(TOKENS.length, 25);
+  assert.ok(Math.ceil(TOKENS.length / buysPerRefresh()) * 10 < 90);
 });
 
 test("a 429 cool-down reads seconds, epoch seconds and epoch milliseconds", () => {

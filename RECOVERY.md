@@ -122,3 +122,11 @@ Variáveis do site (todas opcionais): `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `TOKE
    - **Rendimento possível:** as taxas reais do Kamino para as ações que a carteira tem, em dólares por ano. Não é conselho.
    - **Próximos eventos:** os "rebases" que vão mudar o número de tokens na carteira.
    - **Créditos do Netlify:** a página só atualiza os preços depois de ler uma carteira, e o preço de saída só gasta quando alguém carrega no botão.
+12. **Antes do lançamento (17 out 2026, quinta volta).** Tudo descrito em `site/README.md` ("Before launch") e o que fica para depois em `ROADMAP.md`.
+   - **SpaceX:** entrou na Nasdaq a 12 de junho de 2026 (SPCX). O Par já compara o SPCXx com a Nasdaq, no site e no bot.
+   - **Desk mais limpo:** os cartões aparecem logo a seguir ao topo, são mais curtos ("Details" para o resto), a bolsa fechada é dita uma só vez num aviso, e o Size check abre numa janela.
+   - **"What the issuer can do":** em cada página de ação, o que o emissor pode fazer, lido da blockchain (congelar, mover tokens de qualquer carteira, pausar...).
+   - **Ranking da semana:** página `/ranking`, botão "Save image" para publicar, comando `/week` no bot e, se houver canal (`BRIEF_CHANNEL_ID`), publicação automática à sexta depois do fecho. O ranking só aparece depois da primeira sessão da bolsa com dados (segunda-feira).
+   - **Backpack Securities:** 6 tokens novos (SPCX, MU, TTWO, SKHY, DJT, AMD), com os endereços confirmados pela API oficial da Backpack. No bot, `amd` continua a ser o AMDx e `amd.us` é o da Backpack.
+   - **Pools pequenas:** AMDx e NFLXx deixam de ser cotadas na compra de $1,000 (pool abaixo de $25k); o cartão diz porquê.
+   - É preciso atualizar a VM para o bot ter tudo isto.

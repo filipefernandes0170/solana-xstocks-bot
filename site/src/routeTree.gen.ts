@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BotRouteImport } from './routes/bot'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
+import { Route as RankingRouteImport } from './routes/ranking'
+import { Route as ApiRankingRouteImport } from './routes/api.ranking'
 import { Route as SSymbolRouteImport } from './routes/s.$symbol'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +31,16 @@ const PortfolioRoute = PortfolioRouteImport.update({
   path: '/portfolio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RankingRoute = RankingRouteImport.update({
+  id: '/ranking',
+  path: '/ranking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRankingRoute = ApiRankingRouteImport.update({
+  id: '/api/ranking',
+  path: '/api/ranking',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SSymbolRoute = SSymbolRouteImport.update({
   id: '/s/$symbol',
   path: '/s/$symbol',
@@ -39,12 +51,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bot': typeof BotRoute
   '/portfolio': typeof PortfolioRoute
+  '/ranking': typeof RankingRoute
+  '/api/ranking': typeof ApiRankingRoute
   '/s/$symbol': typeof SSymbolRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bot': typeof BotRoute
   '/portfolio': typeof PortfolioRoute
+  '/ranking': typeof RankingRoute
+  '/api/ranking': typeof ApiRankingRoute
   '/s/$symbol': typeof SSymbolRoute
 }
 export interface FileRoutesById {
@@ -52,20 +68,32 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/bot': typeof BotRoute
   '/portfolio': typeof PortfolioRoute
+  '/ranking': typeof RankingRoute
+  '/api/ranking': typeof ApiRankingRoute
   '/s/$symbol': typeof SSymbolRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/bot' | '/portfolio' | '/s/$symbol'
+  fullPaths:
+    '/' | '/bot' | '/portfolio' | '/ranking' | '/api/ranking' | '/s/$symbol'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/bot' | '/portfolio' | '/s/$symbol'
-  id: '__root__' | '/' | '/bot' | '/portfolio' | '/s/$symbol'
+  to: '/' | '/bot' | '/portfolio' | '/ranking' | '/api/ranking' | '/s/$symbol'
+  id:
+    | '__root__'
+    | '/'
+    | '/bot'
+    | '/portfolio'
+    | '/ranking'
+    | '/api/ranking'
+    | '/s/$symbol'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BotRoute: typeof BotRoute
   PortfolioRoute: typeof PortfolioRoute
+  RankingRoute: typeof RankingRoute
+  ApiRankingRoute: typeof ApiRankingRoute
   SSymbolRoute: typeof SSymbolRoute
 }
 
@@ -92,6 +120,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortfolioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ranking': {
+      id: '/ranking'
+      path: '/ranking'
+      fullPath: '/ranking'
+      preLoaderRoute: typeof RankingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ranking': {
+      id: '/api/ranking'
+      path: '/api/ranking'
+      fullPath: '/api/ranking'
+      preLoaderRoute: typeof ApiRankingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/s/$symbol': {
       id: '/s/$symbol'
       path: '/s/$symbol'
@@ -106,6 +148,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BotRoute: BotRoute,
   PortfolioRoute: PortfolioRoute,
+  RankingRoute: RankingRoute,
+  ApiRankingRoute: ApiRankingRoute,
   SSymbolRoute: SSymbolRoute,
 }
 export const routeTree = rootRouteImport

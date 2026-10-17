@@ -3,7 +3,7 @@
 
 import { impactHint } from "./format";
 import { isSessionOpen } from "./session";
-import { AROUND_THE_CLOCK, NO_PRINT_UNDERLYING } from "./tokens";
+import { AROUND_THE_CLOCK } from "./tokens";
 import type { Quote, Rebase, Verdict, VerdictId } from "./types";
 
 /** Percent difference of a versus b. */
@@ -78,7 +78,7 @@ export type VerdictRow = {
 };
 
 export function verdict(row: VerdictRow, now: number): Verdict {
-  if (row.underlying === NO_PRINT_UNDERLYING || row.stockPrice == null || (row.usdPrice == null && row.buyPrice == null)) {
+  if (row.stockPrice == null || (row.usdPrice == null && row.buyPrice == null)) {
     return { id: "unpriced", title: "No print", line: "There is no public stock price to judge this against." };
   }
   if (!row.marketState?.trim()) {

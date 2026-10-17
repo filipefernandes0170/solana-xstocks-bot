@@ -2,6 +2,7 @@
 // /bot page can show a real card with live numbers. Plain text lines; the page styles them.
 
 import { formatGap, formatUsd, onePercentUsd } from "./format";
+import { TOKEN_BY_SYMBOL } from "./tokens";
 import type { Quote, VerdictId } from "./types";
 import { buyUsable, gapPct, verdict } from "./verdict";
 
@@ -43,7 +44,7 @@ export function botCard(quote: Quote, now: number): BotCard {
   const lines = [
     `💵 Last trade ${formatUsd(quote.usdPrice)}${quote.change24h != null ? ` · 24h ${pct(quote.change24h)}` : ""}`,
     buy != null ? `🛒 $1,000 buy ${formatUsd(buy)} a share` : "🛒 The $1,000 buy is still loading",
-    quote.underlying === "SPCX" ? "🏛 Nasdaq: no public print" : `🏛 Nasdaq ${formatUsd(quote.stockPrice)}${quote.marketState ? ` · ${quote.marketState}` : ""}`,
+    quote.stockPrice == null ? "🏛 Nasdaq: the print is not in yet" : `🏛 Nasdaq ${formatUsd(quote.stockPrice)}${quote.marketState ? ` · ${quote.marketState}` : ""}`,
   ];
   if (gap != null) lines.push(`📏 Gap ${formatGap(gap)}`);
   const foot: string[] = [];
@@ -52,5 +53,6 @@ export function botCard(quote: Quote, now: number): BotCard {
       `🌊 $1,000 moves the pool ${quote.buyImpactPct.toFixed(3)}%${slice != null ? ` · about $${Math.round(slice).toLocaleString("en-US")} reaches 1%` : ""}`,
     );
   }
-  return { head: `${VERDICT_EMOJI[v.id]} ${quote.name} · ${quote.symbol}`, verdict: `${v.title}. ${v.line}`, lines, meter: gapBar(gap), foot };
+  const issuer = TOKEN_BY_SYMBOL.get(quote.symbol)?.issuer === "Backpack" ? " · Backpack" : "";
+  return { head: `${VERDICT_EMOJI[v.id]} ${quote.name} · ${quote.symbol}${issuer}`, verdict: `${v.title}. ${v.line}`, lines, meter: gapBar(gap), foot };
 }

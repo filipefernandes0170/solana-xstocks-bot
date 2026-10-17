@@ -274,7 +274,24 @@ summary::-webkit-details-marker {
   }
 }
 
+/* A placeholder that shimmers while a live number is on its way (the $1,000 buy on a card). */
+.shimmer {
+  background: linear-gradient(90deg, var(--color-line) 0%, #fffaf0 50%, var(--color-line) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .shimmer,
   .hero-flow,
   .hero-halo,
   .rise,
