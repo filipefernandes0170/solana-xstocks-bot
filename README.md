@@ -15,7 +15,7 @@ Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solan
 
 | Command | Description |
 |---------|-------------|
-| `/start` | Welcome, with buttons. `t.me/ONPAR_BOT?start=brief` also turns the brief on |
+| `/start` | Welcome, with buttons. `?start=brief` turns the brief on; `?start=w-NVDAx-TSLAx` (the site's Favourites link) watches those names |
 | `/prices` | The whole desk: verdict, price, gap and 24h move for every name |
 | `/size NVDAx 5000` | Size check: shares, price per share, gap and pool impact at that size |
 | `/portfolio` or `/p` | Holdings per share, total value, each name's verdict |

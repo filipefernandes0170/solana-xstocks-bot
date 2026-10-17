@@ -125,3 +125,11 @@ test("a Nasdaq print survives one failed round, but not past 30 minutes", async 
   ]);
   assert.deepEqual(freshPrints(rows, now), { NFLX: { price: 70.53, state: "Closed" } });
 });
+
+test("the site's favourites link watches known names only, at most 8", async () => {
+  const { payloadSymbols } = await import("../bot/commands/watch.js");
+  assert.deepEqual(payloadSymbols("w-NVDAx-TSLAx"), ["NVDAx", "TSLAx"]);
+  assert.deepEqual(payloadSymbols("w-nvdax-NOPE-nvdax"), ["NVDAx"]);
+  assert.deepEqual(payloadSymbols("brief"), []);
+  assert.equal(payloadSymbols("w-NVDAx-TSLAx-AAPLx-SPYx-QQQx-MSFTx-GOOGLx-AMZNx-METAx").length, 8);
+});

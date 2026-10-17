@@ -2,8 +2,12 @@ import { Context } from "telegraf";
 import { upsertUser } from "../../db/index.js";
 import { startKeyboard, startText } from "../../services/messages.js";
 import { briefReply } from "./brief.js";
+import { payloadSymbols, watchReply } from "./watch.js";
 
-/** /start, including the deep link from the site's "Get the morning brief" button (t.me/ONPAR_BOT?start=brief). */
+/**
+ * /start, including the site's deep links: ?start=brief turns the morning brief on, and ?start=w-NVDAx-TSLAx
+ * (the Favourites "Watch in Telegram" button) watches those names.
+ */
 export async function startCommand(ctx: Context) {
   const from = ctx.from!;
   upsertUser(from.id, from.username, from.first_name);
@@ -15,4 +19,6 @@ export async function startCommand(ctx: Context) {
     reply_markup: startKeyboard(),
   });
   if (payload === "brief") await briefReply(ctx, true);
+  const symbols = payloadSymbols(payload);
+  if (symbols.length > 0) await watchReply(ctx, symbols);
 }

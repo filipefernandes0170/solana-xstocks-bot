@@ -5,12 +5,24 @@ import { holderNote } from "../holderNote.js";
 
 const WHAT = "A ping arrives when a watched name turns 🟢 Fair, and when it trades rich while Nasdaq is closed.";
 
-/** Adds a watch and answers in the same words for /watch and the Watch buttons. */
-export async function watchReply(ctx: Context, symbol: string) {
+/** Adds watches and answers in the same words for /watch, the Watch buttons and the site's favourites link. */
+export async function watchReply(ctx: Context, symbols: string | string[]) {
   upsertUser(ctx.from!.id, ctx.from?.username, ctx.from?.first_name);
-  addWatch(ctx.from!.id, symbol);
-  const label = symbol === "ALL" ? "every name" : `<b>${symbol}</b>`;
+  const list = Array.isArray(symbols) ? symbols : [symbols];
+  for (const symbol of list) addWatch(ctx.from!.id, symbol);
+  const label = list.includes("ALL") ? "every name" : list.map((symbol) => `<b>${symbol}</b>`).join(", ");
   await ctx.reply(`🔔 Watching ${label}.\n${WHAT}\n\n${await holderNote(ctx.from!.id)}`, { parse_mode: "HTML" });
+}
+
+/** The names in a site link payload such as "w-NVDAx-TSLAx": known names only, at most 8. */
+export function payloadSymbols(payload: string) {
+  if (!payload.startsWith("w-")) return [];
+  const symbols = payload
+    .slice(2)
+    .split("-")
+    .map((part) => lookupToken(part)?.symbol)
+    .filter((symbol): symbol is string => Boolean(symbol));
+  return [...new Set(symbols)].slice(0, 8);
 }
 
 export async function watchCommand(ctx: Context) {
