@@ -10,7 +10,7 @@ import { RealPrice } from "../components/portfolio/RealPrice";
 import { WatchBag } from "../components/portfolio/WatchBag";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteNav } from "../components/SiteNav";
-import { bagEvents, forgetWallet, isXStock, liveLines, readSavedWallet, realPriceRows, saveWallet } from "../lib/bag";
+import { bagEvents, forgetWallet, isXStock, liveLines, readSavedWallet, realPriceRows, saveWallet, withoutDust } from "../lib/bag";
 import { HOLDINGS_AS_OF, exposures, holdingsMayBeStale, overlap } from "../lib/etf-holdings";
 import { SITE_URL, STATIC_PAGE_CACHE } from "../lib/site";
 import type { Offer, PortfolioLine, PortfolioResult } from "../lib/types";
@@ -177,7 +177,7 @@ function PortfolioPage() {
 
   // Live prices only once a wallet is read; paused while the exit checks use Jupiter's rate limit.
   const live = useLiveQuotes([], 0, { enabled: book != null, paused: exitRunning });
-  const lines = useMemo(() => liveLines((book?.lines ?? []).filter((line) => line.usdValue > 0), live.quotes), [book, live.quotes]);
+  const { lines, dust } = useMemo(() => withoutDust(liveLines(book?.lines ?? [], live.quotes)), [book, live.quotes]);
   const marketState = live.quotes.find((quote) => quote.marketState)?.marketState ?? null;
   const rows = realPriceRows(lines, live.quotes, live.now);
   const events = bagEvents(lines, live.quotes, live.now);
@@ -544,6 +544,13 @@ function PortfolioPage() {
             {" had no price and "}
             {book.unpriced === 1 ? "is" : "are"}
             {" left out."}
+          </p>
+        ) : null}
+        {book && dust > 0 ? (
+          <p className="mt-2 text-sm text-mist">
+            {dust}
+            {dust === 1 ? " position is" : " positions are"}
+            {" worth under $0.01 and not shown."}
           </p>
         ) : null}
 

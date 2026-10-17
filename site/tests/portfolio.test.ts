@@ -9,6 +9,7 @@ import {
   liveLines,
   realPriceRows,
   realPriceTotals,
+  withoutDust,
   yieldIdeas,
 } from "../src/lib/bag";
 import { treemap } from "../src/lib/treemap";
@@ -119,6 +120,15 @@ test("the bag is re-marked live and set next to the same shares at Nasdaq", () =
   close(totals.atNasdaq, 428.26);
   close(totals.diffUsd, 1.34);
   assert.equal(totals.unprinted, 1);
+});
+
+test("dust under half a cent is left out and counted, like the bot's bag", () => {
+  const split = withoutDust([line("CRCLx", 0.0243, 2), line("SPCXx", 0.00001, 0.0001), line("NVDAx", 0, 0), line("USDC", 0.005, 0.005, "Cash")]);
+  assert.deepEqual(
+    split.lines.map((l) => l.symbol),
+    ["CRCLx", "USDC"],
+  );
+  assert.equal(split.dust, 1);
 });
 
 test("exit quotes are compared with the mark and with Nasdaq from the same moment", () => {

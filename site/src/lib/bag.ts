@@ -55,6 +55,15 @@ export function isXStock(line: PortfolioLine) {
   return line.kind === "Stock" || line.kind === "ETF";
 }
 
+/** Positions worth under half a cent show as $0.00; the page leaves them out and counts them. */
+export const DUST_USD = 0.005;
+
+/** Splits off dust: lines worth under half a cent (the bot's bag does the same). */
+export function withoutDust(lines: PortfolioLine[]) {
+  const kept = lines.filter((line) => line.usdValue >= DUST_USD);
+  return { lines: kept, dust: lines.filter((line) => line.usdValue > 0 && line.usdValue < DUST_USD).length };
+}
+
 /** xStock lines re-marked at the live last trade (the wallet read is a snapshot). Other lines stay as read. */
 export function liveLines(lines: PortfolioLine[], quotes: Quote[]): PortfolioLine[] {
   const bySymbol = new Map(quotes.map((quote) => [quote.symbol, quote]));
