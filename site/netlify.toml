@@ -1,0 +1,8 @@
+# Par desk (xstocks-tracker.netlify.app). Use this folder as the Netlify base directory: site
+# The TanStack Start Netlify plugin turns SSR and the server functions into a Netlify Function.
+[build]
+  command = "npm run build"
+  publish = "dist/client"
+
+[build.environment]
+  NODE_VERSION = "22"
