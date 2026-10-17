@@ -64,6 +64,12 @@ async function marketOffers(market: (typeof KAMINO_MARKETS)[number]): Promise<Of
 export async function offersResult(): Promise<OffersResult> {
   if (cache && Date.now() - cache.at < 60_000) return { ok: true, offers: cache.offers };
   const settled = await Promise.allSettled(KAMINO_MARKETS.map((market) => marketOffers(market)));
+  settled.forEach((result, index) => {
+    if (result.status === "rejected") {
+      const reason = result.reason instanceof Error ? result.reason.message : "request failed";
+      console.warn(`[par] Kamino ${KAMINO_MARKETS[index].venue}: ${reason}`);
+    }
+  });
   const live = settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
   if (settled.every((result) => result.status === "rejected")) {
     if (cache) return { ok: true, offers: cache.offers };

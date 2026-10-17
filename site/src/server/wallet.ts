@@ -11,14 +11,16 @@ import { ETF_UNDERLYINGS, TOKEN_BY_MINT, USDC_MINT, USDT_MINT } from "../lib/tok
 import type { HolderStatus, Holding, HoldingsResult, PortfolioLine, PortfolioResult, Quote } from "../lib/types";
 import { env } from "./http";
 import { deskQuotes, jupiterPrices } from "./quotes";
-import { rpc, solBalance, tokenBalances } from "./solana";
+import { logMessage, rpc, solBalance, tokenBalances } from "./solana";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const CASH = new Map([
   [USDC_MINT, "USDC"],
   [USDT_MINT, "USDT"],
 ]);
-const MAX_PRICED_MINTS = 1000;
+// Jupiter allows 1 request a second with a key (0.5 without), so pricing is capped at 3 batches of 50.
+// Tokens past the cap are counted in "had no price" rather than slowing the page down.
+const MAX_PRICED_MINTS = 150;
 const PRICE_BATCH = 50;
 
 async function quotesByMint() {
@@ -26,28 +28,22 @@ async function quotesByMint() {
   return new Map(quotes.map((quote) => [quote.mint, quote]));
 }
 
-/** Jupiter prices for many mints, 50 per request, 4 requests at a time. */
+/** Jupiter prices for many mints, 50 per request, one request at a time (see jupiter.ts). */
 async function priceMany(mints: string[]) {
-  const batches: string[][] = [];
-  for (let i = 0; i < mints.length; i += PRICE_BATCH) batches.push(mints.slice(i, i + PRICE_BATCH));
   const prices = new Map<string, { usdPrice: number; change24h: number | null }>();
-  let cursor = 0;
-  async function worker() {
-    while (cursor < batches.length) {
-      const batch = batches[cursor++];
-      const data = await jupiterPrices(batch).catch(() => null);
-      for (const mint of batch) {
-        const row = data?.[mint];
-        if (typeof row?.usdPrice === "number" && Number.isFinite(row.usdPrice) && row.usdPrice > 0) {
-          prices.set(mint, {
-            usdPrice: row.usdPrice,
-            change24h: typeof row.priceChange24h === "number" ? row.priceChange24h : null,
-          });
-        }
+  for (let i = 0; i < mints.length; i += PRICE_BATCH) {
+    const batch = mints.slice(i, i + PRICE_BATCH);
+    const data = await jupiterPrices(batch, 8000);
+    for (const mint of batch) {
+      const row = data?.[mint];
+      if (typeof row?.usdPrice === "number" && Number.isFinite(row.usdPrice) && row.usdPrice > 0) {
+        prices.set(mint, {
+          usdPrice: row.usdPrice,
+          change24h: typeof row.priceChange24h === "number" ? row.priceChange24h : null,
+        });
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(4, batches.length) }, () => worker()));
   return prices;
 }
 
@@ -194,7 +190,8 @@ export async function holderStatus(wallet: string): Promise<HolderStatus> {
     const minimum = Number(env("HOLDER_MIN_TOKENS") || "0");
     const holds = Number.isFinite(minimum) && minimum > 0 ? total >= minimum : total > 0;
     return holds ? "holds" : "absent";
-  } catch {
+  } catch (error) {
+    console.warn(`[par] Holder check: ${logMessage(error)}`);
     return "error";
   }
 }

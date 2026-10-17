@@ -1,19 +1,23 @@
 import { Bell, Search, Wallet } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { formatAmount, formatGap, formatPct, formatUsd, perSharePrice } from "../../lib/format";
 import { etClock, isSessionOpen, sessionLabel, sessionLine, timeToOpen, utcStamp } from "../../lib/session";
 import { NO_PRINT_UNDERLYING, TOKENS } from "../../lib/tokens";
 import type { CryptoRow, HolderStatus, HoldingsResult, Offer, Quote } from "../../lib/types";
 import { buyUsable, gapPct, rebaseLine, verdict, verdictBarClass, verdictPillClass } from "../../lib/verdict";
 import { checkHolder, getHoldings, getOffers, getQuotes } from "../../server/functions";
+import { SiteFooter } from "../SiteFooter";
 import { Sky } from "../Sky";
 import { CryptoPanel } from "./CryptoPanel";
-import { GapView, type GapRow } from "./GapView";
+import type { GapRow } from "./GapView";
 import { Glossary } from "./Glossary";
 import { PassAlong } from "./PassAlong";
 import { BuyLink, ChangePill, GapPill, ShareMeter, VerdictDetail } from "./parts";
 import { WhyHold } from "./WhyHold";
 import { YieldPanel } from "./YieldPanel";
+
+// The Gap tab's chart library is large, so it loads only when that tab is opened.
+const GapView = lazy(() => import("./GapView").then((module) => ({ default: module.GapView })));
 
 type Tab = "markets" | "gap" | "portfolio" | "yield" | "alerts";
 
@@ -38,6 +42,15 @@ function loadAlerts(): Alert[] {
   } catch {
     return [];
   }
+}
+
+// Polling pauses in a hidden tab. Saved alerts keep it going only when this browser may show a ping.
+function pageVisible() {
+  return document.visibilityState !== "hidden";
+}
+
+function canNotify() {
+  return typeof Notification !== "undefined" && Notification.permission === "granted";
 }
 
 function emptyQuote(token: (typeof TOKENS)[number]): Quote {
@@ -88,6 +101,7 @@ export function Desk({
   const lastPrices = useRef(new Map<string, number>());
   const alertsPrimed = useRef(false);
   const alertsLive = useRef(new Set<string>());
+  const alertsActive = useRef(false);
   const [search, setSearch] = useState("");
   const [walletDraft, setWalletDraft] = useState("");
   const [savedWallet, setSavedWallet] = useState("");
@@ -127,11 +141,22 @@ export function Desk({
     localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts));
   }, [alerts]);
 
+  useEffect(() => {
+    alertsActive.current = alerts.length > 0;
+  }, [alerts]);
+
   // Prices every 10 s, the clock every second. Prices that moved flash green or red.
+  // Polling pauses while the tab is hidden, unless a saved alert could still ping this browser.
   useEffect(() => {
     let alive = true;
     async function refresh() {
-      const result = await getQuotes();
+      let result: Awaited<ReturnType<typeof getQuotes>>;
+      try {
+        result = await getQuotes({ data: { refreshBuys: true } });
+      } catch {
+        if (alive) setFeedError("Price feed paused.");
+        return;
+      }
       if (!alive) return;
       if (!result.ok) {
         setFeedError(result.message ?? "Price feed paused.");
@@ -155,12 +180,19 @@ export function Desk({
       }
     }
     void refresh();
-    const poll = window.setInterval(() => void refresh(), 10_000);
+    const poll = window.setInterval(() => {
+      if (pageVisible() || (alertsActive.current && canNotify())) void refresh();
+    }, 10_000);
     const clock = window.setInterval(() => setNow(Date.now()), 1000);
+    const onVisibility = () => {
+      if (pageVisible()) void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       alive = false;
       window.clearInterval(poll);
       window.clearInterval(clock);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
@@ -183,11 +215,17 @@ export function Desk({
     });
   }, [quotes]);
 
-  // Yield offers every minute.
+  // Yield offers every minute, only while the tab is visible.
   useEffect(() => {
     let alive = true;
     async function refresh() {
-      const result = await getOffers();
+      let result: Awaited<ReturnType<typeof getOffers>>;
+      try {
+        result = await getOffers();
+      } catch {
+        if (alive && offers.length === 0) setOffersErr("Yield markets unavailable");
+        return;
+      }
       if (!alive) return;
       if (result.ok) {
         setOffers(result.offers);
@@ -196,7 +234,9 @@ export function Desk({
         setOffersErr(result.message ?? "Yield markets unavailable");
       }
     }
-    const poll = window.setInterval(() => void refresh(), 60_000);
+    const poll = window.setInterval(() => {
+      if (pageVisible()) void refresh();
+    }, 60_000);
     return () => {
       alive = false;
       window.clearInterval(poll);
@@ -320,7 +360,7 @@ export function Desk({
         <header className="rise flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 max-w-2xl">
             <div className="flex items-center gap-3">
-              <img src="/logo.jpg" alt="" width={44} height={44} className="h-11 w-11 rounded-xl" />
+              <img src="/logo-96.jpg" alt="" width={44} height={44} className="h-11 w-11 rounded-xl" />
               <p className="text-sm font-medium tracking-wide text-gold">Par · stocks on Solana</p>
             </div>
             <h1 className="mt-3 font-display text-5xl leading-none text-foam sm:text-7xl">Is the price real?</h1>
@@ -362,9 +402,13 @@ export function Desk({
             <div className="panel w-full p-6 text-ink">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-muted">Fair right now</p>
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-ink" role="status">
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
                   <span className="live-dot" aria-hidden />
-                  {feedError ? "Reconnecting" : `${age}s`}
+                  <span aria-hidden>{feedError ? "Reconnecting" : `${age}s`}</span>
+                  {/* Screen readers hear only the change between live and reconnecting, not every second. */}
+                  <span className="sr-only" role="status">
+                    {feedError ? "Prices reconnecting" : "Prices live"}
+                  </span>
                 </span>
               </div>
               <p className="mt-2 font-display text-6xl leading-none text-ink">{fairCount}</p>
@@ -429,13 +473,14 @@ export function Desk({
           </p>
         ) : null}
 
-        <nav className="mt-8 flex gap-1 overflow-x-auto rounded-full bg-dusk p-1 ring-1 ring-white/10" aria-label="Sections">
+        <nav className="mt-8 flex gap-0.5 overflow-x-auto rounded-full bg-dusk p-1 ring-1 ring-white/10 sm:gap-1" aria-label="Sections">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`h-11 shrink-0 rounded-full px-4 text-sm font-medium ${tab === t.id ? "bg-gold text-ink" : "text-foam"}`}
+              aria-pressed={tab === t.id}
+              className={`h-11 shrink-0 rounded-full px-2.5 text-sm font-medium sm:px-4 ${tab === t.id ? "bg-gold text-ink" : "text-foam"}`}
             >
               {t.label}
             </button>
@@ -451,13 +496,15 @@ export function Desk({
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search a company"
-                  className="h-12 w-full bg-transparent text-base text-ink outline-none placeholder:text-muted"
+                  aria-label="Search a company"
+                  className="h-12 w-full bg-transparent text-base text-ink placeholder:text-muted"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setFairOnly(false)}
+                  aria-pressed={!fairOnly}
                   className={`h-12 rounded-full px-4 text-sm font-medium ${fairOnly ? "bg-dusk text-foam ring-1 ring-white/10" : "bg-gold text-ink"}`}
                 >
                   All names
@@ -465,6 +512,7 @@ export function Desk({
                 <button
                   type="button"
                   onClick={() => setFairOnly(true)}
+                  aria-pressed={fairOnly}
                   className={`h-12 rounded-full px-4 text-sm font-medium ${fairOnly ? "bg-gold text-ink" : "bg-dusk text-foam ring-1 ring-white/10"}`}
                 >
                   Fair now
@@ -533,7 +581,9 @@ export function Desk({
         ) : null}
 
         {tab === "gap" ? (
-          <GapView rows={gapRows} session={mounted ? session : "Checking the US session."} marketState={marketState} now={now} />
+          <Suspense fallback={<p className="panel mt-5 px-5 py-10 text-base text-muted ring-1 ring-line">Loading the gap chart…</p>}>
+            <GapView rows={gapRows} session={mounted ? session : "Checking the US session."} marketState={marketState} now={now} />
+          </Suspense>
         ) : null}
 
         {tab === "portfolio" ? (
@@ -555,7 +605,8 @@ export function Desk({
                 onChange={(event) => setWalletDraft(event.target.value)}
                 rows={3}
                 placeholder="Solana address"
-                className="mt-3 w-full resize-none rounded-2xl bg-foam px-3 py-3 text-sm text-ink ring-1 ring-line outline-none"
+                aria-label="Solana address"
+                className="mt-3 w-full resize-none rounded-2xl bg-foam px-3 py-3 text-sm text-ink ring-1 ring-line"
               />
               <button
                 type="submit"
@@ -774,6 +825,7 @@ export function Desk({
           }}
         />
         <Glossary />
+        <SiteFooter />
       </div>
     </>
   );

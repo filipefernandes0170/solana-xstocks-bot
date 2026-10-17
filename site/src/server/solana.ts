@@ -32,6 +32,11 @@ export function isSolanaAddress(value: string) {
   return bytes.length === 32;
 }
 
+/** An error's text for the server log, with anything that looks like an address blanked out. */
+export function logMessage(error: unknown) {
+  return (error instanceof Error ? error.message : "request failed").replace(/[1-9A-HJ-NP-Za-km-z]{32,44}/g, "[address]");
+}
+
 /** Trims the input and throws the desk's message when it is not an address. */
 export function walletInput(input: unknown): { wallet: string } {
   const wallet = typeof (input as { wallet?: unknown })?.wallet === "string" ? (input as { wallet: string }).wallet.trim() : "";
@@ -60,6 +65,8 @@ export async function rpc<T>(method: string, params: unknown[], timeoutMs = 15_0
       return data.result as T;
     } catch (error) {
       lastError = error;
+      // Never log the URL: a private RPC URL can contain an API key.
+      console.warn(`[par] Solana RPC ${method}: ${logMessage(error)}`);
     }
   }
   throw lastError instanceof Error ? lastError : new Error("RPC unavailable");

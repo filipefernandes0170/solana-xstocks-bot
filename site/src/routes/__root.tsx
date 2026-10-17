@@ -1,21 +1,36 @@
 /// <reference types="vite/client" />
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { NotFound } from "../components/NotFound";
+import { SECURITY_HEADERS, SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from "../lib/site";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
+  headers: () => SECURITY_HEADERS,
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Par" },
-      { name: "description", content: "Par says whether a tokenized stock on Solana is actually at the share price." },
+      { name: "description", content: SITE_DESCRIPTION },
       { name: "theme-color", content: "#0b1c26" },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "Par" },
+      { property: "og:title", content: SITE_TITLE },
+      { property: "og:description", content: SITE_DESCRIPTION },
+      { property: "og:image", content: `${SITE_URL}/og.png` },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "Par: Is the price real? Tokenized stocks on Solana versus the share price." },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: SITE_TITLE },
+      { name: "twitter:description", content: SITE_DESCRIPTION },
+      { name: "twitter:image", content: `${SITE_URL}/og.png` },
     ],
     links: [
-      { rel: "icon", type: "image/jpeg", href: "/logo.jpg" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
       { rel: "stylesheet", href: appCss },
-      { rel: "apple-touch-icon", href: "/logo.jpg" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -25,6 +40,7 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  notFoundComponent: NotFound,
 });
 
 function RootDocument({ children }: { children: ReactNode }) {

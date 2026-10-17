@@ -27,7 +27,7 @@ export function WhyHold({
 }) {
   return (
     <section className="mt-10 panel p-6 ring-1 ring-line sm:p-8" aria-label="Why hold">
-      <p className="text-sm font-medium text-gold">Why hold</p>
+      <p className="text-sm font-medium text-amber">Why hold</p>
       <h2 className="mt-2 max-w-xl font-display text-4xl leading-none text-ink sm:text-5xl">Par is free. The text is not.</h2>
       <dl className="mt-8 grid gap-6 sm:grid-cols-2">
         <div>
@@ -59,7 +59,7 @@ export function WhyHold({
           placeholder="Solana address"
           autoComplete="off"
           spellCheck={false}
-          className="mt-2 h-12 w-full rounded-full bg-foam px-4 text-sm text-ink ring-1 ring-line outline-none placeholder:text-muted"
+          className="mt-2 h-12 w-full rounded-full bg-foam px-4 text-sm text-ink ring-1 ring-line placeholder:text-muted"
         />
         <button
           type="submit"

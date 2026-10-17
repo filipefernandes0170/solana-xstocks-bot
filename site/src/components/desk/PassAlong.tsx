@@ -41,7 +41,7 @@ export function PassAlong({
   const token = TOKEN_BY_SYMBOL.get(symbol);
   return (
     <section className="mt-4 panel p-5 ring-1 ring-line">
-      <p className="text-sm text-gold">Pass this along</p>
+      <p className="text-sm text-amber">Pass this along</p>
       <h2 className="mt-2 max-w-3xl font-display text-2xl leading-snug text-ink sm:text-3xl">{text}</h2>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
         <label className="text-sm text-muted">

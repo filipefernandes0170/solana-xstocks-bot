@@ -32,7 +32,7 @@ export function GapView({ rows, session, marketState, now }: { rows: GapRow[]; s
   return (
     <section className="mt-5 grid gap-4">
       <div className="panel p-5 ring-1 ring-line">
-        <p className="text-sm text-gold">{session}</p>
+        <p className="text-sm text-amber">{session}</p>
         <h2 className="mt-2 font-display text-3xl text-ink">On-chain versus the stock</h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">{EXPLAINER}</p>
       </div>

@@ -13,9 +13,14 @@
   --color-line: #e2d6c4;
   --color-pine: #147a58;
   --color-pine-soft: #dff3ea;
-  --color-clay: #c24b38;
+  /* clay darkened from #c24b38 so red text reaches 4.5:1 on the light cards and pills */
+  --color-clay: #b03f2c;
   --color-clay-soft: #f8e6e1;
+  /* red text on the dark backgrounds (5.3:1 on dusk) */
+  --color-clay-bright: #ef8571;
   --color-gold: #e0a04a;
+  /* gold text on the light cards (5.2:1); plain gold stays for text on the dark sky */
+  --color-amber: #8d5b17;
   --radius-card: 1.25rem;
 }
 
@@ -43,6 +48,11 @@
   ::selection {
     color: var(--color-foam);
     background: #2a6a58;
+  }
+  /* A visible keyboard focus ring everywhere: this blue keeps at least 3:1 on both the dark sky and the light cards. */
+  :focus-visible {
+    outline: 2px solid #3d7eff;
+    outline-offset: 2px;
   }
 }
 

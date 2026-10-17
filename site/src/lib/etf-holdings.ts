@@ -2,6 +2,12 @@
 // These are the figures the published desk used. Update HOLDINGS_AS_OF when you refresh them.
 
 export const HOLDINGS_AS_OF = "13 October 2026";
+const HOLDINGS_AS_OF_ISO = "2026-10-13";
+
+/** True once the published weights are more than 90 days old; the page then says they may have changed. */
+export function holdingsMayBeStale(now = Date.now()) {
+  return now - Date.parse(`${HOLDINGS_AS_OF_ISO}T00:00:00Z`) > 90 * 86_400_000;
+}
 
 type FundHolding = { symbol: string; name: string; weight: number };
 

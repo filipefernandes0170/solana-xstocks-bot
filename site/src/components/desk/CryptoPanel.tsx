@@ -3,7 +3,7 @@ import { formatPct, formatUsd } from "../../lib/format";
 import type { CryptoRow } from "../../lib/types";
 import { getCryptos } from "../../server/functions";
 
-/** Top ten coins, refreshed every minute, with a highlight that walks down the list every 3 s. */
+/** Top ten coins, refreshed every minute while the tab is visible, with a highlight that walks down the list every 3 s. */
 export function CryptoPanel({ initial }: { initial: CryptoRow[] }) {
   const [rows, setRows] = useState(initial);
   const [step, setStep] = useState(0);
@@ -14,7 +14,13 @@ export function CryptoPanel({ initial }: { initial: CryptoRow[] }) {
   useEffect(() => {
     let alive = true;
     async function refresh() {
-      const result = await getCryptos();
+      let result: Awaited<ReturnType<typeof getCryptos>>;
+      try {
+        result = await getCryptos();
+      } catch {
+        if (alive) setError("Crypto prices paused.");
+        return;
+      }
       if (!alive) return;
       if (!result.ok || result.rows.length === 0) setError(("message" in result ? result.message : undefined) ?? "Crypto prices paused.");
       else {
@@ -24,7 +30,9 @@ export function CryptoPanel({ initial }: { initial: CryptoRow[] }) {
       }
     }
     if (initial.length === 0) void refresh();
-    const poll = window.setInterval(() => void refresh(), 60_000);
+    const poll = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") void refresh();
+    }, 60_000);
     const clock = window.setInterval(() => setNow(Date.now()), 1000);
     return () => {
       alive = false;
@@ -57,7 +65,9 @@ export function CryptoPanel({ initial }: { initial: CryptoRow[] }) {
               key={row.id}
               className={`flex items-baseline justify-between gap-3 rounded-lg px-2 py-1.5 text-sm ${index === active ? "bg-pine-soft text-ink" : "text-muted"}`}
             >
-              <span className="w-10 shrink-0 font-medium">{row.symbol}</span>
+              <span className="w-12 shrink-0 truncate font-medium" title={row.symbol}>
+                {row.symbol}
+              </span>
               <span className="min-w-0 flex-1 truncate">{row.name}</span>
               <span className="shrink-0 font-medium text-ink">{formatUsd(row.usd)}</span>
               <span className={`w-16 shrink-0 text-right ${row.change24h != null && row.change24h < 0 ? "text-clay" : "text-pine"}`}>

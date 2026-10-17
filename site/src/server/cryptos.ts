@@ -26,7 +26,8 @@ export async function cryptosResult(): Promise<CryptosResult> {
     if (rows.length === 0) throw new Error("empty");
     cache = { at: Date.now(), rows };
     return { ok: true, rows, asOf: cache.at };
-  } catch {
+  } catch (error) {
+    console.warn(`[par] CoinGecko: ${error instanceof Error ? error.message : "request failed"}`);
     if (cache) return { ok: true, rows: cache.rows, asOf: cache.at };
     return { ok: false, rows: [], asOf: Date.now(), message: "Crypto prices paused." };
   }

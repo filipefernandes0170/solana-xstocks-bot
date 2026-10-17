@@ -1,6 +1,8 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { HOLDINGS_AS_OF, exposures, overlap } from "../lib/etf-holdings";
+import { SiteFooter } from "../components/SiteFooter";
+import { HOLDINGS_AS_OF, exposures, holdingsMayBeStale, overlap } from "../lib/etf-holdings";
+import { SITE_URL, STATIC_PAGE_CACHE } from "../lib/site";
 import type { PortfolioLine, PortfolioResult } from "../lib/types";
 import {
   cleanName,
@@ -14,7 +16,14 @@ import {
 } from "../lib/wallet-standard";
 import { getPortfolio } from "../server/functions";
 
-export const Route = createFileRoute("/portfolio")({ component: PortfolioPage });
+export const Route = createFileRoute("/portfolio")({
+  headers: () => ({ "Netlify-CDN-Cache-Control": STATIC_PAGE_CACHE }),
+  head: () => ({
+    meta: [{ title: "Portfolio · Par" }, { property: "og:url", content: `${SITE_URL}/portfolio` }],
+    links: [{ rel: "canonical", href: `${SITE_URL}/portfolio` }],
+  }),
+  component: PortfolioPage,
+});
 
 const KIND_COLOURS: Record<string, string> = { Stock: "#3d7eff", ETF: "#8eb6ff", Crypto: "#3dbe8b", Cash: "#e0a04a" };
 
@@ -95,7 +104,7 @@ function Stat({ label, value, hint, tone = "flat" }: { label: string; value: str
     <div className="rounded-2xl border border-white/10 bg-dusk px-4 py-4">
       <p className="text-sm text-mist">{label}</p>
       <p className="mt-2 font-display text-3xl text-foam">{value}</p>
-      <p className={`mt-1 text-sm ${tone === "up" ? "text-[#3dbe8b]" : tone === "down" ? "text-clay" : "text-mist"}`}>{hint}</p>
+      <p className={`mt-1 text-sm ${tone === "up" ? "text-[#3dbe8b]" : tone === "down" ? "text-clay-bright" : "text-mist"}`}>{hint}</p>
     </div>
   );
 }
@@ -254,7 +263,7 @@ function PortfolioPage() {
       <header className="border-b border-white/10">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 text-sm font-medium text-foam">
-            <img src="/logo.jpg" alt="" width={28} height={28} className="h-7 w-7 rounded-lg" />
+            <img src="/logo-96.jpg" alt="" width={28} height={28} className="h-7 w-7 rounded-lg" />
             Par
           </Link>
           <nav className="flex items-center gap-5 text-sm text-mist">
@@ -278,7 +287,7 @@ function PortfolioPage() {
             type="button"
             onClick={exportCsv}
             disabled={!book || lines.length === 0}
-            className="h-10 rounded-lg bg-[#3d7eff] px-4 text-sm font-medium text-white disabled:opacity-40"
+            className="h-10 rounded-lg bg-[#2f6fe6] px-4 text-sm font-medium text-white disabled:opacity-40"
           >
             Export
           </button>
@@ -381,7 +390,7 @@ function PortfolioPage() {
                     value={address}
                     onChange={(event) => setAddress(event.target.value)}
                     placeholder="Paste a wallet"
-                    className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-night px-3 text-sm text-foam outline-none"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-night px-3 text-sm text-foam"
                   />
                 </label>
                 <button
@@ -396,7 +405,7 @@ function PortfolioPage() {
           </div>
         )}
 
-        {error ? <p className="mt-3 text-sm text-clay">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm text-clay-bright">{error}</p> : null}
 
         <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Stat label="Total value" value={book ? usd(total) : "—"} hint={book ? "Marked now" : "Connect a wallet"} />
@@ -513,7 +522,7 @@ function PortfolioPage() {
                         </div>
                       </td>
                       <td className="px-3 py-4 text-foam">{price == null ? "—" : usd(price)}</td>
-                      <td className={`px-3 py-4 ${change == null ? "text-mist" : up ? "text-[#3dbe8b]" : "text-clay"}`}>
+                      <td className={`px-3 py-4 ${change == null ? "text-mist" : up ? "text-[#3dbe8b]" : "text-clay-bright"}`}>
                         {change == null ? "—" : pct(change)}
                       </td>
                       <td className="px-5 py-4 text-right text-foam">{usd(line.usdValue)}</td>
@@ -532,6 +541,7 @@ function PortfolioPage() {
               {"A direct stock counts in full. SPYx and QQQx are opened with published top holdings as of "}
               {HOLDINGS_AS_OF}
               {". Those lists are the top of each fund, not every company, so this sum is a floor."}
+              {holdingsMayBeStale() ? " These weights may have changed since." : ""}
             </p>
             {apple && apple.usd > 0 ? (
               <p className="mt-4 text-sm leading-relaxed text-foam">
@@ -569,6 +579,7 @@ function PortfolioPage() {
             {"Published top holdings as of "}
             {HOLDINGS_AS_OF}
             {". Owning both is the same company twice. QQQx is the heavier chip bet."}
+            {holdingsMayBeStale() ? " These weights may have changed since." : ""}
           </p>
           <ul className="mt-4 divide-y divide-white/10">
             {overlapRows.map((row) => (
@@ -599,6 +610,7 @@ function PortfolioPage() {
             <li>A week, a month, or a year. Only today's mark is on the chain from here.</li>
           </ul>
         </section>
+        <SiteFooter />
       </main>
     </div>
   );

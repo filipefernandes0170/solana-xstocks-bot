@@ -29,6 +29,7 @@ export function YieldPanel({
               key={token.symbol}
               type="button"
               onClick={() => onSymbol(token.symbol)}
+              aria-pressed={symbol === token.symbol}
               className={`h-11 shrink-0 rounded-full px-4 text-sm font-medium ${symbol === token.symbol ? "bg-gold text-ink" : "bg-foam text-ink ring-1 ring-line"}`}
             >
               {token.name}

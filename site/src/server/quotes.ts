@@ -2,10 +2,15 @@
 // share multiplier and pending rebase, and a live $1,000 USDC buy quote. Server-only.
 // The logic follows the bot's src/services/desk.ts, with two additions the desk shows:
 // the 24h change and the shares-per-token multiplier (both from Jupiter's price API).
+//
+// Buy quotes are refreshed in rotation, a few per load and the oldest first, because Jupiter's
+// rate limit cannot take 19 quotes at once (see jupiter.ts). Only loads asked for by the browser's
+// polling refresh them; the server-rendered first page uses what is already there, so it stays fast.
 
 import { ETF_UNDERLYINGS, NO_PRINT_UNDERLYING, TOKENS, USDC_MINT } from "../lib/tokens";
 import type { Quote, QuotesResult, Rebase } from "../lib/types";
-import { getJson, jupiterHeaders, jupiterHosts } from "./http";
+import { getJson } from "./http";
+import { hasJupiterKey, jupiterGet } from "./jupiter";
 
 type JupiterPrice = {
   usdPrice?: number;
@@ -16,23 +21,29 @@ type JupiterPrice = {
 };
 
 type StockPrint = { price: number; state: string };
-type Buy = { price: number; impactPct: number; at: number };
+export type Buy = { price: number; impactPct: number; at: number };
+
+const QUOTES_TTL_MS = 8_000;
+const BUY_KEEP_MS = 120_000;
 
 let quotesCache: { at: number; quotes: Quote[] } | null = null;
 let inflight: Promise<Quote[]> | null = null;
 let stockCache: { at: number; stocks: Record<string, StockPrint> } | null = null;
-let buyCache: { at: number; rows: Map<string, Buy> } | null = null;
+const buys = new Map<string, Buy>();
+const decimalsByMint = new Map<string, number>();
 
-export async function jupiterPrices(mints: string[]): Promise<Record<string, JupiterPrice> | null> {
-  const ids = mints.join(",");
-  for (const url of jupiterHosts("/price/v3")) {
-    try {
-      return await getJson<Record<string, JupiterPrice>>(`${url}?ids=${ids}`, { headers: jupiterHeaders(url) });
-    } catch {
-      continue;
-    }
-  }
-  return null;
+/** Buy quotes per refresh: 4 with a Jupiter key (1 request/s), 3 without (0.5 request/s). */
+export function buysPerRefresh() {
+  return hasJupiterKey() ? 4 : 3;
+}
+
+/** The mints whose buy quote is oldest (missing first), limited to `count`. */
+export function stalestMints(mints: string[], current: Map<string, Buy>, count: number) {
+  return [...mints].sort((a, b) => (current.get(a)?.at ?? 0) - (current.get(b)?.at ?? 0)).slice(0, Math.max(0, count));
+}
+
+export async function jupiterPrices(mints: string[], maxWaitMs = 5000): Promise<Record<string, JupiterPrice> | null> {
+  return jupiterGet<Record<string, JupiterPrice>>(`/price/v3?ids=${mints.join(",")}`, { maxWaitMs });
 }
 
 async function geckoPrices() {
@@ -65,6 +76,7 @@ async function stockPrints() {
   );
   const stocks = Object.fromEntries(rows.filter((row) => row != null)) as Record<string, StockPrint>;
   if (Object.keys(stocks).length > 0) stockCache = { at: Date.now(), stocks };
+  else console.warn("[par] Nasdaq: no prints this round");
   return Object.keys(stocks).length > 0 ? stocks : (stockCache?.stocks ?? {});
 }
 
@@ -90,72 +102,51 @@ function multiplierNow(config: JupiterPrice["scaledUiConfig"], now: number): { s
   };
 }
 
+/** One $1,000 USDC → token quote. Null when Jupiter has none, is rate limited, or the answer looks wrong. */
 async function oneBuy(mint: string, decimals: number, usdPrice: number | null): Promise<Buy | null> {
-  for (const url of jupiterHosts("/swap/v1/quote")) {
-    try {
-      const params = new URLSearchParams({ inputMint: USDC_MINT, outputMint: mint, amount: "1000000000", slippageBps: "50" });
-      const data = await getJson<{ outAmount?: string; priceImpactPct?: string }>(
-        `${url}?${params}`,
-        { headers: jupiterHeaders(url) },
-        8_000,
-      );
-      const out = Number(data?.outAmount);
-      const impactFrac = Number(data?.priceImpactPct);
-      if (!Number.isFinite(out) || out <= 0 || !Number.isFinite(impactFrac) || impactFrac < 0) continue;
-      const tokens = out / 10 ** decimals;
-      const price = 1000 / tokens;
-      if (!Number.isFinite(tokens) || tokens <= 0 || !Number.isFinite(price) || price <= 0) continue;
-      if (usdPrice != null && usdPrice > 0 && (price > usdPrice * 5 || price < usdPrice / 5)) continue;
-      return { price, impactPct: impactFrac * 100, at: Date.now() };
-    } catch {
-      continue;
-    }
-  }
-  return null;
+  const params = new URLSearchParams({ inputMint: USDC_MINT, outputMint: mint, amount: "1000000000", slippageBps: "50" });
+  const data = await jupiterGet<{ outAmount?: string; priceImpactPct?: string }>(`/swap/v1/quote?${params}`, { maxWaitMs: 3000 });
+  if (!data) return null;
+  const out = Number(data.outAmount);
+  const impactFrac = Number(data.priceImpactPct);
+  if (!Number.isFinite(out) || out <= 0 || !Number.isFinite(impactFrac) || impactFrac < 0) return null;
+  const tokens = out / 10 ** decimals;
+  const price = 1000 / tokens;
+  if (!Number.isFinite(tokens) || tokens <= 0 || !Number.isFinite(price) || price <= 0) return null;
+  if (usdPrice != null && usdPrice > 0 && (price > usdPrice * 5 || price < usdPrice / 5)) return null;
+  return { price, impactPct: impactFrac * 100, at: Date.now() };
 }
 
-async function buyQuotes(base: Quote[], decimals: Map<string, number>) {
-  if (buyCache && Date.now() - buyCache.at < 60_000) return buyCache.rows;
-  const fresh = new Map<string, Buy>();
-  let cursor = 0;
-  async function worker() {
-    while (cursor < base.length) {
-      const quote = base[cursor++];
-      const places = decimals.get(quote.mint);
-      if (typeof places !== "number") continue;
-      const buy = await oneBuy(quote.mint, places, quote.usdPrice);
-      if (buy) fresh.set(quote.mint, buy);
-    }
+/** Refreshes the oldest few buy quotes, one after another so Jupiter's per-second limit holds. */
+async function rotateBuys(base: Quote[]) {
+  const priceByMint = new Map(base.map((quote) => [quote.mint, quote.usdPrice]));
+  const candidates = base.filter((quote) => quote.usdPrice != null && decimalsByMint.has(quote.mint)).map((quote) => quote.mint);
+  for (const mint of stalestMints(candidates, buys, buysPerRefresh())) {
+    const buy = await oneBuy(mint, decimalsByMint.get(mint) as number, priceByMint.get(mint) ?? null);
+    if (buy) buys.set(mint, buy);
   }
-  await Promise.all(Array.from({ length: Math.min(4, base.length) }, () => worker()));
   const now = Date.now();
-  const rows = new Map<string, Buy>();
-  for (const quote of base) {
-    const next = fresh.get(quote.mint);
-    const prev = buyCache?.rows.get(quote.mint);
-    if (next) rows.set(quote.mint, next);
-    else if (prev && now - prev.at <= 90_000) rows.set(quote.mint, prev);
-  }
-  if (rows.size > 0) buyCache = { at: now, rows };
-  return rows;
+  for (const [mint, buy] of buys) if (now - buy.at > BUY_KEEP_MS) buys.delete(mint);
 }
 
-async function loadQuotes(): Promise<Quote[]> {
+async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
   const [jupiter, gecko, stocks] = await Promise.all([
-    jupiterPrices(TOKENS.map((token) => token.mint)).catch(() => null),
-    geckoPrices().catch(() => null),
+    jupiterPrices(TOKENS.map((token) => token.mint)),
+    geckoPrices().catch(() => {
+      console.warn("[par] GeckoTerminal: no prices this round");
+      return null;
+    }),
     stockPrints().catch(() => stockCache?.stocks ?? {}),
   ]);
   const now = Date.now();
   const sessionState = Object.values(stocks).find((row) => row.state)?.state ?? null;
-  const decimals = new Map<string, number>();
 
   const base: Quote[] = TOKENS.map((token) => {
     const jup = jupiter?.[token.mint];
     const geckoPrice = gecko?.[token.mint] != null ? Number(gecko[token.mint]) : null;
     const issuerRaw = Number(jup?.stockData?.price);
     const issuerAt = Date.parse(jup?.stockData?.updatedAt ?? "");
-    if (typeof jup?.decimals === "number") decimals.set(token.mint, jup.decimals);
+    if (typeof jup?.decimals === "number") decimalsByMint.set(token.mint, jup.decimals);
     const { shares, rebase } = jup ? multiplierNow(jup.scaledUiConfig, now) : { shares: null, rebase: null };
     const usdPrice =
       typeof jup?.usdPrice === "number"
@@ -184,12 +175,13 @@ async function loadQuotes(): Promise<Quote[]> {
     };
   });
 
-  const buys = await buyQuotes(base, decimals);
+  if (refreshBuys) await rotateBuys(base);
   const quotes = base.map((quote) => {
     const buy = buys.get(quote.mint);
     return { ...quote, buyPrice: buy?.price ?? null, buyImpactPct: buy?.impactPct ?? null, buyAt: buy?.at ?? null };
   });
   if (!quotes.some((quote) => quote.usdPrice != null)) {
+    console.warn("[par] Quotes: no token price from Jupiter or GeckoTerminal");
     if (quotesCache) return quotesCache.quotes;
     return [];
   }
@@ -197,22 +189,26 @@ async function loadQuotes(): Promise<Quote[]> {
   return quotes;
 }
 
-/** Cached for 45 s; concurrent callers share one load. */
-export async function deskQuotes(): Promise<Quote[]> {
-  if (quotesCache && Date.now() - quotesCache.at < 45_000) return quotesCache.quotes;
+/**
+ * Cached for 8 s; concurrent callers share one load. `refreshBuys` (the browser's polling) also moves
+ * the buy-quote rotation on; without it the load only reads prices and reuses the buy quotes it has.
+ */
+export async function deskQuotes(options: { refreshBuys?: boolean } = {}): Promise<Quote[]> {
+  if (quotesCache && Date.now() - quotesCache.at < QUOTES_TTL_MS) return quotesCache.quotes;
   if (inflight) return inflight;
-  inflight = loadQuotes().finally(() => {
+  inflight = loadQuotes(options.refreshBuys === true).finally(() => {
     inflight = null;
   });
   return inflight;
 }
 
-export async function quotesResult(): Promise<QuotesResult> {
+export async function quotesResult(options: { refreshBuys?: boolean } = {}): Promise<QuotesResult> {
   try {
-    const quotes = await deskQuotes();
+    const quotes = await deskQuotes(options);
     if (quotes.length === 0) return { ok: false, quotes: [], asOf: Date.now(), message: "Price feed paused." };
     return { ok: true, quotes, asOf: Date.now() };
-  } catch {
+  } catch (error) {
+    console.warn(`[par] Quotes failed: ${error instanceof Error ? error.message : "unknown error"}`);
     return { ok: false, quotes: [], asOf: Date.now(), message: "Price feed paused." };
   }
 }
