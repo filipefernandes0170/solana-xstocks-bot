@@ -23,7 +23,7 @@ The website at https://xstocks-tracker.netlify.app (Netlify project `xstocks-tra
 
 ## Changes after the rebuild (17 Oct 2026)
 
-1. **Jupiter rate limits.** Every Jupiter call goes through `src/server/jupiter.ts`: one request every 2.1 s without a key, every 1.1 s with one, and a pause after an HTTP 429. Buy quotes are refreshed a few at a time, oldest first (3 per load without a key, 5 with one; SpaceX, which has no Nasdaq print, is not quoted), and only by the browser's polling, so the first page load stays fast. The bot does the same in `../src/services/jupiter.ts`.
+1. **Jupiter rate limits.** Every Jupiter call goes through `src/server/jupiter.ts`: one request every 2.1 s, a pause when Jupiter's `x-ratelimit-remaining` reaches 0, and a pause after an HTTP 429. Jupiter enforces 1 request every 2 s (5 per 10 s window) both keyless and on the free plan (portal Billing page and response headers, 17 Oct 2026). Buy quotes are refreshed 4 per load, oldest first (SpaceX, which has no Nasdaq print, is not quoted), and only by the browser's polling, so the first page load stays fast; the page keeps the newest buy per name it has seen. The bot does the same in `../src/services/jupiter.ts`.
 2. **CDN cache.** The desk page and the public data (quotes, offers, coins) are cached on Netlify's CDN for 10 s (`Netlify-CDN-Cache-Control`), so many visitors cost about one function call every 10 s. /portfolio's page is cached for 5 minutes; wallet lookups are POST and never cached. Price polling stops while the tab is hidden, unless a saved alert can still ping this browser.
 3. **Accessibility.** A visible keyboard focus ring everywhere, darker red and gold text on the light cards (WCAG AA contrast), `aria-pressed` on the tab and filter buttons, and a status line that only announces "live" or "reconnecting" instead of every second.
 4. **Speed.** The Gap tab's chart library loads only when that tab is opened; the header logo is a 2 KB image instead of 138 KB.
@@ -62,7 +62,7 @@ Node 22.12 or newer.
 | Name | What it does |
 |---|---|
 | `SOLANA_RPC_URL` | RPC for wallet reads (default: the public mainnet RPC, which is rate-limited) |
-| `JUPITER_API_KEY` | A free key from developers.jup.ag. With it: api.jup.ag at 1 request/s. Without it: lite-api.jup.ag at 0.5 request/s. The limit is per Jupiter organisation, so the bot and the site share it when they use the same key |
+| `JUPITER_API_KEY` | A free key from developers.jup.ag (set, secret, Functions scope). Same pace as keyless (1 request every 2 s), but counted for our organisation instead of the function's shared Netlify IP. Do not give the bot this key: they would share one limit |
 | `TOKEN_MINT` | The project coin for the holder check. Empty means "the coin is not live yet" |
 | `HOLDER_MIN_TOKENS` | Minimum whole tokens to count as a holder (0 or empty means any amount) |
 
@@ -85,6 +85,6 @@ src/
   routes/        __root.tsx (head, fonts, security headers, 404), index.tsx (desk + loader), portfolio.tsx
   components/    Sky, SiteFooter, NotFound, desk/* (Desk, Ticker, StatStrip, StockCard, StockList, SizeCheck, crypto, gap chart, yield, glossary, why-hold)
   lib/           site (URL, titles, cache and security headers), brand (badge colours, gap scale), size, tokens, types, format, session (Nasdaq clock), verdict, wallet-standard, etf-holdings
-  server/        functions.ts (the 6 server functions) + jupiter (rate limiter), quotes, offers, cryptos, solana, wallet, http
+  server/        functions.ts (the 7 server functions) + jupiter (rate limiter), quotes, offers, cryptos, solana, wallet, http
 tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts
 ```

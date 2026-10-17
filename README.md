@@ -56,7 +56,7 @@ npm run dev
 |----------|----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Yes | From @BotFather |
 | `SOLANA_RPC_URL` | No | Default: public mainnet. Prefer Helius free tier |
-| `JUPITER_API_KEY` | No | Higher rate limits (developers.jup.ag) |
+| `JUPITER_API_KEY` | No | Leave empty. Jupiter's free plan is 1 request every 2 s per organisation, the same as keyless (per IP); sharing the site's key would halve both |
 | `DATABASE_PATH` | No | Default `./data/bot.db` (SQLite) |
 | `TOKEN_MINT` | For pings | Your coin's mint. Blank disables pings, not lookups |
 | `HOLDER_MIN_TOKENS` | No | `0` means any balance. `1` means at least one token |

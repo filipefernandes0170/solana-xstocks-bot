@@ -17,8 +17,8 @@ test("requests are spaced one gap apart", async () => {
 
 test("the gap keeps under Jupiter's limit", () => {
   const gap = jupiterGapMs();
-  assert.ok(gap === 1100 || gap === 2100);
-  assert.equal(jupiterBase(), gap === 1100 ? "https://api.jup.ag" : "https://lite-api.jup.ag");
+  assert.equal(gap, 2100);
+  assert.ok(["https://api.jup.ag", "https://lite-api.jup.ag"].includes(jupiterBase()));
 });
 
 test("a 429 cool-down reads seconds, epoch seconds and epoch milliseconds", () => {
@@ -40,7 +40,7 @@ test("nothing is paused before a 429", () => {
 test("the limiter pauses when Jupiter says the window is nearly full", async () => {
   const { windowNearlyFull } = await import("./jupiter.js");
   assert.equal(windowNearlyFull("5"), false);
-  assert.equal(windowNearlyFull("1"), true);
+  assert.equal(windowNearlyFull("1"), false);
   assert.equal(windowNearlyFull("0"), true);
   assert.equal(windowNearlyFull("-2"), true);
   assert.equal(windowNearlyFull(undefined), false);

@@ -1,15 +1,18 @@
 // Every Jupiter API call goes through here. Server-only.
 //
-// Jupiter's limits (developers.jup.ag/docs/portal/rate-limits, checked 17 Oct 2026): without a key,
-// 0.5 requests per second (30 a minute); with a free key, 1 per second (60 a minute), counted per
-// organisation, so the bot and the site share it when they use the same key. Bursts are refused
-// with HTTP 429. This module spaces requests out inside one function instance, and after a 429 it
-// stops calling until the window has passed.
+// Jupiter's limits, as enforced (checked 17 Oct 2026 in the portal's Billing page and in the
+// x-ratelimit headers): 1 request every 2 seconds, counted over 10 s windows (5 per window), both
+// without a key (counted per IP) and on the free plan (counted per organisation). The docs table that
+// says 1 request/s on the free plan does not match what the portal enforces. A key still helps on
+// Netlify, where the function's IP is shared with other sites: with a key the window is ours alone.
+// Do not give the bot the same key: they would then share one window instead of having one each.
+// Bursts are refused with HTTP 429. This module spaces requests out inside one function instance, reads
+// Jupiter's counters to stop before the limit, and after a 429 stops calling until the window has passed.
 
 import { env } from "./http";
 
-const GAP_WITH_KEY_MS = 1100;
-const GAP_KEYLESS_MS = 2100;
+// 2.1 s apart: 1 request every 2 seconds, with a little room. The same with or without a key (see above).
+const GAP_MS = 2100;
 const DEFAULT_COOL_DOWN_MS = 10_000;
 
 let nextSlotAt = 0;
@@ -22,7 +25,7 @@ export function hasJupiterKey() {
 }
 
 export function jupiterGapMs() {
-  return hasJupiterKey() ? GAP_WITH_KEY_MS : GAP_KEYLESS_MS;
+  return GAP_MS;
 }
 
 /** api.jup.ag needs a key; lite-api.jup.ag is the keyless host. */
@@ -55,14 +58,14 @@ export function coolDownMs(headers: Headers, now = Date.now()) {
 let limitLogged = false;
 
 /**
- * Jupiter sends x-ratelimit-remaining and x-ratelimit-reset on 200 and 429 answers. When one request or
- * fewer is left in the window, the limiter pauses until the reset, so it slows down before a 429 instead of
- * after. Remaining can be 0 or negative when over the limit.
+ * Jupiter sends x-ratelimit-remaining and x-ratelimit-reset on 200 and 429 answers. When nothing is left in
+ * the window, the limiter pauses until the reset, so it stops before a 429 instead of after one. Remaining can
+ * be negative when over the limit.
  */
 export function windowNearlyFull(remaining: unknown) {
   if (remaining == null || remaining === "") return false;
   const value = Number(remaining);
-  return Number.isFinite(value) && value <= 1;
+  return Number.isFinite(value) && value <= 0;
 }
 
 /** Logs the window once per process, so the plan Jupiter applies to this key shows in the logs. */

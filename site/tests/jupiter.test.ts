@@ -17,24 +17,24 @@ test("requests are spaced one gap apart", async () => {
   resetJupiterLimiter();
 });
 
-test("the keyless host and gap are used without a key", () => {
+test("the host follows the key; the pace is 1 request per 2 s either way", () => {
   const saved = process.env.JUPITER_API_KEY;
   delete process.env.JUPITER_API_KEY;
   assert.equal(jupiterGapMs(), 2100);
   assert.equal(jupiterUrl("/price/v3?ids=x"), "https://lite-api.jup.ag/price/v3?ids=x");
-  assert.equal(buysPerRefresh(), 3);
+  assert.equal(buysPerRefresh(), 4);
   process.env.JUPITER_API_KEY = "test-key-not-real";
-  assert.equal(jupiterGapMs(), 1100);
+  assert.equal(jupiterGapMs(), 2100);
   assert.equal(jupiterUrl("/price/v3?ids=x"), "https://api.jup.ag/price/v3?ids=x");
-  assert.equal(buysPerRefresh(), 5);
+  assert.equal(buysPerRefresh(), 4);
   if (saved === undefined) delete process.env.JUPITER_API_KEY;
   else process.env.JUPITER_API_KEY = saved;
 });
 
 test("a full rotation of buy quotes fits inside the 90 s a buy quote stays usable", () => {
   // The browser polls every 10 s, so each name is quoted again within this many seconds.
-  // SpaceX is not quoted (no Nasdaq print), so 18 names rotate.
-  for (const perRefresh of [3, 5]) assert.ok(Math.ceil((TOKENS.length - 1) / perRefresh) * 10 <= 60, `${perRefresh} per refresh`);
+  // SpaceX is not quoted (no Nasdaq print), so 18 names rotate, 4 per refresh: about 5 refreshes.
+  assert.ok(Math.ceil((TOKENS.length - 1) / 4) * 10 <= 50);
 });
 
 test("a 429 cool-down reads seconds, epoch seconds and epoch milliseconds", () => {
@@ -75,7 +75,8 @@ test("server logs blank out anything that looks like an address", () => {
 test("the limiter pauses when Jupiter says the window is nearly full", async () => {
   const { windowNearlyFull } = await import("../src/server/jupiter");
   assert.equal(windowNearlyFull("5"), false);
-  assert.equal(windowNearlyFull("1"), true);
+  assert.equal(windowNearlyFull("1"), false);
+  assert.equal(windowNearlyFull("0"), true);
   assert.equal(windowNearlyFull("-2"), true);
   assert.equal(windowNearlyFull(null), false);
 });

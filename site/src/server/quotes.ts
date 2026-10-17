@@ -10,7 +10,7 @@
 import { ETF_UNDERLYINGS, NO_PRINT_UNDERLYING, TOKEN_BY_SYMBOL, TOKENS, USDC_MINT } from "../lib/tokens";
 import type { Quote, QuotesResult, Rebase, SizeCheck } from "../lib/types";
 import { getJson } from "./http";
-import { hasJupiterKey, jupiterGet } from "./jupiter";
+import { jupiterGet } from "./jupiter";
 
 type JupiterPrice = {
   usdPrice?: number;
@@ -38,13 +38,12 @@ const buys = new Map<string, Buy>();
 const decimalsByMint = new Map<string, number>();
 
 /**
- * Buy quotes per refresh: 5 with a Jupiter key (1 request/s), 3 without (0.5 request/s). With a key, 18 names
- * take 4 refreshes (about 80 s at one refresh per ~20 s), inside the 90 s a buy stays usable. Budget, per
- * minute: at most 6 refreshes x (1 price + 5 buys) = 36 for the site, plus about 19 for the bot, under the 60
- * a free key allows for the whole organisation.
+ * Buy quotes per refresh: 4. With the price request that makes 5, one full 10 s window (see jupiter.ts),
+ * with or without a key. 18 names take about 5 refreshes; when a refresh comes every ~20 s, most buys are
+ * under the 90 s a buy stays usable, and the page keeps the newest it has seen (mergeBuys).
  */
 export function buysPerRefresh() {
-  return hasJupiterKey() ? 5 : 3;
+  return 4;
 }
 
 /** The mints whose buy quote is oldest (missing first), limited to `count`. */
