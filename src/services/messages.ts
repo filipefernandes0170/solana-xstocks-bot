@@ -5,6 +5,7 @@ import type { InlineKeyboardMarkup } from "telegraf/types";
 import { SYMBOL_TO_TOKEN, TOKENIZED_STOCKS, siblingTokens } from "../config/tokens.js";
 import type { DeskQuote, SizeResult } from "./desk.js";
 import type { PortfolioSummary } from "./portfolio.js";
+import { PAIR_POINTS, type CompanyPair } from "./pairs.js";
 import type { Ranking, RankRow } from "./ranking.js";
 import {
   THIN_POOL_USD,
@@ -245,14 +246,18 @@ export function startText(firstName?: string) {
     "• /portfolio · paste a wallet to see your bag",
     "• /yield · live lending rates on Kamino",
     "• /week · who stayed at the real price this week",
+    "• /pairs · same company, two tokens: which is cheaper",
     "",
     "<b>For $PAR holders</b>",
     "• /watch · a text the moment a name turns Fair",
     "• /brief · the morning brief before the open",
     "• /bell · one message as Nasdaq opens",
+    "• /sizealert NVDAx 5000 · a text when your order is at the real price",
+    "• /pairs on · a text when one token of a company is cheaper",
     "• Bag watch · a note when a stock you hold changes",
+    "• /hold · prove the wallet that holds $PAR first",
     "",
-    "<i>Par takes no fee, never holds funds, and never asks you to sign anything.</i>",
+    "<i>Par takes no fee, never holds funds, and never asks you to sign a transaction.</i>",
   ].join("\n");
 }
 
@@ -277,10 +282,12 @@ export function helpText() {
     "/watch NVDAx · /watch all · /watch list · /watch off",
     "/brief · the morning brief, on or off",
     "/bell · the open bell, on or off",
-    "/hold &lt;wallet&gt; · the wallet that holds the coin, if it is not your bag wallet",
+    "/sizealert NVDAx 5000 · a text when your order size is within 0.4% of the print",
+    "/pairs on · a text when one token of a company is 0.5 points cheaper",
+    "/hold · prove the wallet that holds $PAR: one signed message, not a transaction",
     "",
     "<b>Also</b>",
-    "/portfolio or /p · /prices · /week · /yield NVDAx · /alert NVDAx up 5 · /alert list · /alert clear",
+    "/portfolio or /p · /prices · /week · /pairs · /yield NVDAx · /alert NVDAx up 5 · /alert list · /alert clear",
     "",
     "<i>Buy opens Jupiter on that stock, paid with USDC. You pay the pool, not Par.</i>",
   ].join("\n");
@@ -524,6 +531,109 @@ export function weekText(ranking: Ranking | null) {
 
 export function weekKeyboard(): InlineKeyboardMarkup {
   return Markup.inlineKeyboard([[Markup.button.url("🏆 See the full ranking", `${DESK_URL}/ranking`)]]).reply_markup;
+}
+
+// ── Size alerts and two-token texts ──────────────────────────────────────────
+
+export const MAX_SIZE_ALERTS = 3;
+
+export function sizeAlertUsage() {
+  return [
+    "🎯 <b>Size alerts</b> · for $PAR holders",
+    "A text when <i>your</i> order is at the real price: a live Jupiter quote at your size, at most 0.4% over the Nasdaq print, while Nasdaq is open.",
+    "",
+    "<code>/sizealert NVDAx 5000</code> sets one · <code>/sizealert</code> lists them · <code>/sizealert off</code> or <code>/sizealert off NVDAx</code>",
+    `Up to ${MAX_SIZE_ALERTS} at once. Each fires once, then turns itself off.`,
+  ].join("\n");
+}
+
+export function sizeAlertListText(rows: { symbol: string; usd: number }[]) {
+  if (rows.length === 0) return "🎯 No size alerts yet.";
+  return ["🎯 <b>Your size alerts</b>", ...rows.map((row) => `• <b>${escapeHtml(row.symbol)}</b> at ${dollars(row.usd)}`)].join("\n");
+}
+
+export function sizeAlertSetText(symbol: string, usd: number) {
+  return `🎯 Set: a text when a ${dollars(usd)} buy of <b>${escapeHtml(symbol)}</b> costs at most 0.4% over the Nasdaq print, while Nasdaq is open. It fires once.`;
+}
+
+/** The size alert itself: the live quote that met the condition. */
+export function sizeAlertText(result: Extract<SizeResult, { ok: true }>) {
+  const gap = basisPct(result.price, result.quote.stockPrice);
+  return join([
+    `🎯 <b>Your ${dollars(result.usd)} ${escapeHtml(result.quote.symbol)} buy is at the real price</b>`,
+    `${shares(result.shares)} shares at <b>${money(result.price)}</b> · Nasdaq ${money(result.quote.stockPrice)} · gap <b>${escapeHtml(gapLabel(gap))}</b>`,
+    `🌊 The order moves the pool ${result.impactPct.toFixed(2)}%.`,
+    "",
+    `<i>A live Jupiter quote, not a fill: prices move. This alert is now off. <code>/sizealert ${escapeHtml(result.quote.symbol)} ${result.usd}</code> sets it again.</i>`,
+  ]);
+}
+
+function pairLegLine(leg: CompanyPair["legs"][number]) {
+  const who = `${escapeHtml(leg.quote.symbol)} (${leg.quote.issuer})`;
+  if (leg.thinPool != null) return `• ${who}: the pool holds about ${dollars(leg.thinPool)}, too thin to quote $1,000`;
+  if (leg.gap == null) return `• ${who}: the $1,000 buy is loading`;
+  return `• ${who}: $1,000 buy <b>${money(leg.quote.buyPrice ?? null)}</b> · ${escapeHtml(gapLabel(leg.gap))}`;
+}
+
+/** /pairs: every company with two tokens, and which $1,000 buy is cheaper. */
+export function pairsText(pairs: CompanyPair[]) {
+  if (pairs.length === 0) return "🔁 No company has two tokens on the desk right now.";
+  const blocks = pairs.map((pair) => {
+    const verdict =
+      pair.cheaper && pair.points != null
+        ? pair.points >= 0.005
+          ? `→ <b>${escapeHtml(pair.cheaper.quote.symbol)}</b> is ${pair.points.toFixed(2)} points cheaper right now.`
+          : "→ Both cost the same right now."
+        : pair.onlyDeep
+          ? `→ Only <b>${escapeHtml(pair.onlyDeep.quote.symbol)}</b> has a pool deep enough for a $1,000 buy.`
+          : "→ Waiting for both $1,000 buys.";
+    return [`<b>${escapeHtml(pair.name)}</b>`, ...pair.legs.map(pairLegLine), verdict].join("\n");
+  });
+  return join([
+    "🔁 <b>Same company, two tokens</b>",
+    "Each token has its own pool, so the same $1,000 buy can cost a different price. Lower against Nasdaq is cheaper.",
+    "",
+    blocks.join("\n\n"),
+    "",
+    `<code>/pairs on</code>: a text when one is ${PAIR_POINTS} points cheaper, at most once a day per company ($PAR holders). <code>/pairs off</code> stops it.`,
+  ]);
+}
+
+/** The two-token ping. */
+export function pairAlertText(pair: CompanyPair) {
+  const cheaper = pair.cheaper as CompanyPair["legs"][number];
+  const other = pair.legs
+    .filter((leg) => leg !== cheaper && leg.gap != null)
+    .sort((a, b) => (a.gap as number) - (b.gap as number))[0];
+  return join([
+    `🔁 <b>${escapeHtml(pair.name)}: ${escapeHtml(cheaper.quote.symbol)} is ${(pair.points ?? 0).toFixed(2)} points cheaper</b>`,
+    `$1,000 buy ${escapeHtml(cheaper.quote.symbol)} ${money(cheaper.quote.buyPrice ?? null)} (${escapeHtml(gapLabel(cheaper.gap))})${other ? ` · ${escapeHtml(other.quote.symbol)} ${money(other.quote.buyPrice ?? null)} (${escapeHtml(gapLabel(other.gap))})` : ""}`,
+    "Same company, two tokens, two pools. Prices move: check before you buy.",
+  ]);
+}
+
+/** /hold: what proving a wallet means, before the button. */
+export function holdText(proven: string | null) {
+  return join([
+    "🔐 <b>Prove the wallet that holds $PAR</b>",
+    "Holder texts go only to a wallet you prove is yours. Tap the button, connect that wallet on the Par site and sign one message.",
+    "",
+    "A message is not a transaction: it cannot move funds. Par never asks for a seed phrase. If your wallet shows a transaction, refuse it.",
+    "On a phone, the page can open itself in Phantom or Solflare. The code works once, for 15 minutes.",
+    proven && "",
+    proven && `Now proven: <code>${escapeHtml(`${proven.slice(0, 4)}…${proven.slice(-4)}`)}</code> · /hold off removes it.`,
+  ]);
+}
+
+export function proofKeyboard(nonce: string): InlineKeyboardMarkup {
+  return Markup.inlineKeyboard([
+    [Markup.button.url("🔐 Prove my wallet", `${DESK_URL}/verify?n=${nonce}`)],
+    [Markup.button.callback("✅ I signed it", "proof:check")],
+  ]).reply_markup;
+}
+
+export function provenText(wallet: string) {
+  return `✅ <b>Wallet proven</b>: <code>${escapeHtml(`${wallet.slice(0, 4)}…${wallet.slice(-4)}`)}</code>. Holder features use this wallet.`;
 }
 
 export function teaserKeyboard(): InlineKeyboardMarkup {

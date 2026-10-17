@@ -71,6 +71,10 @@ export async function walletsHolding(wallets: string[]) {
   return holding;
 }
 
-export function holderWallet(user: { wallet: string | null; holder_wallet: string | null }) {
-  return user.holder_wallet || user.wallet || "";
+/**
+ * The wallet the holder features check: only one its owner proved by signing a message (/hold). A typed address
+ * proves nothing, since anyone can paste someone else's public address.
+ */
+export function holderWallet(user: { verified_wallet?: string | null }) {
+  return user.verified_wallet || "";
 }

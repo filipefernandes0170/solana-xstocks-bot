@@ -79,6 +79,30 @@ db.exec(`
     PRIMARY KEY (telegram_id, day)
   );
 
+  CREATE TABLE IF NOT EXISTS size_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_id INTEGER NOT NULL,
+    symbol TEXT NOT NULL,
+    usd INTEGER NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    last_checked INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER DEFAULT (strftime('%s','now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS pair_log (
+    telegram_id INTEGER NOT NULL,
+    pair TEXT NOT NULL,
+    day TEXT NOT NULL,
+    PRIMARY KEY (telegram_id, pair, day)
+  );
+
+  CREATE TABLE IF NOT EXISTS wallet_proofs (
+    nonce TEXT PRIMARY KEY,
+    telegram_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0
+  );
+
   CREATE TABLE IF NOT EXISTS rebase_sent (
     telegram_id INTEGER NOT NULL,
     symbol TEXT NOT NULL,
@@ -97,6 +121,11 @@ function addColumn(table: string, column: string, type: string) {
 addColumn("users", "holder_wallet", "TEXT");
 addColumn("users", "bell", "INTEGER DEFAULT 0");
 addColumn("users", "brief", "INTEGER DEFAULT 0");
+// The wallet a user proved is theirs by signing a message on the site (see services/walletProof.ts).
+// Only this wallet counts for the holder features.
+addColumn("users", "verified_wallet", "TEXT");
+addColumn("users", "verified_at", "INTEGER");
+addColumn("users", "pairs", "INTEGER DEFAULT 0");
 
 export function upsertUser(telegramId: number, username?: string, firstName?: string) {
   db.prepare(`
@@ -126,6 +155,90 @@ export function setHolderWallet(telegramId: number, wallet: string) {
   `).run(wallet, telegramId);
 }
 
+/** Saves a one-time proof code for this user (created_at in ms). */
+export function createProof(telegramId: number, nonce: string, createdAt: number) {
+  db.prepare(`INSERT INTO wallet_proofs (nonce, telegram_id, created_at) VALUES (?, ?, ?)`).run(nonce, telegramId, createdAt);
+}
+
+export type ProofRow = { nonce: string; telegram_id: number; created_at: number; used: number };
+
+export function getProof(nonce: string) {
+  return (db.prepare(`SELECT nonce, telegram_id, created_at, used FROM wallet_proofs WHERE nonce = ?`).get(nonce) as ProofRow | undefined) ?? null;
+}
+
+/** This user's newest code that has not been used. */
+export function latestProof(telegramId: number) {
+  return (
+    (db
+      .prepare(`SELECT nonce, telegram_id, created_at, used FROM wallet_proofs WHERE telegram_id = ? AND used = 0 ORDER BY created_at DESC LIMIT 1`)
+      .get(telegramId) as ProofRow | undefined) ?? null
+  );
+}
+
+export function markProofUsed(nonce: string) {
+  db.prepare(`UPDATE wallet_proofs SET used = 1 WHERE nonce = ?`).run(nonce);
+}
+
+/** Codes older than a day are of no use; called when a new one is made. */
+export function pruneProofs(before: number) {
+  db.prepare(`DELETE FROM wallet_proofs WHERE created_at < ?`).run(before);
+}
+
+export function setVerifiedWallet(telegramId: number, wallet: string | null) {
+  db.prepare(`
+    UPDATE users SET verified_wallet = ?, verified_at = ?, updated_at = strftime('%s','now')
+    WHERE telegram_id = ?
+  `).run(wallet, wallet ? Date.now() : null, telegramId);
+}
+
+export type SizeAlertRow = { id: number; telegram_id: number; symbol: string; usd: number; last_checked: number };
+
+export function addSizeAlert(telegramId: number, symbol: string, usd: number) {
+  db.prepare(`INSERT INTO size_alerts (telegram_id, symbol, usd) VALUES (?, ?, ?)`).run(telegramId, symbol, usd);
+}
+
+export function listSizeAlerts(telegramId: number) {
+  return db
+    .prepare(`SELECT id, telegram_id, symbol, usd, last_checked FROM size_alerts WHERE telegram_id = ? AND active = 1 ORDER BY id`)
+    .all(telegramId) as SizeAlertRow[];
+}
+
+/** Every active size alert, the least recently checked first. */
+export function activeSizeAlerts() {
+  return db
+    .prepare(`SELECT id, telegram_id, symbol, usd, last_checked FROM size_alerts WHERE active = 1 ORDER BY last_checked, id`)
+    .all() as SizeAlertRow[];
+}
+
+export function touchSizeAlert(id: number, at: number) {
+  db.prepare(`UPDATE size_alerts SET last_checked = ? WHERE id = ?`).run(at, id);
+}
+
+export function deactivateSizeAlert(id: number) {
+  db.prepare(`UPDATE size_alerts SET active = 0 WHERE id = ?`).run(id);
+}
+
+/** Turns off one name's size alerts, or all of this user's. */
+export function clearSizeAlerts(telegramId: number, symbol?: string) {
+  if (symbol) {
+    db.prepare(`UPDATE size_alerts SET active = 0 WHERE telegram_id = ? AND symbol = ?`).run(telegramId, symbol);
+    return;
+  }
+  db.prepare(`UPDATE size_alerts SET active = 0 WHERE telegram_id = ?`).run(telegramId);
+}
+
+export function setPairs(telegramId: number, on: boolean) {
+  db.prepare(`UPDATE users SET pairs = ?, updated_at = strftime('%s','now') WHERE telegram_id = ?`).run(on ? 1 : 0, telegramId);
+}
+
+export function pairAlreadySent(telegramId: number, pair: string, day: string) {
+  return !!db.prepare(`SELECT 1 AS ok FROM pair_log WHERE telegram_id = ? AND pair = ? AND day = ?`).get(telegramId, pair, day);
+}
+
+export function markPairSent(telegramId: number, pair: string, day: string) {
+  db.prepare(`INSERT OR IGNORE INTO pair_log (telegram_id, pair, day) VALUES (?, ?, ?)`).run(telegramId, pair, day);
+}
+
 export function setBell(telegramId: number, on: boolean) {
   db.prepare(`
     UPDATE users SET bell = ?, updated_at = strftime('%s','now')
@@ -142,7 +255,7 @@ export function setBrief(telegramId: number, on: boolean) {
 
 /** Users who asked for the morning brief. Whether it sends depends on the coin, checked when it goes out. */
 export function listBriefUsers() {
-  return db.prepare(`SELECT telegram_id, wallet, holder_wallet, bell FROM users WHERE brief = 1`).all() as UserRow[];
+  return db.prepare(`SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs FROM users WHERE brief = 1`).all() as UserRow[];
 }
 
 /** Brief log rows use telegram_id 0 for the public channel post, and -1 for the Friday ranking post. */
@@ -199,14 +312,16 @@ export type UserRow = {
   telegram_id: number;
   wallet: string | null;
   holder_wallet: string | null;
+  verified_wallet: string | null;
   bell: number;
+  pairs: number;
 };
 
 export function listPingUsers(): UserRow[] {
   return db.prepare(`
-    SELECT telegram_id, wallet, holder_wallet, bell
+    SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs
     FROM users
-    WHERE wallet IS NOT NULL OR holder_wallet IS NOT NULL OR bell = 1
+    WHERE wallet IS NOT NULL OR verified_wallet IS NOT NULL OR bell = 1
   `).all() as UserRow[];
 }
 

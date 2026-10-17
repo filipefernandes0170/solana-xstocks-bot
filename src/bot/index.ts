@@ -9,19 +9,23 @@ import { bellCommand } from "./commands/bell.js";
 import { briefCommand, briefReply } from "./commands/brief.js";
 import { sendCard } from "./commands/card.js";
 import { helpCommand } from "./commands/help.js";
-import { holdCommand } from "./commands/hold.js";
+import { confirmProof, holdCommand } from "./commands/hold.js";
 import { portfolioCommand } from "./commands/portfolio.js";
 import { pricesCommand } from "./commands/prices.js";
 import { replySize, sizeCommand, sizeMenu } from "./commands/size.js";
 import { startCommand } from "./commands/start.js";
 import { watchCommand, watchReply } from "./commands/watch.js";
 import { weekCommand } from "./commands/week.js";
+import { pairsCommand } from "./commands/pairs.js";
+import { sizeAlertCommand } from "./commands/sizealert.js";
 import { yieldCommand } from "./commands/yield.js";
 
 /** The command list Telegram shows in the menu next to the message box. */
 export const MENU_COMMANDS = [
   { command: "prices", description: "The whole desk: verdicts, prices and gaps" },
   { command: "week", description: "This week's ranking: who stayed at the real price" },
+  { command: "pairs", description: "Same company, two tokens: which is cheaper" },
+  { command: "sizealert", description: "A text when your order size is at the real price ($PAR holders)" },
   { command: "size", description: "What your order really costs: /size NVDAx 5000" },
   { command: "portfolio", description: "Your stock-token bag, valued per share" },
   { command: "watch", description: "A text when a name turns Fair ($PAR holders)" },
@@ -29,7 +33,7 @@ export const MENU_COMMANDS = [
   { command: "bell", description: "One message at the Nasdaq open ($PAR holders)" },
   { command: "yield", description: "Live lending rates on Kamino" },
   { command: "alert", description: "One-off price move alerts" },
-  { command: "hold", description: "The wallet that holds $PAR" },
+  { command: "hold", description: "Prove the wallet that holds $PAR" },
   { command: "help", description: "How Par works" },
 ];
 
@@ -42,6 +46,8 @@ export function createBot() {
   bot.command("p", portfolioCommand);
   bot.command("prices", pricesCommand);
   bot.command("week", weekCommand);
+  bot.command("pairs", pairsCommand);
+  bot.command("sizealert", sizeAlertCommand);
   bot.command("size", sizeCommand);
   bot.command("yield", yieldCommand);
   bot.command("alert", alertCommand);
@@ -51,16 +57,22 @@ export function createBot() {
   bot.command("hold", holdCommand);
 
   // Buttons under cards, size checks and /start.
-  bot.action(/^size:([A-Za-z]+x):(\d{2,6})$/, async (ctx) => {
+  // Symbols are xStocks (NVDAx) or Backpack tokens (MU, SPCX), so the pattern does not assume a trailing x.
+  bot.action(/^size:([A-Za-z]{1,10}):(\d{2,6})$/, async (ctx) => {
     const token = SYMBOL_TO_TOKEN.get(ctx.match[1].toUpperCase());
     await ctx.answerCbQuery(token ? "Asking Jupiter…" : "Unknown name").catch(() => {});
     if (token) await replySize(ctx, token.symbol, Number(ctx.match[2]));
   });
 
-  bot.action(/^watch:([A-Za-z]+x)$/, async (ctx) => {
+  bot.action(/^watch:([A-Za-z]{1,10})$/, async (ctx) => {
     const token = SYMBOL_TO_TOKEN.get(ctx.match[1].toUpperCase());
     await ctx.answerCbQuery(token ? `Watching ${token.symbol}` : "Unknown name").catch(() => {});
     if (token) await watchReply(ctx, token.symbol);
+  });
+
+  bot.action("proof:check", async (ctx) => {
+    await ctx.answerCbQuery("Checking the signature…").catch(() => {});
+    await confirmProof(ctx);
   });
 
   bot.action("menu:prices", async (ctx) => {

@@ -235,3 +235,102 @@ test("a pool too thin for a $1,000 buy says so instead of loading forever", () =
   const spy = quote({});
   assert.ok(cardText(spy, tradeVerdict(spy)).includes("🛒 The $1,000 buy is still loading"));
 });
+
+test("wallet proof: the bot checks the signature itself, for its own code only", async () => {
+  const { generateKeyPairSync, sign } = await import("node:crypto");
+  const { PublicKey } = await import("@solana/web3.js");
+  const proof = await import("./walletProof.js");
+  const site = await import("../../site/src/lib/walletProof.js");
+
+  const nonce = proof.newNonce();
+  assert.ok(proof.isNonce(nonce));
+  assert.notEqual(proof.newNonce(), nonce);
+  // The bot and the site must build the very same text, or no signature would ever match.
+  assert.equal(proof.proofMessage(nonce), site.proofMessage(nonce));
+
+  const keys = () => {
+    const pair = generateKeyPairSync("ed25519");
+    const address = new PublicKey(pair.publicKey.export({ format: "der", type: "spki" }).subarray(-32)).toBase58();
+    return { address, sign: (text: string) => sign(null, Buffer.from(text, "utf8"), pair.privateKey).toString("base64") };
+  };
+  const owner = keys();
+  const message = proof.proofMessage(nonce);
+  const signature = owner.sign(message);
+  assert.ok(proof.verifyProof(owner.address, signature, message));
+  assert.ok(!proof.verifyProof(keys().address, signature, message), "someone else's wallet");
+  assert.ok(!proof.verifyProof(owner.address, signature, proof.proofMessage(proof.newNonce())), "another code");
+  assert.ok(!proof.verifyProof(owner.address, signature.slice(0, 20), message), "cut short");
+  assert.ok(!proof.verifyProof("nope", signature, message));
+
+  const now = 1_000_000_000;
+  assert.ok(proof.proofFresh(now - 14 * 60_000, now));
+  assert.ok(!proof.proofFresh(now - 16 * 60_000, now), "expired after 15 minutes");
+  assert.ok(!proof.proofFresh(now + 60_000, now), "never from the future");
+
+  const { holderWallet } = await import("./holder.js");
+  assert.equal(holderWallet({ verified_wallet: null }), "", "a typed address is not a holder wallet");
+  assert.equal(holderWallet({ verified_wallet: owner.address }), owner.address);
+});
+
+test("two tokens of one company: the cheaper $1,000 buy, thin pools named, a ping only past 0.5 points", async () => {
+  const { companyPairs, pairsToPing, PAIR_POINTS } = await import("./pairs.js");
+  const { pairsText, pairAlertText } = await import("./messages.js");
+  const at = 1_800_000_000_000;
+  const leg = (symbol: string, name: string, underlying: string, issuer: "xStocks" | "Backpack", buyPrice: number | null, poolUsd: number) =>
+    quote({ symbol, name, underlying, issuer, mint: `${symbol}-mint`, stockPrice: 146, buyPrice, buyAt: buyPrice == null ? null : at - 10_000, poolUsd });
+  const quotes = [
+    leg("SPCXx", "SpaceX", "SPCX", "xStocks", 146.1, 2_600_000),
+    leg("SPCX", "SpaceX", "SPCX", "Backpack", 145.2, 2_300_000),
+    leg("AMDx", "AMD", "AMD", "xStocks", null, 14_170),
+    leg("AMD", "AMD", "AMD", "Backpack", 529, 186_000),
+    leg("MU", "Micron", "MU", "Backpack", 875, 1_257_000),
+  ];
+  const pairs = companyPairs(quotes, at);
+  assert.deepEqual(
+    pairs.map((p) => p.underlying),
+    ["SPCX", "AMD"],
+  );
+  const spacex = pairs[0];
+  assert.equal(spacex.cheaper?.quote.symbol, "SPCX");
+  assert.ok(Math.abs((spacex.points ?? 0) - ((146.1 - 145.2) / 146) * 100) < 1e-9);
+  assert.equal(pairs[1].cheaper, null);
+  assert.equal(pairs[1].onlyDeep?.quote.symbol, "AMD");
+  assert.deepEqual(
+    pairsToPing(pairs).map((p) => p.underlying),
+    ["SPCX"],
+  );
+  assert.equal(PAIR_POINTS, 0.5);
+  // A buy older than 90 s does not count, so nothing is called cheaper on stale numbers.
+  assert.equal(companyPairs(quotes, at + 120_000)[0].cheaper, null);
+
+  const text = pairsText(pairs);
+  assert.ok(text.includes("• SPCX (Backpack): $1,000 buy <b>$145.20</b> · -0.55% cheap"), text);
+  assert.ok(text.includes("→ <b>SPCX</b> is 0.62 points cheaper right now."), text);
+  assert.ok(text.includes("• AMDx (xStocks): the pool holds about $14,170, too thin to quote $1,000"), text);
+  assert.ok(text.includes("→ Only <b>AMD</b> has a pool deep enough for a $1,000 buy."), text);
+  assert.equal(
+    pairAlertText(spacex),
+    "🔁 <b>SpaceX: SPCX is 0.62 points cheaper</b>\n$1,000 buy SPCX $145.20 (-0.55% cheap) · SPCXx $146.10 (+0.07% rich)\nSame company, two tokens, two pools. Prices move: check before you buy.",
+  );
+});
+
+test("a size alert fires only while Nasdaq is open and the order is at most 0.4% over the print", async () => {
+  const { sizeAlertHit, sizeWorthQuoting } = await import("./verdict.js");
+  const { sizeAlertText, sizeAlertSetText } = await import("./messages.js");
+  assert.equal(sizeAlertHit(0.4, true), true);
+  assert.equal(sizeAlertHit(0.41, true), false);
+  assert.equal(sizeAlertHit(-0.6, true), true);
+  assert.equal(sizeAlertHit(-1.2, true), false, "far under the print is not trusted");
+  assert.equal(sizeAlertHit(0.1, false), false, "never while Nasdaq is closed");
+  assert.equal(sizeAlertHit(null, true), false);
+  assert.equal(sizeWorthQuoting(0.5), false, "a bigger order costs more than an already rich $1,000 buy");
+  assert.equal(sizeWorthQuoting(0.2), true);
+  assert.equal(sizeWorthQuoting(null), true);
+
+  const result = { ok: true as const, quote: quote({ symbol: "NVDAx", stockPrice: 214.13 }), usd: 5000, shares: 23.3612, price: 214.03, impactPct: 0.035, at: 1 };
+  assert.equal(
+    sizeAlertText(result),
+    "🎯 <b>Your $5,000 NVDAx buy is at the real price</b>\n23.3612 shares at <b>$214.03</b> · Nasdaq $214.13 · gap <b>-0.05% cheap</b>\n🌊 The order moves the pool 0.04%.\n\n<i>A live Jupiter quote, not a fill: prices move. This alert is now off. <code>/sizealert NVDAx 5000</code> sets it again.</i>",
+  );
+  assert.ok(sizeAlertSetText("MU", 2500).startsWith("🎯 Set: a text when a $2,500 buy of <b>MU</b>"));
+});

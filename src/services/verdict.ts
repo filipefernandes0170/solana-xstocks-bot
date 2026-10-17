@@ -427,6 +427,19 @@ export function inBriefWindow(now: number) {
 /** Pools under this many dollars are not quoted: a $1,000 buy there would move the price by percents. Same rule as the site. */
 export const THIN_POOL_USD = 25_000;
 
+/**
+ * A size alert fires while Nasdaq is open and the order costs at most 0.4% over the print. A price more than 1% under
+ * the print is not trusted for a ping (it usually means a print that has not caught up).
+ */
+export function sizeAlertHit(gap: number | null, open: boolean) {
+  return open && gap != null && gap <= 0.4 && gap >= -1;
+}
+
+/** No size quote is spent while the $1,000 buy already sits more than 0.4% over the print: a bigger order costs more. */
+export function sizeWorthQuoting(buyGap: number | null) {
+  return buyGap == null || buyGap <= 0.4;
+}
+
 /** Fridays from 16:15 to 16:59 New York time: after the close, when the week's ranking goes to the channel. */
 export function inWeekWindow(now: number) {
   const wall = etParts(now);

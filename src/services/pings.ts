@@ -2,8 +2,13 @@ import { Telegraf } from "telegraf";
 import type { InlineKeyboardMarkup } from "telegraf/types";
 import { config } from "../config/index.js";
 import {
+  activeSizeAlerts,
   bellAlreadySent,
   briefAlreadySent,
+  deactivateSizeAlert,
+  markPairSent,
+  pairAlreadySent,
+  touchSizeAlert,
   listBriefUsers,
   markBriefSent,
   deleteBagSymbol,
@@ -19,9 +24,25 @@ import {
   type UserRow,
 } from "../db/index.js";
 import { getTokenizedStockHoldings } from "./solana.js";
-import { buysReady, getDeskQuotes, type DeskQuote } from "./desk.js";
+import { buysReady, getDeskQuotes, sizeQuote, type DeskQuote } from "./desk.js";
 import { holderWallet, walletsHolding } from "./holder.js";
-import { bagText, bellText, briefKeyboard, briefTeaser, briefText, buyKeyboard, fairText, rebaseText, richText, teaserKeyboard, weekKeyboard, weekText } from "./messages.js";
+import {
+  bagText,
+  bellText,
+  briefKeyboard,
+  briefTeaser,
+  briefText,
+  buyKeyboard,
+  fairText,
+  pairAlertText,
+  rebaseText,
+  richText,
+  sizeAlertText,
+  teaserKeyboard,
+  weekKeyboard,
+  weekText,
+} from "./messages.js";
+import { companyPairs, pairsToPing } from "./pairs.js";
 import { fetchRanking } from "./ranking.js";
 import {
   etDay,
@@ -31,7 +52,12 @@ import {
   inBellWindow,
   inBriefWindow,
   inWeekWindow,
+  basisPct,
+  buyUsable,
   isPreMarket,
+  isSessionOpen,
+  sizeAlertHit,
+  sizeWorthQuoting,
   rebaseDue,
   richWhileClosed,
   toSnap,
@@ -154,6 +180,53 @@ async function sendBriefs(bot: Telegraf, quotes: DeskQuote[], now: number) {
       markBriefSent(user.telegram_id, day);
     } catch (err) {
       console.warn("Brief failed", user.telegram_id, (err as Error).message);
+    }
+  }
+}
+
+// Size alerts quote Jupiter at the user's size, so they are rationed: at most this many quotes a minute, and each
+// alert at most once every SIZE_RECHECK_MS. The background $1,000 rotation shares the same limiter.
+const SIZE_CHECKS_PER_RUN = 2;
+const SIZE_RECHECK_MS = 5 * 60_000;
+
+/** /sizealert: one-off texts when a holder's order size is at the real price. Holders only; Nasdaq must be open. */
+async function sendSizeAlerts(bot: Telegraf, bySymbol: Map<string, DeskQuote>, holderIds: Set<number>, now: number) {
+  let quoted = 0;
+  for (const alert of activeSizeAlerts()) {
+    if (quoted >= SIZE_CHECKS_PER_RUN) break;
+    if (!holderIds.has(alert.telegram_id) || now - alert.last_checked < SIZE_RECHECK_MS) continue;
+    const quote = bySymbol.get(alert.symbol);
+    if (!quote || !isSessionOpen(quote.marketState)) continue;
+    touchSizeAlert(alert.id, now);
+    const buyGap = basisPct(buyUsable(quote.buyAt ?? null, now) ? (quote.buyPrice ?? null) : null, quote.stockPrice);
+    if (!sizeWorthQuoting(buyGap)) continue;
+    quoted += 1;
+    const result = await sizeQuote(alert.symbol, alert.usd);
+    if (!result.ok) continue;
+    if (!sizeAlertHit(basisPct(result.price, result.quote.stockPrice), isSessionOpen(result.quote.marketState))) continue;
+    try {
+      await send(bot, alert.telegram_id, sizeAlertText(result), buyKeyboard([result.quote]));
+      deactivateSizeAlert(alert.id);
+    } catch (err) {
+      console.warn("Size alert failed", alert.telegram_id, (err as Error).message);
+    }
+  }
+}
+
+/** /pairs on: a text when one token of a company is PAIR_POINTS cheaper than the other. Holders; once a day per company. */
+async function sendPairAlerts(bot: Telegraf, quotes: DeskQuote[], users: UserRow[], holderIds: Set<number>, now: number, day: string) {
+  const due = pairsToPing(companyPairs(quotes, now));
+  if (due.length === 0) return;
+  for (const user of users) {
+    if (!user.pairs || !holderIds.has(user.telegram_id)) continue;
+    for (const pair of due) {
+      if (!pair.cheaper || pairAlreadySent(user.telegram_id, pair.underlying, day)) continue;
+      try {
+        await send(bot, user.telegram_id, pairAlertText(pair), buyKeyboard([pair.cheaper.quote]));
+        markPairSent(user.telegram_id, pair.underlying, day);
+      } catch (err) {
+        console.warn("Pair ping failed", user.telegram_id, (err as Error).message);
+      }
     }
   }
 }
@@ -301,6 +374,17 @@ export async function checkDesk(bot: Telegraf) {
         console.warn("Rebase ping failed", user.telegram_id, (err as Error).message);
       }
     }
+
+    const holderIds = new Set(
+      users
+        .filter((user) => {
+          const wallet = holderWallet(user);
+          return !!wallet && holders.has(wallet);
+        })
+        .map((user) => user.telegram_id),
+    );
+    await sendPairAlerts(bot, quotes, users, holderIds, now, day).catch((err) => console.warn("Pair pings failed:", (err as Error).message));
+    await sendSizeAlerts(bot, bySymbol, holderIds, now).catch((err) => console.warn("Size alerts failed:", (err as Error).message));
   } catch (err) {
     console.error("Desk check failed:", err);
   } finally {
