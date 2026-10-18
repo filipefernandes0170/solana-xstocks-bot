@@ -134,6 +134,13 @@ Found by reading Netlify's request logs for a day and loading every page in a br
 - **The gap is a plain number while Nasdaq is closed** (`GapPill` and `GapMeter` in `components/desk/parts.tsx`, the hero and the "Widest gap" tile). It used to say "-1.40% cheap" in green next to a red "Wait". With Nasdaq closed the print is the last one, so the card now says "Buy versus last Nasdaq print" and shows "-1.40%" in grey; the verdicts are unchanged. The meter's description for screen readers also read "+0.60% rich above Nasdaq" for any gap; it now says "0.60% above the Nasdaq print".
 - **/favicon.png** exists (48 px, rendered by `tools/brand` with the other icons). Some apps and crawlers ask for it whatever the page links to; it used to be a 404 handled by the server function.
 
+## Faster on phones (18 Oct 2026)
+
+Measured on the live site with the usual mobile test profile (4x slower CPU, 150 ms, 1.6 Mbps): pages show their first content in 1.5 to 2.4 s and weigh 150 to 200 KB, but a phone needs about 3 s to start the page's code, so the desk only asked for live prices 6 to 7 s after opening. On an old cached copy, "Refreshing the prices" then stayed up to about 12 to 13 s (once 26 s).
+
+- **Fresh prices requested at once** (`lib/earlyQuotes.ts`, `StaleMark` `prefetch`, route `/api/quotes`). When the desk or a name page arrives as a copy older than a minute, its one-line script (the one that marks the copy stale) also starts fetching the prices from `/api/quotes`, plain JSON shared by the CDN like the data functions. The page's first refresh takes that answer instead of asking again, so the prices are usually there by the time the page's code runs. A fresh copy asks for nothing early.
+- **Older $1,000 buys stay on the card** (`BUY_SHOWN_MS`, `olderBuy` in `lib/verdict.ts`; `GapMeter`, `GapPill`). A buy is used by the verdict up to 90 s old, as before. Jupiter's free rate limit lets the bot quote all names only about once every one to two minutes, and the CDN adds up to 20 s, so many cards kept falling back to "Loading the $1,000 buy" (4 to 22 of 25 cards showed a gap at any moment on 18 Oct 2026). A buy between 90 s and 3 minutes old is now drawn in grey with its age ("Last $1,000 quote 1 min old. A newer one is on its way."); it never counts for the verdict. The server and the edge function keep buys for 3 minutes (`BUY_KEEP_MS`, `KEEP_MS`) so a new visitor gets them too.
+
 ## Run it
 
 ```bash
@@ -191,5 +198,5 @@ src/
 netlify/functions/record-gaps.mts   the scheduled gap recorder
 tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts, portfolio.test.ts,
                  launch.test.ts, proof.test.ts, share.test.ts, events.test.ts, yield.test.ts, venues.test.ts, shared.test.ts, shareBuys.test.ts,
-                 bagInsights.test.ts, polish.test.ts
+                 bagInsights.test.ts, polish.test.ts, phone.test.ts
 ```

@@ -16,8 +16,8 @@ import { getStore } from "@netlify/blobs";
 
 const STORE = "desk";
 const KEY = "buys";
-/** The same as BUY_KEEP_MS in src/server/quotes.ts. */
-const KEEP_MS = 120_000;
+/** The same as BUY_KEEP_MS in src/server/quotes.ts (BUY_SHOWN_MS in src/lib/verdict.ts). */
+const KEEP_MS = 180_000;
 const MAX_BODY = 20_000;
 const MAX_ENTRIES = 40;
 const MIN_SECRET = 32;

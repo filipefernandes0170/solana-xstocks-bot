@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getQuotes } from "../server/functions";
+import { takeEarlyQuotes } from "./earlyQuotes";
 import { STALE_PAGE_MS } from "./site";
 import type { Quote } from "./types";
 import { mergeBuys } from "./verdict";
@@ -10,7 +11,8 @@ import { mergeBuys } from "./verdict";
  * `enabled: false` waits (the portfolio polls only once a wallet is read); `paused: true` skips polls for a while
  * (the portfolio's exit checks need Jupiter's whole rate limit).
  * With no prices yet, or prices over a minute old (a cached copy of the page), it first asks for prices alone, which
- * answers fastest. Answers older than the prices already shown are ignored. `stale` says the prices shown are over a
+ * answers fastest; a stale page's script has usually started that request already (earlyQuotes.ts). Answers older than
+ * the prices already shown are ignored. `stale` says the prices shown are over a
  * minute old; `ready` turns true once the browser runs the page (its own clock is in use).
  */
 export function useLiveQuotes(initial: Quote[], initialAsOf: number, options: { enabled?: boolean; paused?: boolean } = {}) {
@@ -38,7 +40,8 @@ export function useLiveQuotes(initial: Quote[], initialAsOf: number, options: { 
     let alive = true;
     async function refresh(rotate = true) {
       try {
-        const result = await (rotate ? getQuotes({ data: { refreshBuys: true } }) : getQuotes());
+        const early = rotate ? null : await takeEarlyQuotes();
+        const result = early?.ok ? early : await (rotate ? getQuotes({ data: { refreshBuys: true } }) : getQuotes());
         if (!alive) return;
         if (!result.ok) {
           setFeedError(result.message ?? "Price feed paused.");

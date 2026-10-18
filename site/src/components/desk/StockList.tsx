@@ -54,11 +54,11 @@ export function StockList({
               <ChangePill value={row.change24h} />
             </span>
             <span className="hidden text-right sm:block" data-verdict>
-              <GapPill value={row.gap} closed={sessionClosed(row.marketState)} />
+              <GapPill value={row.gap ?? row.older?.gap ?? null} closed={sessionClosed(row.marketState)} older={row.gap == null && row.older != null} />
             </span>
             <span className="flex items-center justify-end gap-2">
               <span className="sm:hidden" data-verdict>
-                <GapPill value={row.gap} closed={sessionClosed(row.marketState)} />
+                <GapPill value={row.gap ?? row.older?.gap ?? null} closed={sessionClosed(row.marketState)} older={row.gap == null && row.older != null} />
               </span>
               <span
                 data-verdict

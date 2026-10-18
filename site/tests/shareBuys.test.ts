@@ -46,10 +46,10 @@ test("the bot's payload is read as sent, and anything odd is dropped", () => {
 
 test("stored buys keep the newest per name, in the format the site reads", () => {
   const held = heldBuys(
-    { v: 1, buys: { [A]: { price: 200, impactPct: 0.1, at: NOW - 10_000 }, [B]: { price: 300, impactPct: 0.1, at: NOW - 100_000 }, [C]: { price: 5, impactPct: 0.1, at: NOW - 130_000 } } },
+    { v: 1, buys: { [A]: { price: 200, impactPct: 0.1, at: NOW - 10_000 }, [B]: { price: 300, impactPct: 0.1, at: NOW - 100_000 }, [C]: { price: 5, impactPct: 0.1, at: NOW - 190_000 } } },
     NOW,
   );
-  // Older than 2 minutes: dropped.
+  // Older than 3 minutes: dropped.
   assert.equal(held.has(C), false);
   const merged = mergeShared(
     held,
