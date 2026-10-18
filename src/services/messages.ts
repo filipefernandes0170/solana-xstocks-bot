@@ -8,6 +8,7 @@ import type { DeskQuote, SizeResult } from "./desk.js";
 import type { PortfolioSummary } from "./portfolio.js";
 import { PAIR_POINTS, type CompanyPair } from "./pairs.js";
 import type { Ranking, RankRow } from "./ranking.js";
+import type { BotSupply, BotVenue } from "./venues.js";
 import {
   THIN_POOL_USD,
   VERDICT_EMOJI,
@@ -128,7 +129,19 @@ export function startKeyboard(proofNonce: string | null = null): InlineKeyboardM
 
 // ── Cards and pings ──────────────────────────────────────────────────────────
 
-export function cardText(quote: DeskQuote, verdict: Verdict) {
+/** One exchange on a card: what $1,000 pays there per share, before the exchange's own fee. Null when it did not answer. */
+export function venueLine(venue: BotVenue, stockPrice: number | null) {
+  const name = escapeHtml(venue.name);
+  if (venue.state === "open" && venue.price != null) {
+    const gap = basisPct(venue.price, stockPrice);
+    return `🏦 ${name}: $1,000 buys at <b>${money(venue.price)}</b> a share${venue.quoteCurrency === "USDC" ? " (in USDC)" : ""}, before its fee${gap != null ? ` · gap ${escapeHtml(gapLabel(gap))}` : ""}`;
+  }
+  if (venue.state === "limited") return `🏦 ${name}: takes only some orders on this market right now`;
+  if (venue.state === "thin") return `🏦 ${name}: less than $1,000 on its order book right now`;
+  return null;
+}
+
+export function cardText(quote: DeskQuote, verdict: Verdict, venues: BotVenue[] = []) {
   const now = Date.now();
   const fresh = buyUsable(quote.buyAt ?? null, now);
   const buy = fresh ? (quote.buyPrice ?? null) : null;
@@ -156,6 +169,7 @@ export function cardText(quote: DeskQuote, verdict: Verdict) {
       quote.buyImpactPct != null &&
       quote.buyImpactPct > 0 &&
       `🌊 $1,000 moves the pool ${quote.buyImpactPct.toFixed(3)}%${slice != null ? ` · about ${dollars(slice)} reaches 1%` : ""}`,
+    ...venues.map((venue) => venueLine(venue, quote.stockPrice)),
     quote.rebase != null &&
       quote.rebase.at * 1000 > now &&
       `📅 Rebase ${escapeHtml(rebaseWhen(quote.rebase))} UTC: ${quote.rebase.direction === "up" ? "your balance goes up" : "the multiplier drops"}. Don't trade through it.`,
@@ -248,7 +262,7 @@ export function startText(firstName?: string) {
     "• /size NVDAx 5000 · what your order really costs",
     "• /portfolio · paste a wallet to see your bag",
     "• /yield · live lending rates on Kamino",
-    "• /week · who stayed at the real price this week",
+    "• /week · who stayed at the real price, and tokens created on Solana",
     "• /pairs · same company, two tokens: which is cheaper",
     "• /events · market days off, balance changes and SEC filings",
     "",
@@ -514,13 +528,42 @@ function rankLine(row: RankRow, index: number) {
   return `${index + 1}. <b>${escapeHtml(row.symbol)}</b> · ${Math.round(row.near * 100)}% near · typical gap ${row.typicalGap.toFixed(2)}%`;
 }
 
+function supplyLine(row: { symbol: string; change: number; changePct: number | null }, price: number | null) {
+  const amount = new Intl.NumberFormat("en-US", { maximumFractionDigits: Math.abs(row.change) >= 100 ? 0 : 2 }).format(Math.abs(row.change));
+  return `<b>${escapeHtml(row.symbol)}</b> ${row.change > 0 ? "+" : "−"}${amount} ${row.change > 0 ? "created" : "destroyed"}${row.changePct != null ? ` (${row.changePct > 0 ? "+" : "−"}${Math.abs(row.changePct).toFixed(2)}%)` : ""}${price != null ? ` · about ${dollars(Math.abs(row.change) * price)}` : ""}`;
+}
+
+/**
+ * The supply part of /week: the biggest creations and burns on Solana since the base reading, by dollar value.
+ * Empty until a reading is old enough.
+ */
+export function supplySection(supply: BotSupply | null, prices: Map<string, number>) {
+  if (!supply || supply.since == null) return [];
+  const moved = supply.rows
+    .filter((row): row is typeof row & { change: number } => row.change != null && Math.abs(row.change) >= 0.005)
+    .map((row) => ({ ...row, usd: prices.has(row.symbol) ? Math.abs(row.change) * (prices.get(row.symbol) as number) : 0 }));
+  const created = moved.filter((row) => row.change > 0).sort((a, b) => b.usd - a.usd).slice(0, 3);
+  const destroyed = moved.filter((row) => row.change < 0).sort((a, b) => b.usd - a.usd).slice(0, 3);
+  const since = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", day: "numeric", month: "short" }).format(new Date(supply.since));
+  return [
+    "",
+    `📦 <b>Supply on Solana since ${escapeHtml(since)}</b>`,
+    ...(created.length === 0 && destroyed.length === 0 ? ["No tokens created or destroyed."] : []),
+    ...created.map((row) => `🟢 ${supplyLine(row, prices.get(row.symbol) ?? null)}`),
+    ...destroyed.map((row) => `🔴 ${supplyLine(row, prices.get(row.symbol) ?? null)}`),
+    "<i>Tokens the issuer created, or that were burned, on Solana. Rebases are not counted.</i>",
+  ];
+}
+
 /** /week and the Friday channel post: the names closest to and furthest from their Nasdaq print over 7 days. */
-export function weekText(ranking: Ranking | null) {
-  if (!ranking) return "🏆 The ranking could not be read right now. Try again in a minute.";
+export function weekText(ranking: Ranking | null, supply: BotSupply | null = null, prices: Map<string, number> = new Map()) {
+  const extra = supplySection(supply, prices);
+  if (!ranking) return ["🏆 The ranking could not be read right now. Try again in a minute.", ...extra].join("\n");
   if (ranking.rows.length === 0) {
     return [
       "🏆 <b>The weekly ranking</b>",
       "It starts after about two hours of a US session. Par records Monday to Friday while Nasdaq is open. Try again after the next open.",
+      ...extra,
     ].join("\n");
   }
   const closest = ranking.rows.slice(0, 5);
@@ -539,6 +582,7 @@ export function weekText(ranking: Ranking | null) {
     ...furthest.map(rankLine),
     "",
     "<i>The last trade against the print, every 15 minutes. Not the $1,000 buy, and no promise for next week.</i>",
+    ...extra,
   ]);
 }
 

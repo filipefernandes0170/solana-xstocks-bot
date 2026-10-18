@@ -18,7 +18,7 @@ Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solan
 | `/start` | Welcome, with buttons; someone without a proven wallet gets "🔐 Prove my $PAR wallet" first (and under every holder feature). `?start=brief` turns the brief on; `?start=w-NVDAx-TSLAx` (the site's Favourites link) watches those names; `?start=p-<wallet>` (the portfolio's "Watch this bag") saves that address and shows its bag |
 | `/prices` | The whole desk: verdict, price, gap and 24h move for every name |
 | `/events` | The next 7 days: Nasdaq days off and early closes (`services/calendar.ts`), balance changes and paused tokens read on chain, and the key SEC filings of the last 7 days (from the site's `/api/events`). `?start=events` (the site's Events page) answers it. `/events on`, `/events off`: the filing texts (holders) |
-| `/week` | The last 7 days' ranking from the Par site: which names stayed closest to their Nasdaq print |
+| `/week` | The last 7 days' ranking from the Par site (which names stayed closest to their Nasdaq print), then supply on Solana: the biggest batches of tokens created or burned since the base reading, in dollars (from the site's `/api/supply`) |
 | `/pairs` | Same company, two tokens (SpaceX, AMD): each $1,000 buy and which is cheaper. `/pairs on` (holders): a text when one is 0.5 points cheaper, at most once a day per company |
 | `/sizealert NVDAx 5000` | Holders: a one-off text when a buy of that size costs at most 0.4% over the Nasdaq print while Nasdaq is open. Up to 3; `/sizealert` lists, `/sizealert off [name]` clears |
 | `/size NVDAx 5000` | Size check: shares, price per share, gap and pool impact at that size |
@@ -31,7 +31,7 @@ Clean, production-ready Telegram bot to monitor tokenized stocks (RWAs) on Solan
 | `/hold` | Prove the wallet that holds $PAR: a link to the site, where the wallet signs one plain message (not a transaction). `/hold check` confirms, `/hold off` forgets |
 | `/help` | Full help |
 
-Type a ticker (`nvda`) for one card, with Buy, three size checks and Watch buttons. When a company has two tokens, a plain ticker (`amd`) means the xStock and Backpack's naming (`amd.us`) means Backpack's; each card names the other one. A pool under $25,000 (AMDx, NFLXx today) gets no $1,000 buy quote; its card says the pool is too thin.
+Type a ticker (`nvda`) for one card, with Buy, three size checks and Watch buttons. When Kraken (xStocks) or Backpack Exchange (Backpack's tokens) lists the name, the card adds what $1,000 buys there per share, before their fee, or that the market takes only some orders right now (from the site's `/api/venues`; left out if the site takes over 3 s). When a company has two tokens, a plain ticker (`amd`) means the xStock and Backpack's naming (`amd.us`) means Backpack's; each card names the other one. A pool under $25,000 (AMDx, NFLXx today) gets no $1,000 buy quote; its card says the pool is too thin.
 
 With `BRIEF_CHANNEL_ID` set, the week's ranking also goes to that channel on Fridays between 16:15 and 16:59 New York time.
 

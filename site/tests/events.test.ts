@@ -254,7 +254,16 @@ test("a mint says whether transfers are paused and when its multiplier changes",
       { extension: "scaledUiAmountConfig", state: { multiplier: "1.0009180758490996", newMultiplier: "1.001701196801074", newMultiplierEffectiveTimestamp: ahead } },
     ]),
   );
-  assert.deepEqual(nvda, { symbol: "NVDAx", paused: false, multiplier: 1.0009180758490996, newMultiplier: 1.001701196801074, effectiveAt: ahead * 1000 });
+  assert.deepEqual(nvda, {
+    symbol: "NVDAx",
+    paused: false,
+    multiplier: 1.0009180758490996,
+    newMultiplier: 1.001701196801074,
+    effectiveAt: ahead * 1000,
+    scaled: true,
+    supplyRaw: null,
+    decimals: null,
+  });
   const [change] = rebaseEvents([nvda], now);
   assert.equal(change.title, "Balance change");
   assert.equal(change.id, `rebase:NVDAx:${ahead}`);
@@ -270,7 +279,7 @@ test("a mint says whether transfers are paused and when its multiplier changes",
   const flat = parseMintState("TSLAx", mint([{ extension: "scaledUiAmountConfig", state: { multiplier: "1", newMultiplier: "1", newMultiplierEffectiveTimestamp: 0 } }]));
   assert.deepEqual(rebaseEvents([flat], now), []);
   // A 10-for-1 split reads as 100 tokens becoming 1,000.
-  const split = { symbol: "NFLXx", paused: false, multiplier: 1, newMultiplier: 10, effectiveAt: now + 86_400_000 };
+  const split = { symbol: "NFLXx", paused: false, multiplier: 1, newMultiplier: 10, effectiveAt: now + 86_400_000, scaled: true, supplyRaw: null, decimals: null };
   assert.match(rebaseEvents([split], now)[0].line, /100 tokens will show as 1,000\./);
 
   const paused = parseMintState("MU", mint([{ extension: "pausableConfig", state: { authority: "x", paused: true } }]));

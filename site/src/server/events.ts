@@ -14,19 +14,16 @@ import {
   filingHeaderUrl,
   marketEvents,
   parseAcceptance,
-  parseMintState,
   parseSubmissions,
   pauseEvents,
   rebaseEvents,
   shownForm,
   submissionsUrl,
   type EventsResult,
-  type MintAccount,
-  type MintState,
   type RawFiling,
 } from "../lib/events";
-import { TOKENS } from "../lib/tokens";
-import { logMessage, rpc } from "./solana";
+import { mintStates } from "./mints";
+import { logMessage } from "./solana";
 
 const STORE = "events";
 const KEY = "sec-filings";
@@ -36,7 +33,6 @@ const LIST_FRESH_MS = 5 * 60_000;
 const LISTS_PER_CALL = 10;
 const HEADERS_PER_CALL = 12;
 const SPACING_MS = 200;
-const CHAIN_FRESH_MS = 2 * 60_000;
 
 type Stored = {
   companies: Record<string, { at: number; filings: RawFiling[] }>;
@@ -48,7 +44,6 @@ let memory: { at: number; stored: Stored } | null = null;
 let refreshing: Promise<Stored> | null = null;
 // After a round where the SEC answered nothing, this instance waits a minute before asking again.
 let pauseUntil = 0;
-let chain: { at: number; states: MintState[] } | null = null;
 
 function empty(): Stored {
   return { companies: {}, accepted: {} };
@@ -158,23 +153,6 @@ async function currentFilings(now: number) {
     console.warn(`[par] SEC: ${logMessage(error)}`);
     return readStored();
   }
-}
-
-/** Every mint in one getMultipleAccounts call, kept for CHAIN_FRESH_MS. */
-async function mintStates(now: number) {
-  if (chain && now - chain.at < CHAIN_FRESH_MS) return chain;
-  try {
-    const result = await rpc<{ value: MintAccount[] }>(
-      "getMultipleAccounts",
-      [TOKENS.map((token) => token.mint), { encoding: "jsonParsed", commitment: "confirmed" }],
-      10_000,
-    );
-    if (!Array.isArray(result?.value) || result.value.length !== TOKENS.length) throw new Error("Unexpected mint list");
-    chain = { at: Date.now(), states: TOKENS.map((token, index) => parseMintState(token.symbol, result.value[index])) };
-  } catch (error) {
-    console.warn(`[par] Events mints: ${logMessage(error)}`);
-  }
-  return chain;
 }
 
 export async function eventsResult(): Promise<EventsResult> {

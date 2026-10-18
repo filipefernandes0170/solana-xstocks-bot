@@ -1,15 +1,17 @@
-// The desk's fourteen server functions. Handlers run only on the server (a Netlify Function in production);
+// The desk's sixteen server functions. Handlers run only on the server (a Netlify Function in production);
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
-import { EVENTS_CACHE, PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE } from "../lib/site";
+import { EVENTS_CACHE, PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE, VENUES_CACHE } from "../lib/site";
 import { cryptosResult } from "./cryptos";
 import { eventsResult } from "./events";
 import { historyResult, rankingResult } from "./history";
 import { issuerResult } from "./issuer";
 import { offersResult } from "./offers";
 import { exitCheck, quotesResult, sizeCheck } from "./quotes";
+import { supplyResult } from "./supply";
+import { venuesResult } from "./venues";
 import { env } from "./http";
 import { walletInput } from "./solana";
 import { holderStatus, lookupHoldings, readPortfolio } from "./wallet";
@@ -62,6 +64,20 @@ export const getIssuer = createServerFn({ method: "GET" })
 export const getEvents = createServerFn({ method: "GET" }).handler(async () => {
   setResponseHeader("Netlify-CDN-Cache-Control", EVENTS_CACHE);
   return eventsResult();
+});
+
+/** Where else one name can be bought, and what $1,000 pays there (Kraken, Backpack Exchange). Shared for 30 s. */
+export const getVenues = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ symbol: String((input as { symbol?: unknown } | undefined)?.symbol ?? "") }))
+  .handler(async ({ data }) => {
+    setResponseHeader("Netlify-CDN-Cache-Control", VENUES_CACHE);
+    return venuesResult(data.symbol);
+  });
+
+/** Supply on Solana: tokens of each name, and how many were created or destroyed lately. Shared for a minute. */
+export const getSupply = createServerFn({ method: "GET" }).handler(async () => {
+  setResponseHeader("Netlify-CDN-Cache-Control", EVENTS_CACHE);
+  return supplyResult();
 });
 
 /** Whether $PAR is live: the holder texts only work once TOKEN_MINT is set. Public, so shared like the prices. */

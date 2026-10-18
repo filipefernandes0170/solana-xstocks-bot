@@ -2,6 +2,10 @@
 
 O que ficou combinado para depois do lançamento, por ordem. Atualizado a 17 out 2026.
 
+## Verificação do fim de semana (a seguir)
+
+- Depois da abertura de segunda: "os tokens marcaram NVDA +2,1% no fim de semana; a Nasdaq abriu +1,8%". A pré-visualização já existe (o desk e o brief de segunda mostram o gap do fim de semana). Falta o placar, que precisa do histórico de preços (começa segunda, 19 out). Fazer a partir de 26 out, quando houver dados reais para o testar.
+
 ## Eventos: o que já está e o que falta
 
 - **Feito (fase A, 17 out 2026):** página /events, /events no bot, textos de filings da SEC para holders (máximo 5 por dia), alertas de pausa, feriados e fechos antecipados no brief e no relógio da Nasdaq.

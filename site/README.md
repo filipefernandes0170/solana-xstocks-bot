@@ -100,6 +100,12 @@ Reasons to hold $PAR are tools for traders; none is a return on the coin.
 - Every "Open on Kamino" link opens the token's own page, `kamino.com/borrow/reserve/<market>/<reserve>` (checked in a browser). The old `kamino.com/lend/<market>` now lands on an unrelated Earn vault page.
 - Today the stock tokens themselves earn almost nothing when lent (0.00 to 0.18% on 17 Oct 2026), so "Possible yield" is usually about $0. That is the real figure.
 
+## Where to buy and supply on Solana (18 Oct 2026)
+
+- **Where to buy** (`lib/venues.ts`, `server/venues.ts`, `components/stock/Venues.tsx`, `/api/venues?symbol=`): on a name's page, the live $1,000 buy on Jupiter next to what $1,000 pays on the exchanges that list the same token: Kraken for the 19 xStocks (public order book, `asset_class=tokenized_asset`; only pairs with status `online` take a market buy, so `post_only` on weekends shows "takes only some orders"), Backpack Exchange for Backpack's tokens it lists on spot (SPCX, MU, SKHY on 18 Oct 2026; perpetual futures are not tokens and are left out). Both books quote per share (checked against Jupiter's per-share price). The average fill walks the asks; a book with under $1,000 says so. Exchange prices are before their fee; the lowest is marked "lowest right now, before exchange fees". Backpack's stock markets did not open from Portugal, so the link goes to the exchange, not the market; Kraken's goes to its xStocks page, which picks the company for each region. Hidden for names no exchange lists.
+- **Supply on Solana** (`lib/supply.ts`, `server/supply.ts`, `server/mints.ts`, `netlify/functions/record-supply.mts`, `/api/supply`): each mint's raw supply, one reading a day in Netlify Blobs (store `supply`, key `day/<UTC date>`), written at 00:20 UTC and also on the first visit of a day. Created or destroyed is the raw supply against the oldest reading at least 20 hours old within 8 days, so rebases never count; shares use today's multiplier. On every name page and as a table on /ranking; the bot's /week lists the biggest creations and burns.
+- **Weekend check** (tokens over the weekend against Monday's open) was left for later: the desk and the Monday brief already show the weekend gap, and the scorecard needs a week of recorded prices (history starts Monday 19 Oct), so it can first be checked against real data on 26 Oct.
+
 ## Run it
 
 ```bash

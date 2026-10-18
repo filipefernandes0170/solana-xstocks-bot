@@ -18,6 +18,8 @@ import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as ApiEventsRouteImport } from './routes/api.events'
 import { Route as ApiProofRouteImport } from './routes/api.proof'
 import { Route as ApiRankingRouteImport } from './routes/api.ranking'
+import { Route as ApiSupplyRouteImport } from './routes/api.supply'
+import { Route as ApiVenuesRouteImport } from './routes/api.venues'
 import { Route as SSymbolRouteImport } from './routes/s.$symbol'
 
 const IndexRoute = IndexRouteImport.update({
@@ -65,6 +67,16 @@ const ApiRankingRoute = ApiRankingRouteImport.update({
   path: '/api/ranking',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSupplyRoute = ApiSupplyRouteImport.update({
+  id: '/api/supply',
+  path: '/api/supply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVenuesRoute = ApiVenuesRouteImport.update({
+  id: '/api/venues',
+  path: '/api/venues',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SSymbolRoute = SSymbolRouteImport.update({
   id: '/s/$symbol',
   path: '/s/$symbol',
@@ -81,6 +93,8 @@ export interface FileRoutesByFullPath {
   '/api/events': typeof ApiEventsRoute
   '/api/proof': typeof ApiProofRoute
   '/api/ranking': typeof ApiRankingRoute
+  '/api/supply': typeof ApiSupplyRoute
+  '/api/venues': typeof ApiVenuesRoute
   '/s/$symbol': typeof SSymbolRoute
 }
 export interface FileRoutesByTo {
@@ -93,6 +107,8 @@ export interface FileRoutesByTo {
   '/api/events': typeof ApiEventsRoute
   '/api/proof': typeof ApiProofRoute
   '/api/ranking': typeof ApiRankingRoute
+  '/api/supply': typeof ApiSupplyRoute
+  '/api/venues': typeof ApiVenuesRoute
   '/s/$symbol': typeof SSymbolRoute
 }
 export interface FileRoutesById {
@@ -106,6 +122,8 @@ export interface FileRoutesById {
   '/api/events': typeof ApiEventsRoute
   '/api/proof': typeof ApiProofRoute
   '/api/ranking': typeof ApiRankingRoute
+  '/api/supply': typeof ApiSupplyRoute
+  '/api/venues': typeof ApiVenuesRoute
   '/s/$symbol': typeof SSymbolRoute
 }
 export interface FileRouteTypes {
@@ -120,6 +138,8 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/api/proof'
     | '/api/ranking'
+    | '/api/supply'
+    | '/api/venues'
     | '/s/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -132,6 +152,8 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/api/proof'
     | '/api/ranking'
+    | '/api/supply'
+    | '/api/venues'
     | '/s/$symbol'
   id:
     | '__root__'
@@ -144,6 +166,8 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/api/proof'
     | '/api/ranking'
+    | '/api/supply'
+    | '/api/venues'
     | '/s/$symbol'
   fileRoutesById: FileRoutesById
 }
@@ -157,6 +181,8 @@ export interface RootRouteChildren {
   ApiEventsRoute: typeof ApiEventsRoute
   ApiProofRoute: typeof ApiProofRoute
   ApiRankingRoute: typeof ApiRankingRoute
+  ApiSupplyRoute: typeof ApiSupplyRoute
+  ApiVenuesRoute: typeof ApiVenuesRoute
   SSymbolRoute: typeof SSymbolRoute
 }
 
@@ -225,6 +251,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRankingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/supply': {
+      id: '/api/supply'
+      path: '/api/supply'
+      fullPath: '/api/supply'
+      preLoaderRoute: typeof ApiSupplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/venues': {
+      id: '/api/venues'
+      path: '/api/venues'
+      fullPath: '/api/venues'
+      preLoaderRoute: typeof ApiVenuesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/s/$symbol': {
       id: '/s/$symbol'
       path: '/s/$symbol'
@@ -245,6 +285,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiEventsRoute: ApiEventsRoute,
   ApiProofRoute: ApiProofRoute,
   ApiRankingRoute: ApiRankingRoute,
+  ApiSupplyRoute: ApiSupplyRoute,
+  ApiVenuesRoute: ApiVenuesRoute,
   SSymbolRoute: SSymbolRoute,
 }
 export const routeTree = rootRouteImport

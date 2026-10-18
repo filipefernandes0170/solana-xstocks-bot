@@ -121,7 +121,7 @@ const FREE_DOCS: Doc[] = [
     icon: <MessageSquare className="size-5" aria-hidden />,
     title: "Name cards",
     commands: ["nvda", "nvidia", "amd.us"],
-    what: "Send a name or a ticker. The card shows the last trade and its 24h move, a live $1,000 buy per share, the Nasdaq print and session, the gap with a meter, and the verdict. It adds how many dollars move the pool 1%, any rebase coming, and the same company's other token.",
+    what: "Send a name or a ticker. The card shows the last trade and its 24h move, a live $1,000 buy per share, the Nasdaq print and session, the gap with a meter, and the verdict. It adds how many dollars move the pool 1%, what $1,000 buys on Kraken or Backpack Exchange when they list it (before their fee), any rebase coming, and the same company's other token.",
     when: "Buttons under it: Buy (opens Jupiter), size checks at $1,000, $5,000 and $25,000, and Watch. Backpack tokens end in .us: amd.us is Backpack's AMD, amd is the xStock.",
   },
   {
@@ -163,8 +163,8 @@ const FREE_DOCS: Doc[] = [
     icon: <Trophy className="size-5" aria-hidden />,
     title: "The weekly ranking",
     commands: ["/week"],
-    what: "Which names sat within 0.4% of Nasdaq most often while it was open over the last 7 days, and which drifted furthest.",
-    when: "The same ranking, with a picture to share, is on the Ranking page.",
+    what: "Which names sat within 0.4% of Nasdaq most often while it was open over the last 7 days, and which drifted furthest. Then the supply on Solana: the biggest batches of tokens created or burned, in dollars.",
+    when: "The same ranking, with a picture to share and every name's supply, is on the Ranking page.",
   },
   {
     icon: <Percent className="size-5" aria-hidden />,
@@ -246,7 +246,7 @@ const COMMANDS: [string, string][] = [
   ["/size NVDAx 5000", "Your order, per share"],
   ["/portfolio", "Your stock-token bag"],
   ["/events", "Days off, rebases, filings"],
-  ["/week", "This week's ranking"],
+  ["/week", "Ranking and supply"],
   ["/pairs", "Same company, two tokens"],
   ["/yield NVDAx", "Lending rates"],
   ["/alert NVDAx up 5", "A one-off move alert"],

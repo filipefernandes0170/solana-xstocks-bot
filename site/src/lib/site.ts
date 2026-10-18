@@ -23,6 +23,9 @@ export const PUBLIC_DATA_CACHE = "public, durable, s-maxage=10, stale-while-reva
  */
 export const EVENTS_CACHE = "public, durable, s-maxage=60, stale-while-revalidate=120";
 
+/** "Where to buy": the exchanges' order books, shared for 30 s (each name's book is read at most twice a minute). */
+export const VENUES_CACHE = "public, durable, s-maxage=30, stale-while-revalidate=30";
+
 /** /portfolio has no server data in its HTML (the wallet is read in the browser), so it can stay cached longer. */
 export const STATIC_PAGE_CACHE = "public, durable, s-maxage=300, stale-while-revalidate=600";
 

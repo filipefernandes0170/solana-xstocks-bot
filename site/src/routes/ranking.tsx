@@ -11,7 +11,8 @@ import { formatGap } from "../lib/format";
 import { MIN_OPEN_READINGS, nearLabel, rankingShareText, type RankRow } from "../lib/ranking";
 import { SITE_URL, STATIC_PAGE_CACHE } from "../lib/site";
 import { TOKEN_BY_SYMBOL } from "../lib/tokens";
-import { getRanking } from "../server/functions";
+import { getQuotes, getRanking, getSupply } from "../server/functions";
+import { SupplyTable } from "../components/ranking/SupplyTable";
 
 const TITLE = "Which tokenized stocks stayed at the real price? · Par";
 const DESCRIPTION =
@@ -29,7 +30,10 @@ export const Route = createFileRoute("/ranking")({
     ],
     links: [{ rel: "canonical", href: `${SITE_URL}/ranking` }],
   }),
-  loader: () => getRanking(),
+  loader: async () => {
+    const [ranking, supply, quotes] = await Promise.all([getRanking(), getSupply(), getQuotes()]);
+    return { ranking, supply, quotes: quotes.quotes };
+  },
   component: RankingPage,
 });
 
@@ -79,7 +83,7 @@ function Podium({ title, rows, tone }: { title: string; rows: RankRow[]; tone: "
 }
 
 function RankingPage() {
-  const ranking = Route.useLoaderData();
+  const { ranking, supply, quotes } = Route.useLoaderData();
   const [saving, setSaving] = useState(false);
   const rows = ranking.rows;
   const closest = rows.slice(0, 5);
@@ -184,6 +188,7 @@ function RankingPage() {
             </p>
           </>
         )}
+        <SupplyTable supply={supply} quotes={quotes} />
         <SiteFooter />
       </main>
     </div>

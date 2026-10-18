@@ -15,6 +15,8 @@ import { SiteNav } from "../components/SiteNav";
 import { GapHistory } from "../components/stock/GapHistory";
 import { IssuerPowers } from "../components/stock/IssuerPowers";
 import { OtherTokens } from "../components/stock/OtherTokens";
+import { SupplyCard } from "../components/stock/SupplyCard";
+import { Venues } from "../components/stock/Venues";
 import { FILING_DAYS, SEC_CIK } from "../lib/events";
 import { formatUsd } from "../lib/format";
 import type { HistoryPoint } from "../lib/history";
@@ -22,11 +24,13 @@ import type { IssuerResult } from "../lib/issuer";
 import { cardShareText, stockUrl } from "../lib/share";
 import { PUBLIC_DATA_CACHE, SITE_URL } from "../lib/site";
 import { ISSUER_LABEL, TOKENS } from "../lib/tokens";
+import type { SupplyResult } from "../lib/supply";
 import type { Offer, Quote } from "../lib/types";
+import type { VenuesResult } from "../lib/venues";
 import { useFavourites, watchLink } from "../lib/useFavourites";
 import { useLiveQuotes } from "../lib/useLiveQuotes";
 import { buyUsable, gapPct, rebaseLine, verdict, verdictPillClass } from "../lib/verdict";
-import { getHistory, getIssuer, getOffers, getQuotes } from "../server/functions";
+import { getHistory, getIssuer, getOffers, getQuotes, getSupply, getVenues } from "../server/functions";
 
 function tokenFor(param: string) {
   return TOKENS.find((token) => token.symbol.toLowerCase() === param.toLowerCase());
@@ -60,11 +64,13 @@ export const Route = createFileRoute("/s/$symbol")({
   loader: async ({ params }) => {
     const token = tokenFor(params.symbol);
     if (!token) throw notFound();
-    const [quotes, offers, history, issuer] = await Promise.all([
+    const [quotes, offers, history, issuer, venues, supply] = await Promise.all([
       getQuotes(),
       getOffers(),
       getHistory({ data: { symbol: token.symbol } }),
       getIssuer({ data: { symbol: token.symbol } }),
+      getVenues({ data: { symbol: token.symbol } }),
+      getSupply(),
     ]);
     return {
       symbol: token.symbol,
@@ -74,6 +80,8 @@ export const Route = createFileRoute("/s/$symbol")({
       offersError: offers.ok ? null : offers.message,
       history: history.points,
       issuer,
+      venues,
+      supply,
     };
   },
   component: StockPage,
@@ -87,6 +95,8 @@ type StockData = {
   offersError: string | null;
   history: HistoryPoint[];
   issuer: IssuerResult;
+  venues: VenuesResult;
+  supply: SupplyResult;
 };
 
 function StockPage() {
@@ -197,6 +207,10 @@ function StockView({ data }: { data: StockData }) {
         </section>
 
         <OtherTokens symbol={token.symbol} quotes={live.quotes} now={live.now} />
+
+        <Venues token={token} quote={live.quotes.find((q) => q.symbol === token.symbol) ?? null} initial={data.venues} now={live.now} />
+
+        <SupplyCard token={token} supply={data.supply} price={live.quotes.find((q) => q.symbol === token.symbol)?.usdPrice ?? null} />
 
         <section aria-labelledby="history-title" className="panel mt-8 p-6 text-ink ring-1 ring-line sm:p-7">
           <p className="text-sm font-medium text-amber">Last 7 days</p>

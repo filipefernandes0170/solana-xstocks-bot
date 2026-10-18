@@ -291,10 +291,15 @@ export type MintState = {
   newMultiplier: number | null;
   /** When newMultiplier takes over, in ms; null when no change was ever set. */
   effectiveAt: number | null;
+  /** False when the mint has no multiplier at all (one token is one share). */
+  scaled: boolean;
+  /** The raw supply on Solana (an integer as text) and the mint's decimals; null when not read. */
+  supplyRaw: string | null;
+  decimals: number | null;
 };
 
 type Extension = { extension?: string; state?: Record<string, unknown> };
-export type MintAccount = { data?: { parsed?: { type?: string; info?: { extensions?: Extension[] } } } } | null;
+export type MintAccount = { data?: { parsed?: { type?: string; info?: { extensions?: Extension[]; supply?: string; decimals?: number } } } } | null;
 
 function positive(value: unknown) {
   const n = Number(value);
@@ -304,7 +309,9 @@ function positive(value: unknown) {
 /** What one jsonParsed mint account says about pauses and multipliers. */
 export function parseMintState(symbol: string, account: MintAccount | undefined): MintState {
   const parsed = account?.data?.parsed;
-  if (!parsed || parsed.type !== "mint") return { symbol, paused: null, multiplier: null, newMultiplier: null, effectiveAt: null };
+  if (!parsed || parsed.type !== "mint") {
+    return { symbol, paused: null, multiplier: null, newMultiplier: null, effectiveAt: null, scaled: false, supplyRaw: null, decimals: null };
+  }
   const extensions = parsed.info?.extensions ?? [];
   const find = (name: string) => extensions.find((entry) => entry.extension === name)?.state ?? null;
   const pausable = find("pausableConfig");
@@ -318,7 +325,20 @@ export function parseMintState(symbol: string, account: MintAccount | undefined)
     multiplier: positive(scaled?.multiplier),
     newMultiplier: positive(scaled?.newMultiplier),
     effectiveAt: Number.isFinite(at) && at > 0 ? at * 1000 : null,
+    scaled: scaled != null,
+    supplyRaw: typeof parsed.info?.supply === "string" && /^\d+$/.test(parsed.info.supply) ? parsed.info.supply : null,
+    decimals: Number.isInteger(parsed.info?.decimals) ? (parsed.info?.decimals as number) : null,
   };
+}
+
+/**
+ * The multiplier in force at `now`: the new one once its time has come. 1 for a mint without a multiplier; null when
+ * the mint has one but it could not be read (never guessed).
+ */
+export function multiplierAt(state: MintState, now: number) {
+  if (!state.scaled) return state.paused == null ? null : 1;
+  if (state.newMultiplier != null && state.effectiveAt != null && state.effectiveAt <= now) return state.newMultiplier;
+  return state.multiplier;
 }
 
 function explorer(mint: string) {

@@ -25,7 +25,7 @@ import { yieldCommand } from "./commands/yield.js";
 export const MENU_COMMANDS = [
   { command: "prices", description: "The whole desk: verdicts, prices and gaps" },
   { command: "events", description: "Market days off, balance changes and SEC filings" },
-  { command: "week", description: "This week's ranking: who stayed at the real price" },
+  { command: "week", description: "This week's ranking, and tokens created on Solana" },
   { command: "pairs", description: "Same company, two tokens: which is cheaper" },
   { command: "sizealert", description: "A text when your order size is at the real price ($PAR holders)" },
   { command: "size", description: "What your order really costs: /size NVDAx 5000" },

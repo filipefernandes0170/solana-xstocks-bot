@@ -63,6 +63,7 @@ import {
 } from "./messages.js";
 import { companyPairs, pairsToPing } from "./pairs.js";
 import { fetchRanking } from "./ranking.js";
+import { fetchSupply } from "./venues.js";
 import {
   etDay,
   etParts,
@@ -257,10 +258,12 @@ async function sendWeekly(bot: Telegraf, now: number) {
   if (briefAlreadySent(-1, day)) return;
   const ranking = await fetchRanking();
   if (!ranking || ranking.rows.length === 0) return;
+  const [supply, quotes] = await Promise.all([fetchSupply(), getDeskQuotes({ allowStale: true }).catch(() => [])]);
+  const prices = new Map(quotes.filter((quote) => quote.usdPrice != null).map((quote) => [quote.symbol, quote.usdPrice as number]));
   // Marked before sending, so a refusal (the bot is not an admin there) is not retried every minute.
   markBriefSent(-1, day);
   try {
-    await send(bot, config.briefChannelId, weekText(ranking), weekKeyboard());
+    await send(bot, config.briefChannelId, weekText(ranking, supply, prices), weekKeyboard());
   } catch (err) {
     console.warn("Ranking channel post failed:", (err as Error).message);
   }
