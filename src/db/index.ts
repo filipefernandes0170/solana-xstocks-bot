@@ -131,6 +131,28 @@ db.exec(`
     effective_at INTEGER NOT NULL,
     PRIMARY KEY (telegram_id, symbol, effective_at)
   );
+
+  -- Each mint's raw supply as read on chain (about every 5 minutes), kept for a day (see services/flows.ts).
+  CREATE TABLE IF NOT EXISTS supply_log (
+    mint TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    raw TEXT NOT NULL,
+    PRIMARY KEY (mint, at)
+  );
+
+  -- Large issuer flows: tokens created (positive) or burned (negative) within about an hour, kept 14 days.
+  CREATE TABLE IF NOT EXISTS flow_events (
+    symbol TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    since INTEGER NOT NULL,
+    raw_before TEXT NOT NULL,
+    raw_after TEXT NOT NULL,
+    shares REAL NOT NULL,
+    usd REAL NOT NULL,
+    pct REAL NOT NULL,
+    supply_usd REAL NOT NULL,
+    PRIMARY KEY (symbol, at)
+  );
 `);
 
 function addColumn(table: string, column: string, type: string) {
@@ -150,6 +172,8 @@ addColumn("users", "verified_at", "INTEGER");
 addColumn("users", "pairs", "INTEGER DEFAULT 0");
 // Filing texts (/events): on unless the user turns them off. Pause alerts have no switch.
 addColumn("users", "events", "INTEGER DEFAULT 1");
+// Issuer flow texts (/flows): on unless the user turns them off.
+addColumn("users", "flows", "INTEGER DEFAULT 1");
 // What the bot last told each person about each name in their bag, and when (see services/calm.ts).
 addColumn("bag_state", "told", "TEXT");
 addColumn("bag_state", "told_at", "INTEGER DEFAULT 0");
@@ -272,10 +296,77 @@ export function markEventSent(telegramId: number, eventId: string, day: string, 
   db.prepare(`INSERT OR IGNORE INTO event_log (telegram_id, event_id, day, capped) VALUES (?, ?, ?, ?)`).run(telegramId, eventId, day, capped ? 1 : 0);
 }
 
-/** Filing texts sent to this user on a New York day. */
+/** Filing texts sent to this user on a New York day (flow texts have their own count, flowTextsOn). */
 export function eventsSentOn(telegramId: number, day: string) {
-  const row = db.prepare(`SELECT COUNT(*) AS n FROM event_log WHERE telegram_id = ? AND day = ? AND capped = 1`).get(telegramId, day) as { n: number };
+  const row = db
+    .prepare(`SELECT COUNT(*) AS n FROM event_log WHERE telegram_id = ? AND day = ? AND capped = 1 AND event_id NOT LIKE 'flow:%'`)
+    .get(telegramId, day) as { n: number };
   return row.n;
+}
+
+/** Issuer flow texts delivered to this user on a New York day. */
+export function flowTextsOn(telegramId: number, day: string) {
+  const row = db
+    .prepare(`SELECT COUNT(*) AS n FROM event_log WHERE telegram_id = ? AND day = ? AND capped = 1 AND event_id LIKE 'flow:%'`)
+    .get(telegramId, day) as { n: number };
+  return row.n;
+}
+
+export function setFlows(telegramId: number, on: boolean) {
+  db.prepare(`UPDATE users SET flows = ?, updated_at = strftime('%s','now') WHERE telegram_id = ?`).run(on ? 1 : 0, telegramId);
+}
+
+/** Saves one supply reading; the same mint and time twice is a no-op. */
+export function recordSupply(mint: string, at: number, raw: string) {
+  db.prepare(`INSERT OR IGNORE INTO supply_log (mint, at, raw) VALUES (?, ?, ?)`).run(mint, at, raw);
+}
+
+/** A mint's supply readings since `since` (ms), oldest first. */
+export function supplyReadings(mint: string, since: number) {
+  return db.prepare(`SELECT at, raw FROM supply_log WHERE mint = ? AND at >= ? ORDER BY at`).all(mint, since) as { at: number; raw: string }[];
+}
+
+/** When the oldest supply reading still kept was taken (null when there is none). */
+export function oldestSupplyAt() {
+  const row = db.prepare(`SELECT MIN(at) AS at FROM supply_log`).get() as { at: number | null };
+  return row.at;
+}
+
+export function pruneSupplyLog(before: number) {
+  db.prepare(`DELETE FROM supply_log WHERE at < ?`).run(before);
+}
+
+export type FlowEventRow = {
+  symbol: string;
+  at: number;
+  since: number;
+  raw_before: string;
+  raw_after: string;
+  shares: number;
+  usd: number;
+  pct: number;
+  supply_usd: number;
+};
+
+export function addFlowEvent(row: FlowEventRow) {
+  db.prepare(`
+    INSERT OR IGNORE INTO flow_events (symbol, at, since, raw_before, raw_after, shares, usd, pct, supply_usd)
+    VALUES (@symbol, @at, @since, @raw_before, @raw_after, @shares, @usd, @pct, @supply_usd)
+  `).run(row);
+}
+
+/** The newest large flow reported for a name, if any. */
+export function lastFlowEvent(symbol: string) {
+  return db.prepare(`SELECT * FROM flow_events WHERE symbol = ? ORDER BY at DESC LIMIT 1`).get(symbol) as FlowEventRow | undefined;
+}
+
+/** Large flows found since `since` (ms), newest first. */
+export function flowEventsSince(since: number) {
+  return db.prepare(`SELECT * FROM flow_events WHERE at >= ? ORDER BY at DESC`).all(since) as FlowEventRow[];
+}
+
+export function pruneFlowEvents(before: number) {
+  db.prepare(`DELETE FROM flow_events WHERE at < ?`).run(before);
 }
 
 /** Everyone who got one event text, such as a pause alert (for the matching "resumed" text). */
@@ -325,7 +416,7 @@ export function setBrief(telegramId: number, on: boolean) {
 
 /** Users who asked for the morning brief. Whether it sends depends on the coin, checked when it goes out. */
 export function listBriefUsers() {
-  return db.prepare(`SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs, events FROM users WHERE brief = 1`).all() as UserRow[];
+  return db.prepare(`SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs, events, flows FROM users WHERE brief = 1`).all() as UserRow[];
 }
 
 /** Brief log rows use telegram_id 0 for the public channel post, and -1 for the Friday ranking post. */
@@ -387,11 +478,13 @@ export type UserRow = {
   pairs: number;
   /** 1 unless the user turned filing texts off with /events off. */
   events: number;
+  /** 1 unless the user turned issuer flow texts off with /flows off. */
+  flows: number;
 };
 
 export function listPingUsers(): UserRow[] {
   return db.prepare(`
-    SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs, events
+    SELECT telegram_id, wallet, holder_wallet, verified_wallet, bell, pairs, events, flows
     FROM users
     WHERE wallet IS NOT NULL OR verified_wallet IS NOT NULL OR bell = 1
   `).all() as UserRow[];

@@ -7,6 +7,8 @@ import {
   eventAlreadySent,
   eventRecipients,
   eventsSentOn,
+  flowEventsSince,
+  flowTextsOn,
   getPauseStates,
   markEventSent,
   pruneEventLog,
@@ -48,6 +50,7 @@ import {
   resumeText,
 } from "./events.js";
 import { SYMBOL_TO_TOKEN } from "../config/tokens.js";
+import { FLOW_TEXTS_PER_DAY, FLOW_TEXT_EVERY_MS, FLOW_TEXT_MAX_AGE_MS, checkFlows, flowFromRow, flowKeyboard, flowText } from "./flows.js";
 import { holderWallet, walletsHolding } from "./holder.js";
 import {
   bagText,
@@ -287,6 +290,8 @@ export async function checkEvents(bot: Telegraf) {
   try {
     const now = Date.now();
     const day = etDay(now);
+    // Supply readings and large issuer flows are recorded for everyone (/flows lists them), holders or not.
+    await checkFlows(now).catch((err) => console.warn("Issuer flow check failed:", (err as Error).message));
     const users = listPingUsers();
     const proven = users.filter((user) => holderWallet(user));
     const holding = await walletsHolding(proven.map(holderWallet));
@@ -317,6 +322,7 @@ export async function checkEvents(bot: Telegraf) {
 
     await pausePings(bot, holders, followed, now, day).catch((err) => console.warn("Pause alerts failed:", (err as Error).message));
     await filingPings(bot, holders, followed, now, day).catch((err) => console.warn("Filing texts failed:", (err as Error).message));
+    await flowPings(bot, holders, followed, now, day).catch((err) => console.warn("Flow texts failed:", (err as Error).message));
     if (now - lastPrune > 24 * 3600_000) {
       pruneEventLog(addDays(day, -30));
       lastPrune = now;
@@ -394,6 +400,46 @@ async function filingPings(bot: Telegraf, holders: UserRow[], followed: Followed
       }
       // Marked either way, so a blocked chat is not retried every few minutes; only delivered texts count.
       markEventSent(user.telegram_id, filing.id, day, delivered);
+    }
+  }
+}
+
+/**
+ * Large issuer flows (services/flows.ts) for the names a holder holds or watches: the biggest first, at most
+ * FLOW_TEXTS_PER_DAY a day, once per name every 6 hours, and only while the flow is under 30 minutes old.
+ */
+async function flowPings(bot: Telegraf, holders: UserRow[], followed: Followed, now: number, day: string) {
+  const listeners = holders.filter((user) => user.flows !== 0);
+  if (listeners.length === 0) return;
+  const recent = flowEventsSince(now - FLOW_TEXT_MAX_AGE_MS)
+    .map(flowFromRow)
+    .sort((a, b) => Math.abs(b.usd) - Math.abs(a.usd));
+  if (recent.length === 0) return;
+  for (const user of listeners) {
+    let sent = flowTextsOn(user.telegram_id, day);
+    for (const flow of recent) {
+      if (sent >= FLOW_TEXTS_PER_DAY) break;
+      const eventId = `flow:${flow.symbol}:${flow.at}`;
+      if (eventAlreadySent(user.telegram_id, eventId)) continue;
+      const follows = await followed(user);
+      if (!follows.all && !follows.symbols.has(flow.symbol)) continue;
+      // Once per name every 6 hours. A flow inside that time is marked as handled, so it is never sent late.
+      const last = lastPing(user.telegram_id, flow.symbol, "flow");
+      if (last != null && now - last < FLOW_TEXT_EVERY_MS) {
+        markEventSent(user.telegram_id, eventId, day, false);
+        continue;
+      }
+      let delivered = false;
+      try {
+        await send(bot, user.telegram_id, flowText(flow), flowKeyboard(flow.symbol));
+        delivered = true;
+        sent += 1;
+        markPing(user.telegram_id, flow.symbol, "flow", now);
+      } catch (err) {
+        console.warn("Flow text failed", user.telegram_id, (err as Error).message);
+      }
+      // Marked either way, so a blocked chat is not retried every few minutes; only delivered texts count.
+      markEventSent(user.telegram_id, eventId, day, delivered);
     }
   }
 }

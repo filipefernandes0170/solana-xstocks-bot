@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Briefcase, CalendarDays, Send, Sunrise, Target, Zap } from "lucide-react";
+import { ArrowLeftRight, Briefcase, CalendarDays, Factory, Send, Sunrise, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import type { HolderStatus } from "../../lib/types";
 
@@ -15,25 +15,23 @@ function statusLine(status: HolderStatus) {
 const PERKS: { icon: ReactNode; title: string; line: string; tag?: string }[] = [
   {
     icon: <Zap className="size-5" aria-hidden />,
-    title: "Fair pings",
-    line: "A text the moment a name you watch turns Fair, and when one trades rich while Nasdaq is closed.",
+    title: "Fair pings and size alerts",
+    line: "A text the moment a name you watch turns Fair, and when your own order size, not just $1,000, is within 0.4% of the Nasdaq print.",
   },
   {
-    icon: <Target className="size-5" aria-hidden />,
-    title: "Size alerts",
+    icon: <Factory className="size-5" aria-hidden />,
+    title: "Issuer flows",
     tag: "New",
-    line: "A text when your own order size, not just $1,000, is within 0.4% of the Nasdaq print.",
+    line: "A text when $500,000 or more of a name you hold or watch is created or burned on Solana within an hour.",
   },
   {
     icon: <ArrowLeftRight className="size-5" aria-hidden />,
     title: "Two-token pings",
-    tag: "New",
     line: "A text when one token of a company is 0.5 points cheaper to buy than the other.",
   },
   {
     icon: <CalendarDays className="size-5" aria-hidden />,
     title: "Event texts",
-    tag: "New",
     line: "Key SEC filings for the names you hold or watch, at most 5 a day, and an alert at once if a token's transfers are paused.",
   },
   {
