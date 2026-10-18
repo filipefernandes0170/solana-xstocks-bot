@@ -116,6 +116,13 @@ Reasons to hold $PAR are tools for traders; none is a return on the coin.
 - **GeckoTerminal** (the price fallback; Jupiter priced all 25 names on 18 Oct 2026) waits at most 5 s, so a slow answer can no longer hold up the desk for 12 s.
 - **Portfolio look** (`components/portfolio/charts.tsx`, `BagMap.tsx`). The map's tiles have a sector colour strip, gradients and a key; they show their labels only when the labels fit (CSS container queries) and are taller on phones. Today's move is a pill; Cash has a share bar and Spread a 10-step meter. "At the real price" has a meter for the bag against the same shares at Nasdaq, and possible yield a bar per name. The mix has a donut with a key, sector bars in each sector's colour (`sectorAccent` in `lib/brand.ts`), a badge on every holding, stacked exposure bars (held directly, inside SPYx, inside QQQx) with company names, a two-sided SPY/QQQ chart, and country and currency bars. A part too small for 0.1% reads "<0.1%". Every number is the same as before; the shapes only draw it.
 
+## Bag insights on /portfolio (18 Oct 2026)
+
+- **Who can freeze your bag** (`lib/bagPowers.ts`, `server/powers.ts`, server function `getBagPowers`, `components/portfolio/BagPowers.tsx`). After a wallet is read, the page sends its tokens' mints (at most 40, largest lines first; native SOL has no mint) and the server reads them in one `getMultipleAccounts` call, judges each with the same rules as a name page's issuer powers (`lib/issuer.ts`) and keeps the answer for 10 minutes. The bag's value is added up three ways: what its issuer can freeze, pause or block (freeze authority, pause switch, transfer hook, new accounts frozen), what its issuer can move or burn out of the wallet (permanent delegate), and what no issuer can stop or move (native SOL, and mints with none of those powers). A token whose mint was not read shows as "Not read", never as safe. On 18 Oct 2026 every xStocks and Backpack mint Par tracks carried all six powers, and USDC carried freeze and mint. The panel says these are powers, not events.
+- **Your bag's flows** (`components/portfolio/BagSupply.tsx`): for each stock token held, its value on Solana and how many tokens were created or burned since the daily supply reading (the same data as a name page's supply card), and where the bot's large-flow alerts are (/flows, and texts for $PAR holders who watch the bag).
+- **Since you last looked** (`lib/lastLook.ts`, `components/portfolio/LastLook.tsx`): the wallet's change since this device last showed it, split into price moves (the earlier amounts at today's prices) and balance changes (tokens added or removed, and rebases), so a deposit never reads as a gain. The earlier view is kept only in this browser (`par-last-look`, at most 5 wallets), compared from 10 minutes on and replaced at most once an hour; reading the same wallet again on the same visit keeps the same comparison. Disconnect or Forget clears it. Price moves plus balance changes always equal the change in value (checked on 500 random bags in `tests/bagInsights.test.ts`).
+- **Watch this bag** now says the bot also texts when a large batch of a held name is created or burned.
+
 ## Run it
 
 ```bash
@@ -162,15 +169,16 @@ src/
                  events.tsx, api.events.ts (JSON for the bot)
   components/    Logo, Backdrop, SiteNav, SiteFooter, ShareButton, NotFound, bot/PhoneDemo, stock/* (GapHistory, IssuerPowers, OtherTokens),
                  ranking/saveImage, share/* (canvas, cardImage),
-                 portfolio/* (RealPrice, BagMap, BagYield, BagEvents, WatchBag, BagPromise),
+                 portfolio/* (RealPrice, BagMap, BagYield, BagEvents, BagPowers, BagSupply, LastLook, WatchBag, BagPromise, charts),
                  desk/* (Desk, HeroLines, Ticker, StatStrip, StockCard, StockList, SizeCheck, SizeSheet, crypto, gap chart, yield, glossary, why-hold)
   lib/           site (URL, titles, cache and security headers), brand (badge colours, gap scale), size, share, history, botText,
                  useFavourites, useLiveQuotes, bag, treemap, issuer, ranking, walletProof, tokens, types, format, session (Nasdaq clock), verdict,
-                 calendar (market days), events (SEC, mints, timeline),
+                 calendar (market days), events (SEC, mints, timeline), bagPowers, lastLook, shared, supply, venues,
                  wallet-standard, etf-holdings
-  server/        functions.ts (the 14 server functions) + jupiter (rate limiter), quotes, history (and the ranking), issuer, walletProof, events, offers,
-                 cryptos, solana, wallet, http
+  server/        functions.ts (the 18 server functions) + jupiter (rate limiter), quotes, history (and the ranking), issuer, walletProof, events, offers,
+                 cryptos, solana, wallet, http, deskShare, mints, supply, venues, powers
 netlify/functions/record-gaps.mts   the scheduled gap recorder
 tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts, portfolio.test.ts,
-                 launch.test.ts, proof.test.ts, share.test.ts, events.test.ts
+                 launch.test.ts, proof.test.ts, share.test.ts, events.test.ts, yield.test.ts, venues.test.ts, shared.test.ts, shareBuys.test.ts,
+                 bagInsights.test.ts
 ```

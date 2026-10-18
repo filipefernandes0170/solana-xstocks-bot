@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Download } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Backdrop } from "../components/Backdrop";
 import { BagEvents } from "../components/portfolio/BagEvents";
 import { BagMap } from "../components/portfolio/BagMap";
+import { BagPowers } from "../components/portfolio/BagPowers";
+import { BagSupply } from "../components/portfolio/BagSupply";
+import { LastLook } from "../components/portfolio/LastLook";
 import { BagPromise } from "../components/portfolio/BagPromise";
 import { BagYield } from "../components/portfolio/BagYield";
 import {
@@ -40,7 +43,19 @@ import {
   solanaWallets,
   type StandardWallet,
 } from "../lib/wallet-standard";
-import { getOffers, getPortfolio } from "../server/functions";
+import { bagPowers, mintsToRead, type BagPowersResult } from "../lib/bagPowers";
+import {
+  LAST_LOOK_MIN_AGE_MS,
+  forgetLastLook,
+  lookChange,
+  readLastLook,
+  saveLastLook,
+  shouldSave,
+  snapshotOf,
+  type Snapshot,
+} from "../lib/lastLook";
+import type { SupplyResult } from "../lib/supply";
+import { getBagPowers, getOffers, getPortfolio, getSupply } from "../server/functions";
 
 const DESCRIPTION =
   "Your Solana wallet's stock tokens next to the shares they track: the Nasdaq value, a live exit price, possible yield and coming rebases. Read-only.";
@@ -131,6 +146,15 @@ function PortfolioPage() {
   const [offers, setOffers] = useState<Offer[] | null>(null);
   const [offersError, setOffersError] = useState<string | null>(null);
   const [exitRunning, setExitRunning] = useState(false);
+  const [powers, setPowers] = useState<BagPowersResult | null>(null);
+  const [powersError, setPowersError] = useState<string | null>(null);
+  const [supply, setSupply] = useState<SupplyResult | null>(null);
+  const [supplyError, setSupplyError] = useState<string | null>(null);
+  // The view this device saw on an earlier visit, for "Since you last looked". Kept per wallet for this page's life, so
+  // reading the same wallet again compares with the same earlier visit, not with the view saved a minute ago.
+  const [lookBase, setLookBase] = useState<Snapshot | null>(null);
+  const lookDone = useRef<PortfolioResult | null>(null);
+  const lookBases = useRef(new Map<string, Snapshot | null>());
 
   // Live prices only once a wallet is read; paused while the exit checks use Jupiter's rate limit.
   const live = useLiveQuotes([], 0, { enabled: book != null, paused: exitRunning });
@@ -157,12 +181,16 @@ function PortfolioPage() {
   const sleeve = lines.filter((line) => line.kind === "Stock" || line.kind === "ETF").filter((line) => line.change24h != null);
   const sleeveBase = sleeve.reduce((sum, line) => sum + line.usdValue, 0);
   const sleeveMove = sleeveBase > 0 ? sleeve.reduce((sum, line) => sum + line.usdValue * ((line.change24h ?? 0) / 100), 0) / sleeveBase : null;
+  const powerSummary = useMemo(() => (powers?.ok ? bagPowers(lines, powers.mints) : null), [powers, lines]);
+  const livePrices = useMemo(() => new Map(live.quotes.map((quote) => [quote.symbol, quote.usdPrice])), [live.quotes]);
+  const sinceLastLook = useMemo(() => (lookBase ? lookChange(lookBase, snapshotOf(lines, live.now)) : null), [lookBase, lines, live.now]);
   const companies = exposures(lines.map((line) => ({ symbol: line.symbol, underlying: line.underlying, kind: line.kind, usd: line.usdValue, name: line.name })));
   const apple = companies.find((company) => company.symbol === "AAPL");
 
   /** Reads the wallet, shows it, and keeps it on this device (the desk's Portfolio tab uses the same key). */
   async function load(wallet: string) {
     const result = await getPortfolio({ data: { wallet } });
+    if (wallet.trim() !== loadedAddress) setLookBase(null);
     setBook(result);
     setLoadedAddress(wallet.trim());
     saveWallet(wallet);
@@ -233,6 +261,11 @@ function PortfolioPage() {
       // Disconnect is best effort.
     }
     forgetWallet();
+    if (loadedAddress) {
+      forgetLastLook(loadedAddress);
+      lookBases.current.delete(loadedAddress);
+    }
+    setLookBase(null);
     setSavedWallet("");
     setConnected(null);
     setAccounts(null);
@@ -246,6 +279,63 @@ function PortfolioPage() {
 
   useEffect(() => onWalletsChange(() => setWallets(solanaWallets())), []);
   useEffect(() => setSavedWallet(readSavedWallet()), []);
+
+  // Who can freeze this bag: its mints, read on Solana, for every wallet read.
+  useEffect(() => {
+    if (!book) return;
+    let alive = true;
+    setPowers(null);
+    setPowersError(null);
+    getBagPowers({ data: { mints: mintsToRead(book.lines) } })
+      .then((result) => {
+        if (!alive) return;
+        if (result.ok) setPowers(result);
+        else setPowersError(result.message);
+      })
+      .catch(() => {
+        if (alive) setPowersError("The token mints could not be read right now.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [book]);
+
+  // Supply on Solana is the same for every wallet: read once, after the first wallet is read.
+  useEffect(() => {
+    if (!book || supply) return;
+    let alive = true;
+    getSupply()
+      .then((result) => {
+        if (!alive) return;
+        setSupply(result);
+        setSupplyError(result.ok ? null : "The supply could not be read right now.");
+      })
+      .catch(() => {
+        if (alive) setSupplyError("The supply could not be read right now.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [book, supply]);
+
+  // "Since you last looked": once live prices are in, compare with the view this device kept, and keep this one
+  // (at most once an hour, so a quick reload does not erase the earlier visit). Nothing leaves the device.
+  useEffect(() => {
+    if (!book || !loadedAddress || lookDone.current === book) return;
+    if (live.quotes.length === 0 || live.feedError) return;
+    lookDone.current = book;
+    const known = lookBases.current.get(loadedAddress);
+    if (known !== undefined) {
+      setLookBase(known);
+      return;
+    }
+    const now = Date.now();
+    const previous = readLastLook(loadedAddress);
+    const base = previous && now - previous.at >= LAST_LOOK_MIN_AGE_MS ? previous : null;
+    lookBases.current.set(loadedAddress, base);
+    setLookBase(base);
+    if (shouldSave(previous, now)) saveLastLook(loadedAddress, snapshotOf(lines, now));
+  }, [book, loadedAddress, live.quotes, live.feedError, lines]);
 
   // Kamino's rates, once, after the first wallet is read.
   useEffect(() => {
@@ -506,6 +596,7 @@ function PortfolioPage() {
         ) : (
           <BagPromise />
         )}
+        {book && sinceLastLook ? <LastLook change={sinceLastLook} /> : null}
 
         {book && sleeveMove != null && book.spyChange != null ? (
           <p className="mt-3 text-sm text-mist">
@@ -541,7 +632,6 @@ function PortfolioPage() {
               <BagYield lines={lines} offers={offers} error={offersError} />
               <BagEvents events={events} marketState={marketState} now={live.now} />
             </div>
-            <WatchBag address={loadedAddress} symbols={heldSymbols} />
           </>
         ) : null}
         {book && rows.length === 0 && lines.some(isXStock) ? (
@@ -554,6 +644,13 @@ function PortfolioPage() {
             No tracked stock tokens in this wallet, so there is no Nasdaq comparison, exit price or rebase to show. The desk lists every name Par tracks.
           </p>
         ) : null}
+        {book && lines.length > 0 ? (
+          <div className={`mt-6 grid items-start gap-6 ${lines.some(isXStock) ? "lg:grid-cols-2" : ""}`}>
+            <BagPowers summary={powerSummary} error={powersError} />
+            {lines.some(isXStock) ? <BagSupply lines={lines} supply={supply} prices={livePrices} error={supplyError} /> : null}
+          </div>
+        ) : null}
+        {book && rows.length > 0 ? <WatchBag address={loadedAddress} symbols={heldSymbols} /> : null}
 
         {book ? (
           <>
