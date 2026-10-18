@@ -1,8 +1,8 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { FAIR_BAND, GAP_SCALE, gapPosition, sectorColours } from "../../lib/brand";
-import { formatGap, formatImpact, formatPct, formatUsd, gapNumber, impactHint, jupiterBuyUrl, multiplierLabel } from "../../lib/format";
+import { ageLabel, formatGap, formatImpact, formatPct, formatUsd, gapNumber, impactHint, jupiterBuyUrl, multiplierLabel } from "../../lib/format";
 import type { Quote, VerdictId } from "../../lib/types";
-import { buyUsable, legs } from "../../lib/verdict";
+import { buyUsable, legs, type OlderBuy } from "../../lib/verdict";
 
 /**
  * The token's balance multiplier. Splits and reinvested dividends are added to every holder's balance,
@@ -67,16 +67,17 @@ export function ChangePill({ value }: { value: number | null }) {
 }
 
 /**
- * Gap pill: red when the buy is rich, green when cheap. While Nasdaq is closed (`closed`) it is the number alone, in
- * grey: the print is the last one, and Par calls nothing cheap, rich or fair until the next open.
+ * Gap pill: red when the buy is rich, green when cheap. The number alone, in grey, while Nasdaq is closed (`closed`: the
+ * print is the last one, and Par calls nothing cheap, rich or fair until the next open) or for an older buy (`older`:
+ * past the 90 s the verdict uses, see BUY_SHOWN_MS).
  */
-export function GapPill({ value, closed = false }: { value: number | null; closed?: boolean }) {
+export function GapPill({ value, closed = false, older = false }: { value: number | null; closed?: boolean; older?: boolean }) {
   if (value == null) return <span className="text-muted">—</span>;
-  if (closed) {
+  if (closed || older) {
     return (
       <span
         className="inline-flex rounded-full bg-white px-2 py-0.5 text-sm font-medium text-muted ring-1 ring-line"
-        title="Nasdaq is closed: this is against the last Nasdaq print"
+        title={older ? "An older $1,000 quote: a newer one is on its way" : "Nasdaq is closed: this is against the last Nasdaq print"}
       >
         {gapNumber(value)}
       </span>
@@ -91,10 +92,28 @@ export function GapPill({ value, closed = false }: { value: number | null; close
   );
 }
 
-/** Where the $1,000 buy sits against the Nasdaq print, on a -2% to +2% scale with the fair band shaded. */
-export function GapMeter({ gap, waiting, loading = false, closed = false }: { gap: number | null; waiting: string; loading?: boolean; closed?: boolean }) {
+/**
+ * Where the $1,000 buy sits against the Nasdaq print, on a -2% to +2% scale with the fair band shaded. With no buy the
+ * verdict can use, `older` (a recent but older buy, verdict.ts olderBuy) is drawn in grey with its age instead of
+ * "Loading", while a newer one comes.
+ */
+export function GapMeter({
+  gap,
+  waiting,
+  loading = false,
+  closed = false,
+  older = null,
+}: {
+  gap: number | null;
+  waiting: string;
+  loading?: boolean;
+  closed?: boolean;
+  older?: OlderBuy | null;
+}) {
   const title = closed ? "Buy versus last Nasdaq print" : "Buy versus Nasdaq";
-  if (gap == null && loading) {
+  const olderAge = gap == null && older != null ? ageLabel(older.ageMs) : null;
+  const value = gap ?? older?.gap ?? null;
+  if (value == null && loading) {
     // Same shape as the meter, shimmering, so the card does not jump when the buy arrives.
     return (
       <div className="rounded-2xl bg-foam px-4 pb-2.5 pt-3" aria-busy="true">
@@ -107,23 +126,23 @@ export function GapMeter({ gap, waiting, loading = false, closed = false }: { ga
       </div>
     );
   }
-  if (gap == null) {
+  if (value == null) {
     return (
       <div className="rounded-2xl bg-foam px-4 py-3">
         <p className="text-sm text-muted">{waiting}</p>
       </div>
     );
   }
-  const { left, off } = gapPosition(gap);
-  const tone = closed ? "bg-muted" : Math.abs(gap) < FAIR_BAND ? "bg-pine" : Math.abs(gap) < 1 ? "bg-gold" : "bg-clay";
+  const { left, off } = gapPosition(value);
+  const tone = closed || olderAge ? "bg-muted" : Math.abs(value) < FAIR_BAND ? "bg-pine" : Math.abs(value) < 1 ? "bg-gold" : "bg-clay";
   const print = closed ? "the last Nasdaq print" : "the Nasdaq print";
-  const label =
-    Math.abs(gap) < 0.005 ? `The $1,000 buy is at ${print}` : `The $1,000 buy is ${Math.abs(gap).toFixed(2)}% ${gap > 0 ? "above" : "below"} ${print}`;
+  const where = Math.abs(value) < 0.005 ? `at ${print}` : `${Math.abs(value).toFixed(2)}% ${value > 0 ? "above" : "below"} ${print}`;
+  const label = olderAge ? `The last $1,000 quote, ${olderAge} old, was ${where}` : `The $1,000 buy is ${where}`;
   return (
     <div className="rounded-2xl bg-foam px-4 pb-2.5 pt-3">
       <div className="flex items-center justify-between gap-2 text-sm">
         <span className="text-muted">{title}</span>
-        <GapPill value={gap} closed={closed} />
+        <GapPill value={value} closed={closed} older={olderAge != null} />
       </div>
       <div className="relative mt-3 h-2 rounded-full bg-white ring-1 ring-line" role="img" aria-label={label}>
         <span
@@ -141,6 +160,7 @@ export function GapMeter({ gap, waiting, loading = false, closed = false }: { ga
         <span>Nasdaq</span>
         <span>{off === "right" ? "pricier ›" : "pricier"}</span>
       </div>
+      {olderAge ? <p className="mt-1.5 text-xs text-muted">{`Last $1,000 quote ${olderAge} old. A newer one is on its way.`}</p> : null}
     </div>
   );
 }

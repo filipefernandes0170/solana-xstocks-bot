@@ -75,10 +75,11 @@ test("the page keeps the newest buy per name across polled answers", async () =>
   const now = 1_800_000_000_000;
   const quote = (mint: string, buyAt: number | null, buyPrice: number | null) =>
     ({ mint, buyAt, buyPrice, buyImpactPct: buyPrice == null ? null : 0.01 }) as unknown as import("../src/lib/types").Quote;
-  const previous = [quote("a", now - 20_000, 100), quote("b", now - 100_000, 50), quote("c", now - 10_000, 10)];
-  const next = [quote("a", null, null), quote("b", null, null), quote("c", now - 2_000, 11)];
+  const previous = [quote("a", now - 20_000, 100), quote("b", now - 100_000, 50), quote("c", now - 10_000, 10), quote("d", now - 190_000, 7)];
+  const next = [quote("a", null, null), quote("b", null, null), quote("c", now - 2_000, 11), quote("d", null, null)];
   const merged = mergeBuys(previous, next, now);
   assert.equal(merged[0].buyPrice, 100, "a usable buy is kept when the answer has none");
-  assert.equal(merged[1].buyPrice, null, "a buy older than 90 s is dropped");
+  assert.equal(merged[1].buyPrice, 50, "a buy past the verdict's 90 s is still kept, to be drawn as an older quote");
   assert.equal(merged[2].buyPrice, 11, "a newer buy replaces the held one");
+  assert.equal(merged[3].buyPrice, null, "a buy older than 3 minutes is dropped");
 });

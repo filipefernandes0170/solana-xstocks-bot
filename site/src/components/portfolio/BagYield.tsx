@@ -2,9 +2,10 @@ import { Sprout } from "lucide-react";
 import { yieldIdeas } from "../../lib/bag";
 import { formatRate } from "../../lib/format";
 import type { Offer, PortfolioLine } from "../../lib/types";
+import { numberFormat } from "../../lib/intl";
 
 function money(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  return numberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 }
 
 /** What lending each xStock held would pay in a year at today's best live Kamino supply rate. */

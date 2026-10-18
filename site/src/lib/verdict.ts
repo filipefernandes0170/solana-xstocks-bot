@@ -5,6 +5,7 @@ import { impactHint } from "./format";
 import { isSessionOpen } from "./session";
 import { AROUND_THE_CLOCK } from "./tokens";
 import type { Quote, Rebase, Verdict, VerdictId } from "./types";
+import { dateFormat } from "./intl";
 
 /** Percent difference of a versus b. */
 export function gapPct(a: number | null | undefined, b: number | null | undefined) {
@@ -26,15 +27,39 @@ export function buyUsable(at: number | null | undefined, now: number) {
 }
 
 /**
+ * A buy past the verdict's 90 s is still drawn on its card, in grey with its age, until it is this old. Jupiter's free
+ * rate limit lets the bot quote every name only about once every one to two minutes, so cards kept falling back to
+ * "Loading the $1,000 buy" (seen on 18 Oct 2026). The verdict never uses such a buy.
+ */
+export const BUY_SHOWN_MS = 180_000;
+
+/** A buy that may still be drawn: from 60 s ahead (clocks differ) to BUY_SHOWN_MS old. */
+export function buyShowable(at: number | null | undefined, now: number) {
+  if (at == null || !Number.isFinite(at)) return false;
+  const age = now - at;
+  return age >= -60_000 && age <= BUY_SHOWN_MS;
+}
+
+export type OlderBuy = { gap: number; ageMs: number };
+
+/** The gap from a buy too old for the verdict (over 90 s) but under BUY_SHOWN_MS, with its age; null otherwise. */
+export function olderBuy(quote: Pick<Quote, "buyAt" | "buyPrice" | "stockPrice">, now: number): OlderBuy | null {
+  if (quote.buyAt == null || quote.buyPrice == null || buyUsable(quote.buyAt, now) || !buyShowable(quote.buyAt, now)) return null;
+  const gap = gapPct(quote.buyPrice, quote.stockPrice);
+  return gap == null ? null : { gap, ageMs: now - quote.buyAt };
+}
+
+/**
  * Keeps the newest $1,000 buy per name across polled answers. Netlify can serve two copies of the function,
  * each holding only the buys it quoted itself, so one answer may carry fewer; a buy already held stays while
- * it is still usable (90 s) unless the new answer has a newer one. Every buy kept is a real quote with its time.
+ * it may still be drawn (BUY_SHOWN_MS) unless the new answer has a newer one. Every buy kept is a real quote with its
+ * time, and the verdict only uses one up to 90 s old (buyUsable).
  */
 export function mergeBuys(previous: Quote[], next: Quote[], now: number): Quote[] {
   const held = new Map(previous.map((quote) => [quote.mint, quote]));
   return next.map((quote) => {
     const old = held.get(quote.mint);
-    if (!old || old.buyAt == null || !buyUsable(old.buyAt, now)) return quote;
+    if (!old || old.buyAt == null || !buyShowable(old.buyAt, now)) return quote;
     if (quote.buyAt != null && quote.buyAt >= old.buyAt) return quote;
     return { ...quote, buyPrice: old.buyPrice, buyImpactPct: old.buyImpactPct, buyAt: old.buyAt };
   });
@@ -53,7 +78,7 @@ export function legsCancel(l: Legs) {
 }
 
 export function rebaseLine(symbol: string, rebase: Rebase) {
-  const when = new Intl.DateTimeFormat("en-GB", {
+  const when = dateFormat("en-GB", {
     timeZone: "UTC",
     day: "2-digit",
     month: "short",

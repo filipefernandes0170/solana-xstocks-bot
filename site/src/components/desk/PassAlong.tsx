@@ -3,6 +3,7 @@ import { TOKENS, TOKEN_BY_SYMBOL } from "../../lib/tokens";
 import type { Quote } from "../../lib/types";
 import { verdict } from "../../lib/verdict";
 import { BuyLink } from "./parts";
+import { numberFormat } from "../../lib/intl";
 
 /** One plain sentence about a token versus its Nasdaq print. */
 export function plainLine(quote: Quote | undefined) {
@@ -15,7 +16,7 @@ export function plainLine(quote: Quote | undefined) {
   const amount =
     relation === "in line with"
       ? ""
-      : `${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(diff))} `;
+      : `${numberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(diff))} `;
   return `One ${quote.name} token is ${formatUsd(quote.usdPrice)} on Solana, ${amount}${relation} the Nasdaq print of ${formatUsd(quote.stockPrice)}.`;
 }
 

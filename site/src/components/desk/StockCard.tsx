@@ -8,10 +8,11 @@ import { cardShareText, stockUrl } from "../../lib/share";
 import { ShareButton } from "../ShareButton";
 import { drawCardImage } from "../share/cardImage";
 import type { Quote, Verdict } from "../../lib/types";
-import { rebaseLine, verdictBarClass, verdictPillClass } from "../../lib/verdict";
+import { rebaseLine, verdictBarClass, verdictPillClass, type OlderBuy } from "../../lib/verdict";
 import { BuyLink, ChangePill, GapMeter, MultiplierNote, TickerBadge, VerdictDetail } from "./parts";
 
-export type DeskRow = Quote & { verdict: Verdict; gap: number | null };
+/** `gap`: from a buy the verdict uses (up to 90 s old). `older`: from a recent but older one, drawn in grey (verdict.ts). */
+export type DeskRow = Quote & { verdict: Verdict; gap: number | null; older?: OlderBuy | null };
 
 /** A star that keeps a name in Favourites, on this device. */
 export function FavouriteButton({ symbol, on, onToggle }: { symbol: string; on: boolean; onToggle: (symbol: string) => void }) {
@@ -106,7 +107,7 @@ export function StockCard({
           </div>
 
           <div className="mt-3" data-verdict-slot>
-            <GapMeter gap={row.gap} waiting={waiting.text} loading={waiting.loading} closed={sessionClosed(row.marketState)} />
+            <GapMeter gap={row.gap} waiting={waiting.text} loading={waiting.loading} closed={sessionClosed(row.marketState)} older={row.older ?? null} />
           </div>
 
           {sessionOpen ? (

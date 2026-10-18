@@ -33,7 +33,8 @@ type JupiterPrice = {
 type StockPrint = { price: number; state: string };
 
 const QUOTES_TTL_MS = 8_000;
-const BUY_KEEP_MS = 120_000;
+/** Buys are kept (and sent) as long as a card may draw them: BUY_SHOWN_MS in lib/verdict.ts. The verdict uses 90 s. */
+const BUY_KEEP_MS = 180_000;
 
 let quotesCache: { at: number; quotes: Quote[] } | null = null;
 let inflight: Promise<Quote[]> | null = null;

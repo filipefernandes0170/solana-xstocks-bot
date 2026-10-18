@@ -2,9 +2,10 @@ import { CalendarClock } from "lucide-react";
 import type { BagEvent } from "../../lib/bag";
 import { multiplierLabel } from "../../lib/format";
 import { etClock, sessionLabel, sessionLine, utcStamp } from "../../lib/session";
+import { numberFormat } from "../../lib/intl";
 
 function count(value: number) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
+  return numberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
 }
 
 /** Rebases ahead for the names held, and where the US session stands. */

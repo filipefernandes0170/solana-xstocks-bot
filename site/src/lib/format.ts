@@ -1,9 +1,10 @@
 import { USDC_MINT } from "./tokens";
+import { numberFormat } from "./intl";
 
 /** "$214.21" (2 decimals at or above $100, up to 4 below), or "—". */
 export function formatUsd(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return "—";
-  return new Intl.NumberFormat("en-US", {
+  return numberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: value >= 100 ? 2 : 4,
@@ -34,7 +35,7 @@ export function gapNumber(value: number | null | undefined) {
 }
 
 export function formatAmount(value: number) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
+  return numberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
 }
 
 /** Shares per token as text: "1" when the multiplier is 1, else 4 decimals. Null when unknown. */
@@ -64,7 +65,7 @@ export function formatRate(value: number | null | undefined) {
  * server-rendered page that differs from the browser's makes React redraw it (seen on /ranking, 18 Oct 2026).
  */
 export function formatCompactUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return numberFormat("en-US", {
     style: "currency",
     currency: "USD",
     notation: "compact",

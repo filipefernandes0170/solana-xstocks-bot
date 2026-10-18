@@ -5,6 +5,7 @@
 import { CALENDAR_SOURCES, EARLY_CLOSE_LABEL, MARKET_DAYS, addDays, atNewYork, newYorkToUtc, nyDate, weekdayOf } from "./calendar";
 import { multiplierLabel } from "./format";
 import { TOKENS, TOKEN_BY_SYMBOL } from "./tokens";
+import { numberFormat, dateFormat } from "./intl";
 
 /** Filings stay on the page for this many days. */
 export const FILING_DAYS = 14;
@@ -346,11 +347,11 @@ function explorer(mint: string) {
 }
 
 function amount(value: number) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+  return numberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 }
 
 function utcTime(ms: number) {
-  return `${new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms))} UTC`;
+  return `${dateFormat("en-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms))} UTC`;
 }
 
 /** Balance changes still ahead, and those from the last PAST_REBASE_DAYS days. */
@@ -487,7 +488,7 @@ export function relativeDay(date: string, today: string) {
 
 /** "9:04 AM ET" */
 export function etTime(ms: number) {
-  return `${new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(new Date(ms))} ET`;
+  return `${dateFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(new Date(ms))} ET`;
 }
 
 /** The underlying tickers an event concerns ("NVDA"), for the company filter. */

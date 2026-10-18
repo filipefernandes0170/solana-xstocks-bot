@@ -1,14 +1,15 @@
 import { FAIR_BAND } from "../../lib/brand";
 import { formatGap } from "../../lib/format";
 import { type HistoryPoint, withinBand } from "../../lib/history";
+import { dateFormat } from "../../lib/intl";
 
 const W = 680;
 const H = 220;
 const PAD = { left: 44, right: 12, top: 14, bottom: 30 };
 const SCALE = 2;
 
-const dayLabel = (t: number) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", timeZone: "America/New_York" }).format(new Date(t));
-const dayOf = (t: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(t));
+const dayLabel = (t: number) => dateFormat("en-GB", { weekday: "short", day: "numeric", timeZone: "America/New_York" }).format(new Date(t));
+const dayOf = (t: number) => dateFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(t));
 
 /**
  * The last week of one name: the last trade versus the Nasdaq print, every 15 minutes in US hours. Readings sit

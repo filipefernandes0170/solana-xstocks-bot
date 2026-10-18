@@ -17,6 +17,7 @@ import { Route as RankingRouteImport } from './routes/ranking'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as ApiEventsRouteImport } from './routes/api.events'
 import { Route as ApiProofRouteImport } from './routes/api.proof'
+import { Route as ApiQuotesRouteImport } from './routes/api.quotes'
 import { Route as ApiRankingRouteImport } from './routes/api.ranking'
 import { Route as ApiSupplyRouteImport } from './routes/api.supply'
 import { Route as ApiVenuesRouteImport } from './routes/api.venues'
@@ -62,6 +63,11 @@ const ApiProofRoute = ApiProofRouteImport.update({
   path: '/api/proof',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiQuotesRoute = ApiQuotesRouteImport.update({
+  id: '/api/quotes',
+  path: '/api/quotes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRankingRoute = ApiRankingRouteImport.update({
   id: '/api/ranking',
   path: '/api/ranking',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/verify': typeof VerifyRoute
   '/api/events': typeof ApiEventsRoute
   '/api/proof': typeof ApiProofRoute
+  '/api/quotes': typeof ApiQuotesRoute
   '/api/ranking': typeof ApiRankingRoute
   '/api/supply': typeof ApiSupplyRoute
   '/api/venues': typeof ApiVenuesRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/verify': typeof VerifyRoute
   '/api/events': typeof ApiEventsRoute
   '/api/proof': typeof ApiProofRoute
+  '/api/quotes': typeof ApiQuotesRoute
   '/api/ranking': typeof ApiRankingRoute
   '/api/supply': typeof ApiSupplyRoute
   '/api/venues': typeof ApiVenuesRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/verify': typeof VerifyRoute
   '/api/events': typeof ApiEventsRoute
   '/api/proof': typeof ApiProofRoute
+  '/api/quotes': typeof ApiQuotesRoute
   '/api/ranking': typeof ApiRankingRoute
   '/api/supply': typeof ApiSupplyRoute
   '/api/venues': typeof ApiVenuesRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/api/events'
     | '/api/proof'
+    | '/api/quotes'
     | '/api/ranking'
     | '/api/supply'
     | '/api/venues'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/api/events'
     | '/api/proof'
+    | '/api/quotes'
     | '/api/ranking'
     | '/api/supply'
     | '/api/venues'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/api/events'
     | '/api/proof'
+    | '/api/quotes'
     | '/api/ranking'
     | '/api/supply'
     | '/api/venues'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   VerifyRoute: typeof VerifyRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiProofRoute: typeof ApiProofRoute
+  ApiQuotesRoute: typeof ApiQuotesRoute
   ApiRankingRoute: typeof ApiRankingRoute
   ApiSupplyRoute: typeof ApiSupplyRoute
   ApiVenuesRoute: typeof ApiVenuesRoute
@@ -244,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProofRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/quotes': {
+      id: '/api/quotes'
+      path: '/api/quotes'
+      fullPath: '/api/quotes'
+      preLoaderRoute: typeof ApiQuotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/ranking': {
       id: '/api/ranking'
       path: '/api/ranking'
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyRoute: VerifyRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiProofRoute: ApiProofRoute,
+  ApiQuotesRoute: ApiQuotesRoute,
   ApiRankingRoute: ApiRankingRoute,
   ApiSupplyRoute: ApiSupplyRoute,
   ApiVenuesRoute: ApiVenuesRoute,

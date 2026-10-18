@@ -20,6 +20,7 @@ import { SupplyCard } from "../components/stock/SupplyCard";
 import { Venues } from "../components/stock/Venues";
 import { FILING_DAYS, SEC_CIK } from "../lib/events";
 import { formatUsd } from "../lib/format";
+import { EARLY_QUOTES_URL } from "../lib/earlyQuotes";
 import type { HistoryPoint } from "../lib/history";
 import type { IssuerResult } from "../lib/issuer";
 import { sessionClosed } from "../lib/session";
@@ -32,7 +33,7 @@ import type { VenuesResult } from "../lib/venues";
 import { useFavourites, watchLink } from "../lib/useFavourites";
 import { useLiveQuotes } from "../lib/useLiveQuotes";
 import { useWantBuys } from "../lib/useWantBuys";
-import { buyUsable, gapPct, rebaseLine, verdict, verdictPillClass } from "../lib/verdict";
+import { buyUsable, gapPct, olderBuy, rebaseLine, verdict, verdictPillClass } from "../lib/verdict";
 import { getHistory, getIssuer, getOffers, getQuotes, getSupply, getVenues } from "../server/functions";
 
 function tokenFor(param: string) {
@@ -117,7 +118,12 @@ function StockView({ data }: { data: StockData }) {
   const row: DeskRow | null = useMemo(() => {
     const quote = live.quotes.find((q) => q.symbol === token.symbol);
     if (!quote) return null;
-    return { ...quote, verdict: verdict(quote, live.now), gap: gapPct(buyUsable(quote.buyAt, live.now) ? quote.buyPrice : null, quote.stockPrice) };
+    return {
+      ...quote,
+      verdict: verdict(quote, live.now),
+      gap: gapPct(buyUsable(quote.buyAt, live.now) ? quote.buyPrice : null, quote.stockPrice),
+      older: olderBuy(quote, live.now),
+    };
   }, [live.quotes, live.now, token.symbol]);
   const favourite = favourites.includes(token.symbol);
   // This page is about one name, so its $1,000 buy is quoted before the rest of the list.
@@ -125,7 +131,7 @@ function StockView({ data }: { data: StockData }) {
 
   return (
     <div className="relative min-h-screen text-foam">
-      <StaleMark asOf={data.asOf} stale={live.stale} ready={live.ready} />
+      <StaleMark asOf={data.asOf} stale={live.stale} ready={live.ready} prefetch={EARLY_QUOTES_URL} />
       <Backdrop />
       <SiteNav current={null} />
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 sm:px-6">
@@ -187,7 +193,7 @@ function StockView({ data }: { data: StockData }) {
                   </div>
                 </div>
                 <div className="mt-5" data-verdict-slot>
-                  <GapMeter gap={row.gap} waiting={meterWaiting(row).text} loading={meterWaiting(row).loading} closed={sessionClosed(row.marketState)} />
+                  <GapMeter gap={row.gap} waiting={meterWaiting(row).text} loading={meterWaiting(row).loading} closed={sessionClosed(row.marketState)} older={row.older ?? null} />
                 </div>
                 <p className="mt-5 text-lg leading-relaxed" data-verdict>
                   {row.verdict.line}

@@ -3,9 +3,10 @@ import { formatCompactUsd } from "../../lib/format";
 import { utcStamp } from "../../lib/session";
 import type { SupplyResult } from "../../lib/supply";
 import type { StockToken } from "../../lib/tokens";
+import { numberFormat } from "../../lib/intl";
 
 export function shareCount(value: number) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2 }).format(value);
+  return numberFormat("en-US", { maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2 }).format(value);
 }
 
 /** "+120 created" or "−80 destroyed" (shares at today's multiplier), or "none created or destroyed". */

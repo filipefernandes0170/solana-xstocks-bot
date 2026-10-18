@@ -4,13 +4,14 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { formatGap, formatPct, formatUsd } from "../../lib/format";
 import { nearLabel } from "../../lib/ranking";
 import { closedLine, etClock, isSessionOpen, sessionLabel, sessionLine } from "../../lib/session";
+import { EARLY_QUOTES_URL, takeEarlyQuotes } from "../../lib/earlyQuotes";
 import { STALE_PAGE_MS } from "../../lib/site";
 import { TOKENS } from "../../lib/tokens";
 import { useFavourites, watchLink } from "../../lib/useFavourites";
 import { useOnScreenSymbols } from "../../lib/useOnScreen";
 import { useWantBuys } from "../../lib/useWantBuys";
 import type { CryptoRow, HolderStatus, HoldingsResult, Offer, Quote } from "../../lib/types";
-import { buyUsable, gapPct, mergeBuys, verdict } from "../../lib/verdict";
+import { buyUsable, gapPct, mergeBuys, olderBuy, verdict } from "../../lib/verdict";
 import { checkHolder, getHoldings, getOffers, getQuotes, getRanking } from "../../server/functions";
 import type { RankingResult } from "../../server/history";
 import { SiteFooter } from "../SiteFooter";
@@ -30,6 +31,7 @@ import { StockList } from "./StockList";
 import { Ticker } from "./Ticker";
 import { WhyHold } from "./WhyHold";
 import { YieldPanel } from "./YieldPanel";
+import { numberFormat } from "../../lib/intl";
 
 // The Gap tab's chart library is large, so it loads only when that tab is opened.
 const GapView = lazy(() => import("./GapView").then((module) => ({ default: module.GapView })));
@@ -230,14 +232,16 @@ export function Desk({
 
   // Prices every 10 s, the clock every second. Prices that moved flash green or red.
   // Polling pauses while the tab is hidden, unless a saved alert could still ping this browser.
-  // A page that arrived as an old cached copy first asks for prices alone (no buy rotation), which answers fastest.
+  // A page that arrived as an old cached copy first asks for prices alone (no buy rotation), which answers fastest; its
+  // script has usually started that request already, before this code loaded (lib/earlyQuotes.ts).
   // Answers older than the prices already shown are ignored, so a slower answer never takes the page back in time.
   useEffect(() => {
     let alive = true;
     async function refresh(rotate = true) {
       let result: Awaited<ReturnType<typeof getQuotes>>;
       try {
-        result = await (rotate ? getQuotes({ data: { refreshBuys: true } }) : getQuotes());
+        const early = rotate ? null : await takeEarlyQuotes();
+        result = early?.ok ? early : await (rotate ? getQuotes({ data: { refreshBuys: true } }) : getQuotes());
       } catch {
         if (alive) setFeedError("Price feed paused.");
         return;
@@ -336,6 +340,7 @@ export function Desk({
         ...quote,
         verdict: verdict(quote, now),
         gap: gapPct(buyUsable(quote.buyAt, now) ? quote.buyPrice : null, quote.stockPrice),
+        older: olderBuy(quote, now),
       })),
     [quotes, now],
   );
@@ -479,7 +484,7 @@ export function Desk({
 
   return (
     <>
-      <StaleMark asOf={initialAsOf} stale={stale} ready={mounted} />
+      <StaleMark asOf={initialAsOf} stale={stale} ready={mounted} prefetch={EARLY_QUOTES_URL} />
       <Backdrop />
       <Ticker rows={rows} onPick={jumpTo} />
       <SiteNav current="/" />
@@ -835,7 +840,7 @@ export function Desk({
                                 <div className="min-w-0">
                                   <div className="font-medium">{h.symbol}</div>
                                   <div className="truncate text-sm text-muted">
-                                    {new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(h.amount)}
+                                    {numberFormat("en-US", { maximumFractionDigits: 4 }).format(h.amount)}
                                     {" shares · "}
                                     {h.name}
                                   </div>
