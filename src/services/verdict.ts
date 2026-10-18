@@ -6,7 +6,12 @@
 
 export const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
-/** Kraken Pro names that keep a quote around the clock. Source: Kraken xStocks FAQ, September 2026. */
+/**
+ * Kraken Pro names that keep a quote around the clock, weekends included (the Overnight verdict). Kraken's xStocks
+ * FAQ (September 2026) listed ten. SPCXx was added on 18 Oct 2026: Kraken's live pair status showed it trading on
+ * Saturday 17 and Sunday 18 Oct, with exactly these eleven online and the other eight xStocks taking only resting
+ * orders. The Par site keeps the same list (site/src/lib/tokens.ts; a test checks they match).
+ */
 export const AROUND_THE_CLOCK = new Set([
   "TSLAx",
   "QQQx",
@@ -18,6 +23,7 @@ export const AROUND_THE_CLOCK = new Set([
   "MSTRx",
   "GLDx",
   "GOOGLx",
+  "SPCXx",
 ]);
 
 export type VerdictId = "fair" | "overnight" | "wait" | "near" | "checking" | "unpriced" | "split";

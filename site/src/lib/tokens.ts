@@ -51,8 +51,11 @@ export const TOKEN_BY_SYMBOL = new Map(TOKENS.map((token) => [token.symbol, toke
 export const ETF_UNDERLYINGS = new Set(["SPY", "QQQ", "GLD"]);
 
 
-// Names Kraken quotes around the clock (used by the Overnight verdict).
-export const AROUND_THE_CLOCK = new Set(["TSLAx", "QQQx", "SPYx", "NVDAx", "CRCLx", "AAPLx", "HOODx", "MSTRx", "GLDx", "GOOGLx"]);
+// Names Kraken quotes around the clock, weekends included (used by the Overnight verdict).
+// Kraken's xStocks FAQ (September 2026) listed ten. SPCXx was added on 18 Oct 2026: Kraken's live pair status showed
+// it trading on Saturday 17 and Sunday 18 Oct, with exactly these eleven online and the other eight xStocks taking only
+// resting orders. @ONPAR_BOT keeps the same list (a bot test checks they match).
+export const AROUND_THE_CLOCK = new Set(["TSLAx", "QQQx", "SPYx", "NVDAx", "CRCLx", "AAPLx", "HOODx", "MSTRx", "GLDx", "GOOGLx", "SPCXx"]);
 
 export const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 export const USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";

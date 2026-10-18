@@ -71,3 +71,16 @@ test("the bell window is the half hour after the open on a weekday", () => {
   assert.equal(inBellWindow(later), false);
   assert.equal(inBellWindow(sunday), false);
 });
+
+test("SPCXx is quoted around the clock on Kraken, so it can be Overnight; the bot's list is the site's", async () => {
+  const closed = { ...base, underlying: "SPCX", symbol: "SPCXx", marketState: "Closed" };
+  assert.equal(tradeVerdict(closed, now).id, "overnight");
+  assert.equal(tradeVerdict({ ...closed, buyPrice: null, buyAt: null }, now).id, "overnight", "buy loading, last trade near the print");
+  assert.equal(tradeVerdict({ ...closed, buyPrice: 102 }, now).id, "wait", "far from the print it still waits");
+  // Microsoft is not quoted around the clock: the same row waits.
+  assert.notEqual(tradeVerdict({ ...closed, underlying: "MSFT", symbol: "MSFTx" }, now).id, "overnight");
+  const { AROUND_THE_CLOCK } = await import("./verdict.js");
+  const site = await import("../../site/src/lib/tokens.js");
+  assert.deepEqual([...AROUND_THE_CLOCK].sort(), [...site.AROUND_THE_CLOCK].sort());
+  assert.equal(AROUND_THE_CLOCK.size, 11);
+});

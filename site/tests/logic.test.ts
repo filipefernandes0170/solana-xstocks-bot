@@ -65,10 +65,32 @@ test("SpaceX is judged against its Nasdaq print like any other name", () => {
   const cases = golden.verdicts.filter((c: { row: { underlying: string } }) => c.row.underlying === "SPCX");
   assert.ok(cases.length > 0);
   for (const c of cases) {
-    // Same row under a name with no special rule: the answer must be identical.
-    const asMicrosoft = verdict({ ...c.row, symbol: "MSFTx", underlying: "MSFT" }, golden.now);
-    assert.deepEqual(verdict(c.row, golden.now), asMicrosoft, JSON.stringify(c.row));
+    // Same row under another name Kraken quotes around the clock (SPCXx is one since 18 Oct 2026): identical answer.
+    const asNvidia = verdict({ ...c.row, symbol: "NVDAx", underlying: "NVDA" }, golden.now);
+    assert.deepEqual(verdict(c.row, golden.now), asNvidia, JSON.stringify(c.row));
   }
   const judged = cases.map((c: { row: Parameters<typeof verdict>[0] }) => verdict(c.row, golden.now).id);
   assert.ok(judged.some((id: string) => id !== "unpriced"), "a SpaceX row with a print gets a real verdict");
+});
+
+test("SPCXx is Overnight while Nasdaq is closed, like the other names Kraken quotes around the clock", () => {
+  const now = Date.parse("2026-10-18T12:00:00Z");
+  const row = {
+    symbol: "SPCXx",
+    underlying: "SPCX",
+    usdPrice: 144.4,
+    stockPrice: 146.03,
+    marketState: "Closed",
+    buyPrice: 144.6,
+    buyImpactPct: 0.1,
+    buyAt: now,
+    issuerPrice: 144.5,
+    issuerAt: now,
+  };
+  assert.equal(verdict(row, now).id, "overnight");
+  // Buy still loading: Overnight only while the last trade is within 1% of the print.
+  assert.equal(verdict({ ...row, usdPrice: 145, buyPrice: null, buyAt: null }, now).id, "overnight");
+  assert.equal(verdict({ ...row, buyPrice: null, buyAt: null }, now).id, "wait", "the last trade is 1.12% away");
+  assert.notEqual(verdict({ ...row, symbol: "MSFTx", underlying: "MSFT" }, now).id, "overnight");
+  assert.equal(verdict({ ...row, marketState: "Open" }, now).id === "overnight", false, "never while Nasdaq is open");
 });
