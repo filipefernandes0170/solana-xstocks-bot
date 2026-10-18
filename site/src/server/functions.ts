@@ -2,7 +2,7 @@
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
-import { setResponseHeader } from "@tanstack/react-start/server";
+import { getRequestUrl, setResponseHeader } from "@tanstack/react-start/server";
 import { EVENTS_CACHE, PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE, VENUES_CACHE, WANT_CACHE } from "../lib/site";
 import { wantedSymbols } from "../lib/shared";
 import { cryptosResult } from "./cryptos";
@@ -18,12 +18,24 @@ import { walletInput } from "./solana";
 import { holderStatus, lookupHoldings, readPortfolio } from "./wallet";
 import { submitProof } from "./walletProof";
 
+/** Where the browser calls a server function (TanStack Start's default base). */
+const SERVER_FN_PATH = "/_serverFn/";
+
+/**
+ * Sets how long Netlify's CDN may share this function's answer. Only when the browser called the function itself: while
+ * a page is rendered on the server, its loader runs these same functions inside the page's own request, and a header
+ * set there would replace the page's rule (for example the desk's LIVE_PAGE_CACHE) with the data's shorter one.
+ */
+function cdnCache(rule: string) {
+  if (getRequestUrl().pathname.startsWith(SERVER_FN_PATH)) setResponseHeader("Netlify-CDN-Cache-Control", rule);
+}
+
 /**
  * Public market data: every visitor gets the same answer, so Netlify's CDN may share it for a few seconds.
  * This keeps function calls (and Jupiter requests) flat however many people have the desk open.
  */
 function sharePublicData() {
-  setResponseHeader("Netlify-CDN-Cache-Control", PUBLIC_DATA_CACHE);
+  cdnCache(PUBLIC_DATA_CACHE);
 }
 
 /** `refreshBuys: true` comes from the browser's polling and moves the buy-quote rotation on (see quotes.ts). */
@@ -42,7 +54,7 @@ export const getQuotes = createServerFn({ method: "GET" })
 export const wantBuys = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ symbols: wantedSymbols((input as { symbols?: unknown } | undefined)?.symbols) }))
   .handler(async ({ data }) => {
-    setResponseHeader("Netlify-CDN-Cache-Control", WANT_CACHE);
+    cdnCache(WANT_CACHE);
     await wantNames(data.symbols);
     return { ok: true as const };
   });
@@ -56,13 +68,13 @@ export const getOffers = createServerFn({ method: "GET" }).handler(async () => {
 export const getHistory = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ symbol: String((input as { symbol?: unknown } | undefined)?.symbol ?? "") }))
   .handler(async ({ data }) => {
-    setResponseHeader("Netlify-CDN-Cache-Control", STATIC_PAGE_CACHE);
+    cdnCache(STATIC_PAGE_CACHE);
     return historyResult(data.symbol);
   });
 
 /** The last week's ranking: which names stayed closest to their Nasdaq print. Shared for 5 minutes. */
 export const getRanking = createServerFn({ method: "GET" }).handler(async () => {
-  setResponseHeader("Netlify-CDN-Cache-Control", STATIC_PAGE_CACHE);
+  cdnCache(STATIC_PAGE_CACHE);
   return rankingResult();
 });
 
@@ -70,13 +82,13 @@ export const getRanking = createServerFn({ method: "GET" }).handler(async () => 
 export const getIssuer = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ symbol: String((input as { symbol?: unknown } | undefined)?.symbol ?? "") }))
   .handler(async ({ data }) => {
-    setResponseHeader("Netlify-CDN-Cache-Control", STATIC_PAGE_CACHE);
+    cdnCache(STATIC_PAGE_CACHE);
     return issuerResult(data.symbol);
   });
 
 /** Filings, balance changes, pauses and market days for /events. Shared by the CDN for a minute. */
 export const getEvents = createServerFn({ method: "GET" }).handler(async () => {
-  setResponseHeader("Netlify-CDN-Cache-Control", EVENTS_CACHE);
+  cdnCache(EVENTS_CACHE);
   return eventsResult();
 });
 
@@ -84,13 +96,13 @@ export const getEvents = createServerFn({ method: "GET" }).handler(async () => {
 export const getVenues = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ symbol: String((input as { symbol?: unknown } | undefined)?.symbol ?? "") }))
   .handler(async ({ data }) => {
-    setResponseHeader("Netlify-CDN-Cache-Control", VENUES_CACHE);
+    cdnCache(VENUES_CACHE);
     return venuesResult(data.symbol);
   });
 
 /** Supply on Solana: tokens of each name, and how many were created or destroyed lately. Shared for a minute. */
 export const getSupply = createServerFn({ method: "GET" }).handler(async () => {
-  setResponseHeader("Netlify-CDN-Cache-Control", EVENTS_CACHE);
+  cdnCache(EVENTS_CACHE);
   return supplyResult();
 });
 
