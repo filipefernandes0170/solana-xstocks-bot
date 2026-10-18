@@ -137,7 +137,7 @@ Run only one copy of the bot per token. A second copy makes Telegram return `409
   sudo chown parbot:parbot /opt/par-bot/data/bot.db
   sudo systemctl start par-bot
   ```
-- **If the whole server is lost:** the backups above live on the same disk. Google Cloud's daily disk snapshots cover that (Compute Engine → Snapshots → Snapshot schedules → Create, then attach the schedule to the VM's disk under Compute Engine → Disks).
+- **If the whole server is lost:** the backups above live on the same disk. Google Cloud snapshots the whole disk every day: the `near-bot` disk (zone `us-central1-c`) has the schedule `default-schedule-1`, daily at 16:00 UTC, each snapshot kept 14 days (checked 18 Oct 2026; snapshots go back to 4 Oct). To restore, create a new disk or VM from a snapshot under Compute Engine → Snapshots.
 
 ## Tech Stack
 
