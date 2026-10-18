@@ -1,4 +1,4 @@
-// The desk's seventeen server functions. Handlers run only on the server (a Netlify Function in production);
+// The desk's eighteen server functions. Handlers run only on the server (a Netlify Function in production);
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
@@ -10,6 +10,7 @@ import { eventsResult } from "./events";
 import { historyResult, rankingResult } from "./history";
 import { issuerResult } from "./issuer";
 import { offersResult } from "./offers";
+import { bagPowersResult, cleanMints } from "./powers";
 import { exitCheck, quotesResult, sizeCheck, wantNames } from "./quotes";
 import { supplyResult } from "./supply";
 import { venuesResult } from "./venues";
@@ -126,6 +127,14 @@ export const checkHolder = createServerFn({ method: "POST" })
 export const getHoldings = createServerFn({ method: "POST" })
   .validator(walletInput)
   .handler(({ data }) => lookupHoldings(data.wallet));
+
+/**
+ * "Who can freeze your bag": the issuer powers of the mints a wallet holds (up to 40), read on Solana.
+ * POST, never cached by the CDN, since each wallet asks for its own list (each mint is cached on the server).
+ */
+export const getBagPowers = createServerFn({ method: "POST" })
+  .validator((input: unknown) => ({ mints: cleanMints((input as { mints?: unknown } | undefined)?.mints) }))
+  .handler(({ data }) => bagPowersResult(data.mints));
 
 /** Everything the wallet holds, for /portfolio. POST, never cached. */
 export const getPortfolio = createServerFn({ method: "POST" })

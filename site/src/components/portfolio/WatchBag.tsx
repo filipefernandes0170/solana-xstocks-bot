@@ -34,7 +34,7 @@ export function WatchBag({ address, symbols }: { address: string; symbols: strin
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-mist">
             One tap opens @ONPAR_BOT with this public address. The bot shows the bag, then texts you when a name in it changes verdict, when its pool gets
-            thin, and the evening before a rebase.
+            thin, when a large batch of it is created or burned, and the evening before a rebase.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-mist">
             {coinLive === false
