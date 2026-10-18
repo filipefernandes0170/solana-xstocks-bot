@@ -1,7 +1,7 @@
 import axios from "axios";
 import { config } from "../config/index.js";
 import { TOKENIZED_STOCKS, type TokenizedStock } from "../config/tokens.js";
-import { jupiterGet, jupiterPaused } from "./jupiter.js";
+import { jupiterGet, jupiterPauseLeft, jupiterPaused } from "./jupiter.js";
 import { nasdaqQuoteUrl } from "./nasdaq.js";
 import { shareBuys } from "./shareBuys.js";
 import { THIN_POOL_USD, currentMultiplier, pendingRebase, perShareFill, tradeVerdict, type Rebase, type VerdictInput } from "./verdict.js";
@@ -228,16 +228,35 @@ async function oneBuy(quote: DeskQuote, info: MintInfo, maxWaitMs = 6000): Promi
   return { price: fill.price, impactPct: fill.impactPct, at: fill.at };
 }
 
-/** Quotes every name once, one request at a time, oldest quote first. Stops when Jupiter answers 429. */
+/** A round's pace: a little slower than Jupiter's 2.1 s, so a /size or a card asked meanwhile still finds a slot. */
+const ROUND_GAP_MS = 2_600;
+/** A longer pause (after a 429) ends the round; the next round, a minute later, starts again from the oldest quote. */
+const ROUND_MAX_PAUSE_MS = 30_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Quotes every name once, one request at a time, oldest quote first, about a minute per round. When Jupiter's 10 s window
+ * is used up the round waits for it to reopen and carries on (it used to stop there, so a round covered only about four
+ * names). Each fresh quote is offered to the site as the round goes (shareBuys sends at most every 25 s).
+ */
 async function refreshBuys(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
   const order = [...quotes].sort((a, b) => (buys.get(a.mint)?.at ?? 0) - (buys.get(b.mint)?.at ?? 0));
   for (const quote of order) {
-    if (jupiterPaused()) break;
     if (quote.poolUsd != null && quote.poolUsd < THIN_POOL_USD) continue;
     const info = mints.get(quote.mint);
     if (!info || typeof info.decimals !== "number") continue;
+    const pause = jupiterPauseLeft();
+    if (pause > ROUND_MAX_PAUSE_MS) break;
+    if (pause > 0) await sleep(pause);
+    const started = Date.now();
     const buy = await oneBuy(quote, info);
-    if (buy) buys.set(quote.mint, buy);
+    if (buy) {
+      buys.set(quote.mint, buy);
+      void shareBuys(buys);
+    }
+    const rest = ROUND_GAP_MS - (Date.now() - started);
+    if (rest > 0) await sleep(rest);
   }
 }
 

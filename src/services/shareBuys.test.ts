@@ -7,7 +7,7 @@ process.env.TELEGRAM_BOT_TOKEN ??= "test-token-not-real";
 const SECRET = "0123456789abcdef".repeat(4);
 process.env.SHARE_BUYS_SECRET = SECRET;
 
-const { sharePayload, shareProblem, shareBuys } = await import("./shareBuys.js");
+const { SEND_EVERY_MS, sharePayload, shareProblem, shareBuys } = await import("./shareBuys.js");
 const { DESK_URL } = await import("./messages.js");
 
 const NOW = Date.parse("2026-10-18T12:00:00Z");
@@ -31,7 +31,7 @@ test("a refused request says which side to fix", () => {
   assert.equal(shareProblem(503), "the site answered HTTP 503");
 });
 
-test("sends to the site with the secret, and not again until there is a newer quote", async () => {
+test("sends to the site with the secret, at most every 25 s, and only with a newer quote", async () => {
   const realFetch = globalThis.fetch;
   const calls: { url: string; init: RequestInit }[] = [];
   globalThis.fetch = (async (url: string, init: RequestInit) => {
@@ -47,12 +47,16 @@ test("sends to the site with the secret, and not again until there is a newer qu
     assert.equal(calls[0].init.method, "POST");
     assert.equal((calls[0].init.headers as Record<string, string>).authorization, `Bearer ${SECRET}`);
     assert.deepEqual(JSON.parse(String(calls[0].init.body)), { v: 1, buys: [{ mint: NVDAX, price: 214.25, impactPct: 0.12, at: now - 1_000 }] });
-    // Nothing newer: no second request.
-    await shareBuys(buys, now + 5_000);
-    assert.equal(calls.length, 1);
-    // A newer quote: sent again.
+    // A newer quote 5 s later: held back, at most one request every 25 s.
     buys.set(TSLAX, { price: 352.1, impactPct: 0, at: now + 4_000 });
     await shareBuys(buys, now + 5_000);
+    assert.equal(calls.length, 1);
+    // 25 s later it goes.
+    assert.equal(SEND_EVERY_MS, 25_000);
+    await shareBuys(buys, now + SEND_EVERY_MS);
+    assert.equal(calls.length, 2);
+    // Another 25 s, but nothing newer: no request.
+    await shareBuys(buys, now + 2 * SEND_EVERY_MS);
     assert.equal(calls.length, 2);
   } finally {
     globalThis.fetch = realFetch;
@@ -67,7 +71,7 @@ test("a network failure never throws", async () => {
   const realWarn = console.warn;
   console.warn = () => undefined;
   try {
-    const now = Date.now() + 60_000;
+    const now = Date.now() + 10 * 60_000;
     await shareBuys(new Map([[NVDAX, { price: 1, impactPct: 0, at: now }]]), now);
   } finally {
     globalThis.fetch = realFetch;

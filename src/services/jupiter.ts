@@ -34,9 +34,14 @@ export function jupiterBase() {
   return hasJupiterKey() ? "https://api.jup.ag" : "https://lite-api.jup.ag";
 }
 
-/** True while the bot is staying away after a 429. */
+/** True while the bot is staying away: after a 429, or until a window it used up reopens. */
 export function jupiterPaused(now = Date.now()) {
   return now < coolDownUntil;
+}
+
+/** How long the bot is still staying away from Jupiter, in ms; 0 when a request may go now. */
+export function jupiterPauseLeft(now = Date.now()) {
+  return Math.max(0, coolDownUntil - now);
 }
 
 /**

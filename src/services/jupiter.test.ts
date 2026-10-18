@@ -46,3 +46,11 @@ test("the limiter pauses when Jupiter says the window is nearly full", async () 
   assert.equal(windowNearlyFull(undefined), false);
   assert.equal(windowNearlyFull(""), false);
 });
+
+test("the time left before Jupiter may be asked again", async () => {
+  const { jupiterPauseLeft } = await import("./jupiter.js");
+  resetJupiterLimiter();
+  const now = Date.now();
+  assert.equal(jupiterPauseLeft(now), 0);
+  assert.equal(jupiterPaused(now), false);
+});

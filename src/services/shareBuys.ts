@@ -3,9 +3,10 @@
 // by every visitor, so the first visitor after a quiet spell used to wait up to a minute for the buys. With these, the
 // site's desk shows them at once. Same quote as the site's (a $1,000 USDC buy, per share, 5x sanity check).
 //
-// Off unless SHARE_BUYS_SECRET is set to the same value as in Netlify (at least 32 characters). Sent after each round
-// of buy quotes, only when there is a newer quote than last time. It never blocks or stops the bot; problems are logged
-// at most once every 10 minutes, and a summary once an hour.
+// Off unless SHARE_BUYS_SECRET is set to the same value as in Netlify (at least 32 characters). Offered after every new
+// quote and at the end of each round, but sent at most once every 25 s (about 3,500 web requests a day, about 20 Netlify
+// credits a month) and only when there is a newer quote than last time. It never blocks or stops the bot; problems are
+// logged at most once every 10 minutes, and a summary once an hour.
 
 import { config } from "../config/index.js";
 import { DESK_URL } from "./messages.js";
@@ -16,6 +17,8 @@ export type SharePayload = { v: 1; buys: { mint: string; price: number; impactPc
 /** The site shows a buy for 90 s, so older ones are not sent. */
 const MAX_AGE_MS = 90_000;
 const MIN_SECRET = 32;
+/** At most one request every 25 s, whatever happens to the previous one. */
+export const SEND_EVERY_MS = 25_000;
 const WARN_EVERY_MS = 10 * 60_000;
 const REPORT_EVERY_MS = 60 * 60_000;
 
@@ -39,6 +42,7 @@ export function shareProblem(status: number) {
 }
 
 let newestSent = 0;
+let lastAttemptAt = 0;
 let lastWarnAt = 0;
 let sentSince = 0;
 let reportedAt = Date.now();
@@ -60,9 +64,11 @@ export async function shareBuys(buys: Map<string, ShareableBuy>, now = Date.now(
     shortWarned = true;
     return;
   }
+  if (now - lastAttemptAt < SEND_EVERY_MS) return;
   const payload = sharePayload(buys, now);
   const newest = Math.max(0, ...payload.buys.map((buy) => buy.at));
   if (payload.buys.length === 0 || newest <= newestSent) return;
+  lastAttemptAt = now;
   try {
     const response = await fetch(`${DESK_URL}/api/share-buys`, {
       method: "POST",
