@@ -73,6 +73,7 @@ npm run dev
 | `HOLDER_MIN_TOKENS` | No | `0` means any balance. `1` means at least one token |
 | `BRIEF_CHANNEL_ID` | No | A public channel (`@name` or `-100…`) for a short brief teaser. The bot must be an admin there |
 | `ALERT_CHAT_ID` | No | Your own Telegram ID (send `/myid` to the bot). Health alerts, backup failures, restarts and the server watchdog's messages go there; empty means the log only |
+| `SHARE_BUYS_SECRET` | No | The same secret as `SHARE_BUYS_SECRET` in Netlify (at least 32 characters; `openssl rand -hex 32`). After each round of buy quotes the bot posts them to the Par site (`src/services/shareBuys.ts`), so the site's desk shows them at once. Empty means off |
 
 ## Adding New Tokenized Stocks
 

@@ -21,6 +21,9 @@ const envSchema = z.object({
   // Optional: a public Telegram channel (e.g. @parbrief or -100…) where the bot posts a short brief teaser.
   // The bot must be an admin of that channel. Empty means no channel post.
   BRIEF_CHANNEL_ID: z.preprocess((value) => (value === "" ? undefined : value), z.string().optional()),
+  // Optional: the same secret as SHARE_BUYS_SECRET in Netlify (at least 32 characters). The bot then sends its $1,000
+  // buy quotes to the site after each round, so the site shows them at once. Empty means the site quotes alone.
+  SHARE_BUYS_SECRET: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);
@@ -39,4 +42,5 @@ export const config = {
   tokenMint: env.TOKEN_MINT ?? "",
   holderMin: env.HOLDER_MIN_TOKENS,
   briefChannelId: env.BRIEF_CHANNEL_ID ?? "",
+  shareBuysSecret: (env.SHARE_BUYS_SECRET ?? "").trim(),
 };

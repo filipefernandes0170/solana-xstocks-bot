@@ -81,10 +81,12 @@ npm ci
 npm run dev:windows       # abre http://localhost:3000
 ```
 
-Variáveis do bot (só nomes): `TELEGRAM_BOT_TOKEN` (obrigatória), `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `BIRDEYE_API_KEY`, `DATABASE_PATH`, `TOKEN_MINT`, `HOLDER_MIN_TOKENS`, `BIG_MOVE_THRESHOLD_PCT`, `BIG_MOVE_WINDOW_MINUTES`, `ALERT_CHECK_INTERVAL_CRON`, `DESK_CHECK_CRON`, `EVENTS_CHECK_CRON`, `BRIEF_CHANNEL_ID`, `ALERT_CHAT_ID` (o teu ID do Telegram, dado por `/myid`: recebe os avisos de saúde, de backups e de reinícios).
+Variáveis do bot (só nomes): `TELEGRAM_BOT_TOKEN` (obrigatória), `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `BIRDEYE_API_KEY`, `DATABASE_PATH`, `TOKEN_MINT`, `HOLDER_MIN_TOKENS`, `BIG_MOVE_THRESHOLD_PCT`, `BIG_MOVE_WINDOW_MINUTES`, `ALERT_CHECK_INTERVAL_CRON`, `DESK_CHECK_CRON`, `EVENTS_CHECK_CRON`, `BRIEF_CHANNEL_ID`, `ALERT_CHAT_ID` (o teu ID do Telegram, dado por `/myid`: recebe os avisos de saúde, de backups e de reinícios), `SHARE_BUYS_SECRET` (o mesmo valor que no Netlify: o bot envia as suas cotações de compra de $1.000 para o site).
 
 **Cópias da base de dados do bot:** todos os dias em `/opt/par-bot/data/backups/` na VM (ficam as últimas 14). Para repor uma, ver "Restore a backup" no `README.md`. Para o caso de se perder a VM inteira: o Google Cloud já guarda uma cópia (snapshot) do disco `near-bot` todos os dias às 16:00 UTC, durante 14 dias (horário `default-schedule-1`, confirmado a 18 out 2026).
-Variáveis do site (todas opcionais): `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `TOKEN_MINT`, `HOLDER_MIN_TOKENS`.
+Variáveis do site (todas opcionais): `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `TOKEN_MINT`, `HOLDER_MIN_TOKENS`, `SHARE_BUYS_SECRET` (secreta, âmbito Functions; o mesmo valor no `.env` do bot).
+
+**Créditos do Netlify (plano gratuito):** 300 créditos por mês, limite rígido — se acabarem, todos os sites ficam em pausa. Cada deploy de produção que corre bem custa 15 créditos (publicado ou não); os Deploy Previews de um pull request custam 0. Testar sempre num Deploy Preview e só juntar ao `main` uma vez por versão.
 
 **Atenção:** só pode haver **uma** cópia do bot a correr com o mesmo token. Se o bot já estiver a correr na VM (`deploy/setup.sh`, serviço `par-bot`), não o corras também aqui, senão o Telegram responde `409 Conflict`.
 

@@ -3,6 +3,7 @@ import { config } from "../config/index.js";
 import { TOKENIZED_STOCKS, type TokenizedStock } from "../config/tokens.js";
 import { jupiterGet, jupiterPaused } from "./jupiter.js";
 import { nasdaqQuoteUrl } from "./nasdaq.js";
+import { shareBuys } from "./shareBuys.js";
 import { THIN_POOL_USD, currentMultiplier, pendingRebase, perShareFill, tradeVerdict, type Rebase, type VerdictInput } from "./verdict.js";
 
 export type DeskQuote = VerdictInput & {
@@ -247,6 +248,8 @@ function startBuyRefresh(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
       .finally(() => {
         buyRefresh = null;
         firstBuyRoundDone = true;
+        // The site shows these too (services/shareBuys.ts); it never throws and never holds up the next round.
+        void shareBuys(buys);
       });
   }
   return buyRefresh;

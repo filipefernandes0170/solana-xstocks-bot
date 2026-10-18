@@ -13,8 +13,8 @@ export type SharedPrints = { readAt: number; rows: Record<string, PrintRow> };
 export const WANT_KEEP_MS = 120_000;
 /** A wanted name is quoted again once its buy is 45 s old, so it stays inside the 90 s a buy is shown. */
 export const WANT_REQUOTE_MS = 45_000;
-/** At most 2 of each refresh's 4 buys go to wanted names, so the rest of the list keeps moving too. */
-export const WANTED_PER_REFRESH = 2;
+/** At most 3 of each refresh's 4 buys go to wanted names, so the rest of the list keeps moving too. */
+export const WANTED_PER_REFRESH = 3;
 
 const MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const SYMBOL = /^[A-Z][A-Z0-9.]{0,9}$/;
