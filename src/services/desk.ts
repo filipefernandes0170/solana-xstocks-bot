@@ -219,8 +219,8 @@ async function quoteBuy(mint: string, usd: number, info: MintInfo, maxWaitMs: nu
 }
 
 /** The $1,000 buy the verdict uses. Null when the answer is more than 5x away from the last trade. */
-async function oneBuy(quote: DeskQuote, info: MintInfo): Promise<Buy | null> {
-  const fill = await quoteBuy(quote.mint, 1000, info, 6000);
+async function oneBuy(quote: DeskQuote, info: MintInfo, maxWaitMs = 6000): Promise<Buy | null> {
+  const fill = await quoteBuy(quote.mint, 1000, info, maxWaitMs);
   if (!fill) return null;
   const usdPrice = quote.usdPrice;
   if (usdPrice != null && usdPrice > 0 && (fill.price > usdPrice * 5 || fill.price < usdPrice / 5)) return null;
@@ -343,6 +343,33 @@ export async function getDeskQuotes(options: { allowStale?: boolean } = {}) {
 export async function getDeskQuote(symbol: string) {
   const quotes = await getDeskQuotes({ allowStale: true });
   return quotes.find((quote) => quote.symbol === symbol) ?? null;
+}
+
+const CARD_BUY_WAIT_MS = 4500;
+
+/**
+ * One name for a card. When its $1,000 buy is not fresh (the background round has not reached it), it is quoted right
+ * away, waiting at most CARD_BUY_WAIT_MS for a Jupiter slot, and kept for everything else too. Thin pools are never
+ * quoted, and nothing is asked while Jupiter is cooling down after a 429.
+ */
+export async function getDeskQuoteNow(symbol: string) {
+  const quote = await getDeskQuote(symbol);
+  if (!quote || quote.buyAt != null || quote.usdPrice == null) return quote;
+  if (quote.poolUsd != null && quote.poolUsd < THIN_POOL_USD) return quote;
+  if (jupiterPaused()) return quote;
+  const info = rebaseCache?.rows.get(quote.mint);
+  if (!info || typeof info.decimals !== "number") return quote;
+  const buy = await oneBuy(quote, info, CARD_BUY_WAIT_MS).catch(() => null);
+  if (!buy) return quote;
+  buys.set(quote.mint, buy);
+  return { ...quote, buyPrice: buy.price, buyImpactPct: buy.impactPct, buyAt: buy.at };
+}
+
+/** When each feed last came in, for the health checks (services/health.ts). */
+export function deskHealth() {
+  let printsAt: number | null = null;
+  for (const row of prints.values()) if (printsAt == null || row.at > printsAt) printsAt = row.at;
+  return { quotesAt: cache?.at ?? null, printsAt, mintsAt: rebaseCache?.at ?? null };
 }
 
 export function describe(quote: DeskQuote) {

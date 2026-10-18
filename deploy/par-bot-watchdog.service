@@ -1,0 +1,6 @@
+[Unit]
+Description=Par — restart the bot if its heartbeat stops (see deploy/watchdog.sh)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/par-bot/deploy/watchdog.sh

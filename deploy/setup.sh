@@ -58,8 +58,12 @@ chown -R parbot:parbot "$APP"
 echo "==> 6/7 Installing the service (starts on boot, restarts if it crashes)"
 cp "$APP/deploy/par-bot.service" /etc/systemd/system/$SVC.service
 sed -i "s#/usr/bin/node#$(command -v node)#" /etc/systemd/system/$SVC.service
+# The watchdog: every 5 minutes, restarts the bot if its heartbeat stops (deploy/watchdog.sh).
+cp "$APP/deploy/par-bot-watchdog.service" /etc/systemd/system/par-bot-watchdog.service
+cp "$APP/deploy/par-bot-watchdog.timer" /etc/systemd/system/par-bot-watchdog.timer
 systemctl daemon-reload
 systemctl enable $SVC >/dev/null
+systemctl enable --now par-bot-watchdog.timer >/dev/null
 
 echo "==> 7/7 Starting"
 if [ "$FIRST" = "1" ] || ! grep -q '^TELEGRAM_BOT_TOKEN=[0-9]\+:' "$APP/.env"; then

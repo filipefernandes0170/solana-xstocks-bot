@@ -194,7 +194,7 @@ const HOLDER_DOCS: Doc[] = [
     icon: <Zap className="size-5" aria-hidden />,
     title: "Fair pings",
     commands: ["/watch NVDAx", "/watch all", "/watch list", "/watch off"],
-    what: "A text the moment a watched name turns 🟢 Fair, with a Buy button, and a 🌙 note when one trades over the print while Nasdaq is closed.",
+    what: "A text the moment a watched name turns 🟢 Fair, with a Buy button, and a 🌙 note when one trades over the print while Nasdaq is closed. At most one Fair text per name an hour, so a price sitting on the edge does not text you over and over.",
     when: "Watch a few names or all of them. The Watch button on a card and the site's favourites do the same.",
   },
   {
@@ -287,7 +287,7 @@ const questions = (coinLive: boolean): [string, string][] => [
       ],
   [
     "How often will it text me?",
-    "Only when something changes, and never the same thing twice. The brief and the bell come once a trading day, two-token pings once a day per company, filing texts at most 5 a day, and size and move alerts switch off after they fire. Every text has an off switch: /watch off, /brief, /bell, /pairs off, /events off, /sizealert off, /alert clear.",
+    "Only when something changes, never the same thing twice, and at most once an hour about the same name, even when its price sits right on a verdict's edge. The brief and the bell come once a trading day, two-token pings once a day per company, filing texts at most 5 a day, and size and move alerts switch off after they fire. Every text has an off switch: /watch off, /brief, /bell, /pairs off, /events off, /sizealert off, /alert clear.",
   ],
   [
     "Where do the numbers come from?",

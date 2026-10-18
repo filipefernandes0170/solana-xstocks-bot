@@ -72,6 +72,7 @@ npm run dev
 | `TOKEN_MINT` | For pings | Your coin's mint. Blank disables pings, not lookups |
 | `HOLDER_MIN_TOKENS` | No | `0` means any balance. `1` means at least one token |
 | `BRIEF_CHANNEL_ID` | No | A public channel (`@name` or `-100…`) for a short brief teaser. The bot must be an admin there |
+| `ALERT_CHAT_ID` | No | Your own Telegram ID (send `/myid` to the bot). Health alerts, backup failures, restarts and the server watchdog's messages go there; empty means the log only |
 
 ## Adding New Tokenized Stocks
 
@@ -120,6 +121,23 @@ sudo journalctl -u par-bot -f      # live logs
 
 Update later: `git pull && sudo bash deploy/setup.sh` (keeps `.env` and the database in `/opt/par-bot/data`).
 Run only one copy of the bot per token. A second copy makes Telegram return `409 Conflict`.
+
+### Calm texts, health, watchdog and backups
+
+- **Calm texts** (`src/services/calm.ts`): a name sitting on a verdict's edge can change verdict every minute. Fair pings go at most once per person per name an hour, "rich while closed" pings once in 12 hours, and bag notes remember what each person was last told: a change is texted at most once an hour, a name that comes back to what they were told sends nothing, and one that ends somewhere else gets one catch-up text after the hour.
+- **Instant card prices:** a card whose $1,000 buy the background round has not reached quotes it on the spot (waiting at most 4.5 s for a Jupiter slot). Thin pools are never quoted.
+- **Health** (`src/services/health.ts`, `monitor.ts`): every 5 minutes the bot checks token prices (stale after 10 min), Nasdaq prints (20 min), the mints on Solana (30 min), the Par site, and the site's SEC reads (60 min). A problem lasting 10 minutes is texted to `ALERT_CHAT_ID` once, and again when fixed. Every start sends "Par bot started".
+- **Watchdog** (`deploy/watchdog.sh`, `par-bot-watchdog.timer`, installed by `setup.sh`): the bot writes `data/heartbeat` after every desk round. Every 5 minutes, if the service has run 10 minutes and the heartbeat is 10 minutes old, the server restarts the bot and texts `ALERT_CHAT_ID` (at most once an hour). A stopped service is only reported. The bot token is passed to curl on stdin, never on the command line.
+- **Backups** (`src/services/backup.ts`): at 03:30 server time, and at start if today's is missing, SQLite's online backup copies the database to `data/backups/bot-<day>.db`, turned into a single plain file and checked with `PRAGMA integrity_check`. The newest 14 are kept. A failure is texted.
+- **Restore a backup** on the VM:
+  ```bash
+  sudo systemctl stop par-bot
+  sudo cp /opt/par-bot/data/backups/bot-2026-10-19.db /opt/par-bot/data/bot.db
+  sudo rm -f /opt/par-bot/data/bot.db-wal /opt/par-bot/data/bot.db-shm
+  sudo chown parbot:parbot /opt/par-bot/data/bot.db
+  sudo systemctl start par-bot
+  ```
+- **If the whole server is lost:** the backups above live on the same disk. Google Cloud's daily disk snapshots cover that (Compute Engine → Snapshots → Snapshot schedules → Create, then attach the schedule to the VM's disk under Compute Engine → Disks).
 
 ## Tech Stack
 

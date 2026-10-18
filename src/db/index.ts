@@ -103,6 +103,14 @@ db.exec(`
     used INTEGER NOT NULL DEFAULT 0
   );
 
+  CREATE TABLE IF NOT EXISTS ping_log (
+    telegram_id INTEGER NOT NULL,
+    symbol TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    sent_at INTEGER NOT NULL,
+    PRIMARY KEY (telegram_id, symbol, kind)
+  );
+
   CREATE TABLE IF NOT EXISTS event_log (
     telegram_id INTEGER NOT NULL,
     event_id TEXT NOT NULL,
@@ -142,6 +150,10 @@ addColumn("users", "verified_at", "INTEGER");
 addColumn("users", "pairs", "INTEGER DEFAULT 0");
 // Filing texts (/events): on unless the user turns them off. Pause alerts have no switch.
 addColumn("users", "events", "INTEGER DEFAULT 1");
+// What the bot last told each person about each name in their bag, and when (see services/calm.ts).
+addColumn("bag_state", "told", "TEXT");
+addColumn("bag_state", "told_at", "INTEGER DEFAULT 0");
+addColumn("bag_state", "told_thin", "INTEGER DEFAULT 0");
 
 export function upsertUser(telegramId: number, username?: string, firstName?: string) {
   db.prepare(`
@@ -436,20 +448,47 @@ export function saveVerdictState(row: VerdictRow) {
   `).run(row.symbol, row.verdict_id, row.gap, row.open, row.thin);
 }
 
+export type BagStateRow = { symbol: string; verdict_id: string; thin: number; told: string | null; told_at: number | null; told_thin: number | null };
+
 export function getBagState(telegramId: number) {
   return db.prepare(`
-    SELECT symbol, verdict_id, thin FROM bag_state WHERE telegram_id = ?
-  `).all(telegramId) as { symbol: string; verdict_id: string; thin: number }[];
+    SELECT symbol, verdict_id, thin, told, told_at, told_thin FROM bag_state WHERE telegram_id = ?
+  `).all(telegramId) as BagStateRow[];
 }
 
-export function saveBagState(telegramId: number, symbol: string, verdictId: string, thin: number) {
+/** The verdict seen now, and what the person was last told (see services/calm.ts). */
+export function saveBagState(
+  telegramId: number,
+  symbol: string,
+  verdictId: string,
+  thin: number,
+  told: { told: string | null; toldAt: number; toldThin: boolean },
+) {
   db.prepare(`
-    INSERT INTO bag_state (telegram_id, symbol, verdict_id, thin)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO bag_state (telegram_id, symbol, verdict_id, thin, told, told_at, told_thin)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(telegram_id, symbol) DO UPDATE SET
       verdict_id = excluded.verdict_id,
-      thin = excluded.thin
-  `).run(telegramId, symbol, verdictId, thin);
+      thin = excluded.thin,
+      told = excluded.told,
+      told_at = excluded.told_at,
+      told_thin = excluded.told_thin
+  `).run(telegramId, symbol, verdictId, thin, told.told, told.toldAt, told.toldThin ? 1 : 0);
+}
+
+/** When a ping of this kind ("fair", "rich") last went to this person about this name; null if never. */
+export function lastPing(telegramId: number, symbol: string, kind: string) {
+  const row = db.prepare(`SELECT sent_at FROM ping_log WHERE telegram_id = ? AND symbol = ? AND kind = ?`).get(telegramId, symbol, kind) as
+    | { sent_at: number }
+    | undefined;
+  return row ? row.sent_at : null;
+}
+
+export function markPing(telegramId: number, symbol: string, kind: string, at: number) {
+  db.prepare(`
+    INSERT INTO ping_log (telegram_id, symbol, kind, sent_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(telegram_id, symbol, kind) DO UPDATE SET sent_at = excluded.sent_at
+  `).run(telegramId, symbol, kind, at);
 }
 
 export function deleteBagSymbol(telegramId: number, symbol: string) {

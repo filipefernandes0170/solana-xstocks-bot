@@ -13,6 +13,9 @@ const envSchema = z.object({
   DESK_CHECK_CRON: z.string().default("* * * * *"),
   // Pause alerts and SEC filing texts (/events).
   EVENTS_CHECK_CRON: z.string().default("*/3 * * * *"),
+  // Optional: your own Telegram ID (send /myid to the bot). Health alerts, backup failures and restarts are texted
+  // there. Empty means they only go to the log.
+  ALERT_CHAT_ID: z.preprocess((value) => (value === "" ? undefined : value), z.string().regex(/^-?\d{1,20}$/).optional()),
   TOKEN_MINT: z.preprocess((value) => (value === "" ? undefined : value), z.string().min(32).optional()),
   HOLDER_MIN_TOKENS: z.coerce.number().default(0),
   // Optional: a public Telegram channel (e.g. @parbrief or -100…) where the bot posts a short brief teaser.
@@ -32,6 +35,7 @@ export const config = {
   alertCron: env.ALERT_CHECK_INTERVAL_CRON,
   deskCron: env.DESK_CHECK_CRON,
   eventsCron: env.EVENTS_CHECK_CRON,
+  alertChatId: env.ALERT_CHAT_ID ?? "",
   tokenMint: env.TOKEN_MINT ?? "",
   holderMin: env.HOLDER_MIN_TOKENS,
   briefChannelId: env.BRIEF_CHANNEL_ID ?? "",

@@ -21,7 +21,9 @@ import {
   deleteBagSymbol,
   getBagState,
   getVerdictStates,
+  lastPing,
   listAllWatches,
+  markPing,
   listPingUsers,
   markBellSent,
   markRebaseSent,
@@ -33,6 +35,8 @@ import {
 import { getTokenizedStockHoldings } from "./solana.js";
 import { buysReady, getDeskQuotes, pauseFlags, sizeQuote, type DeskQuote } from "./desk.js";
 import { addDays } from "./calendar.js";
+import { FAIR_PING_EVERY_MS, RICH_PING_EVERY_MS, bagNews, pingAllowed } from "./calm.js";
+import { writeHeartbeat } from "./health.js";
 import {
   EVENT_TEXTS_PER_DAY,
   fetchSiteFilings,
@@ -120,6 +124,10 @@ async function bagHoldings(wallet: string) {
   return symbols;
 }
 
+/**
+ * Bag notes: a name in the watched wallet changed verdict or its pool got thin. What each person was last told is
+ * remembered, so a name sitting on a verdict's edge is texted at most once an hour (services/calm.ts).
+ */
 async function sendBag(
   bot: Telegraf,
   user: UserRow,
@@ -127,6 +135,7 @@ async function sendBag(
   snaps: Map<string, DeskSnap>,
   holds: boolean,
   alreadyTold: Set<string>,
+  now: number,
 ) {
   if (!user.wallet) return;
   const owned = await bagHoldings(user.wallet);
@@ -140,21 +149,16 @@ async function sendBag(
     const snap = snaps.get(symbol);
     if (!quote || !snap) continue;
     const prev = previous.get(symbol);
-    if (!hasSignal(snap.verdictId)) {
-      if (!prev) saveBagState(user.telegram_id, symbol, snap.verdictId, 0);
-      continue;
-    }
-    const verdictChanged = !!prev && hasSignal(prev.verdict_id as VerdictId) && prev.verdict_id !== snap.verdictId;
-    const becameThin = !!prev && prev.thin === 0 && snap.thin;
-    saveBagState(user.telegram_id, symbol, snap.verdictId, snap.thin ? 1 : 0);
-    if (!holds || alreadyTold.has(symbol) || !prev) continue;
-    if (!verdictChanged && !becameThin) continue;
-    changes.push({
-      quote,
-      from: verdictChanged ? TITLES[prev.verdict_id as VerdictId] : "",
-      thin: becameThin,
-      verdict: tradeVerdict(quote),
-    });
+    const told = prev?.told && hasSignal(prev.told as VerdictId) ? (prev.told as VerdictId) : null;
+    const news = bagNews(
+      prev ? { told, toldAt: prev.told_at ?? 0, toldThin: prev.told_thin === 1 } : null,
+      { verdictId: snap.verdictId, thin: snap.thin },
+      now,
+      { holds, coveredElsewhere: alreadyTold.has(symbol) },
+    );
+    saveBagState(user.telegram_id, symbol, snap.verdictId, snap.thin ? 1 : 0, news.next);
+    if (!news.send) continue;
+    changes.push({ quote, from: news.from ? TITLES[news.from] : "", thin: news.thin, verdict: tradeVerdict(quote) });
   }
 
   for (const row of previous.values()) {
@@ -480,25 +484,36 @@ export async function checkDesk(bot: Telegraf) {
       const watched = watchByUser.get(user.telegram_id) ?? [];
       const told = new Set<string>();
       if (holds && watched.length > 0) {
+        // At most one Fair ping per name an hour, and one "rich while closed" ping per name in 12 hours (calm.ts).
         const mineFair = bellRecipients.has(user.telegram_id)
           ? []
-          : fair.filter((quote) => watches(watched, quote.symbol));
-        const mineRich = rich.filter((quote) => watches(watched, quote.symbol));
+          : fair.filter(
+              (quote) => watches(watched, quote.symbol) && pingAllowed(lastPing(user.telegram_id, quote.symbol, "fair"), now, FAIR_PING_EVERY_MS),
+            );
+        const mineRich = rich.filter(
+          (quote) => watches(watched, quote.symbol) && pingAllowed(lastPing(user.telegram_id, quote.symbol, "rich"), now, RICH_PING_EVERY_MS),
+        );
         try {
           if (mineFair.length > 0) {
             await send(bot, user.telegram_id, fairText(mineFair), buyKeyboard(mineFair));
-            mineFair.forEach((quote) => told.add(quote.symbol));
+            for (const quote of mineFair) {
+              told.add(quote.symbol);
+              markPing(user.telegram_id, quote.symbol, "fair", now);
+            }
           }
           if (mineRich.length > 0) {
             await send(bot, user.telegram_id, richText(mineRich));
-            mineRich.forEach((quote) => told.add(quote.symbol));
+            for (const quote of mineRich) {
+              told.add(quote.symbol);
+              markPing(user.telegram_id, quote.symbol, "rich", now);
+            }
           }
         } catch (err) {
           console.warn("Watch ping failed", user.telegram_id, (err as Error).message);
         }
       }
       try {
-        await sendBag(bot, user, bySymbol, snaps, holds, told);
+        await sendBag(bot, user, bySymbol, snaps, holds, told, now);
       } catch (err) {
         console.warn("Bag ping failed", user.telegram_id, (err as Error).message);
       }
@@ -536,5 +551,7 @@ export async function checkDesk(bot: Telegraf) {
     console.error("Desk check failed:", err);
   } finally {
     running = false;
+    // Proof of life for the server's watchdog (deploy/watchdog.sh): written after every round, failed or not.
+    writeHeartbeat();
   }
 }

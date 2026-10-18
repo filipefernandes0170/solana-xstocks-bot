@@ -58,6 +58,8 @@ export function createBot() {
   bot.command("bell", bellCommand);
   bot.command("brief", briefCommand);
   bot.command("hold", holdCommand);
+  // Not in the menu: tells anyone their own Telegram ID (the admin puts theirs in ALERT_CHAT_ID).
+  bot.command("myid", (ctx) => ctx.reply(`🆔 Your Telegram ID is <code>${ctx.from.id}</code>.`, { parse_mode: "HTML" }));
 
   // Buttons under cards, size checks and /start.
   // Symbols are xStocks (NVDAx) or Backpack tokens (MU, SPCX), so the pattern does not assume a trailing x.

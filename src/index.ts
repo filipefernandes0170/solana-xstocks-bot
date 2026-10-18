@@ -3,6 +3,7 @@ import cron from "node-cron";
 import { config } from "./config/index.js";
 import { checkAlerts } from "./services/alerts.js";
 import { getDeskQuotes } from "./services/desk.js";
+import { checkHealth, runBackup, tellAdmin } from "./services/monitor.js";
 import { checkDesk, checkEvents } from "./services/pings.js";
 
 const bot = createBot();
@@ -16,6 +17,10 @@ bot.launch(() => {
   if (!config.tokenMint) console.log("TOKEN_MINT is not set. Pings will not send until it is.");
   // The command list Telegram shows next to the message box.
   bot.telegram.setMyCommands(MENU_COMMANDS).catch((err) => console.warn("Could not set the command menu:", err.message));
+  // Every start reaches the admin, so a crash loop or a deploy is visible.
+  void tellAdmin(bot, "🔄 Par bot started.");
+  // Today's backup right after a start, if the daily one has not run yet.
+  setTimeout(() => void runBackup(bot, true), 60_000).unref();
 })
   .catch((err) => {
     console.error("Failed to launch bot:", err);
@@ -31,6 +36,13 @@ const tasks = [
   }),
   cron.schedule(config.eventsCron, () => {
     checkEvents(bot).catch((err) => console.error("Event check failed:", err));
+  }),
+  // Health of the data feeds every 5 minutes, and the database backup once a day.
+  cron.schedule("*/5 * * * *", () => {
+    checkHealth(bot).catch((err) => console.error("Health check failed:", err));
+  }),
+  cron.schedule("30 3 * * *", () => {
+    runBackup(bot).catch((err) => console.error("Backup failed:", err));
   }),
 ];
 
