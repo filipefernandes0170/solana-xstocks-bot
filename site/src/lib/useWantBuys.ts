@@ -3,6 +3,7 @@ import { wantBuys } from "../server/functions";
 import { dueSymbols } from "./shared";
 import type { Quote } from "./types";
 
+const FIRST_CHECK_MS = 600;
 const CHECK_MS = 2_000;
 const REPEAT_MS = 20_000;
 const MIN_GAP_MS = 8_000;
@@ -21,7 +22,7 @@ export function useWantBuys(names: () => string[], quotes: Quote[]) {
   useEffect(() => {
     let lastSent = 0;
     let lastKey = "";
-    const timer = window.setInterval(() => {
+    const check = () => {
       if (document.visibilityState === "hidden") return;
       const now = Date.now();
       if (now - lastSent < MIN_GAP_MS) return;
@@ -33,7 +34,13 @@ export function useWantBuys(names: () => string[], quotes: Quote[]) {
       lastSent = now;
       lastKey = key;
       wantBuys({ data: { symbols: sorted } }).catch(() => undefined);
-    }, CHECK_MS);
-    return () => window.clearInterval(timer);
+    };
+    // The first ask goes out as the page opens (once the cards on screen are known), so it reaches the first refresh.
+    const first = window.setTimeout(check, FIRST_CHECK_MS);
+    const timer = window.setInterval(check, CHECK_MS);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+    };
   }, []);
 }

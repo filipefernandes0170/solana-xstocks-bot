@@ -201,11 +201,13 @@ async function oneBuy(quote: Quote): Promise<Buy | null> {
 /**
  * Refreshes a few buy quotes, one after another so Jupiter's per-second limit holds: names visitors asked for first
  * (pickBuys), then the oldest. The result is shared with the other copies. One rotation at a time per copy.
+ * The wanted names are read just before picking, so a visitor who asks as the page opens is in this round.
  */
-async function rotateBuys(base: Quote[], wanted: Map<string, number>) {
+async function rotateBuys(base: Quote[]) {
   if (rotating) return;
   rotating = true;
   try {
+    const wanted = await readWanted();
     const byMint = new Map(base.map((quote) => [quote.mint, quote]));
     // A pool under THIN_POOL_USD is not quoted: a $1,000 buy there says more about the pool than the price.
     const candidates = base
@@ -227,6 +229,16 @@ async function rotateBuys(base: Quote[], wanted: Map<string, number>) {
   }
 }
 
+/**
+ * Whether a held buy may be shown with this quote, wherever it came from (this copy, another copy, or @ONPAR_BOT):
+ * never for a pool under THIN_POOL_USD, and never more than 5x away from the last trade (the same rules as oneBuy).
+ */
+export function buyShown(buy: Buy, quote: Pick<Quote, "usdPrice" | "poolUsd">) {
+  if (quote.poolUsd != null && quote.poolUsd < THIN_POOL_USD) return false;
+  const usdPrice = quote.usdPrice;
+  return !(usdPrice != null && usdPrice > 0 && (buy.price > usdPrice * 5 || buy.price < usdPrice / 5));
+}
+
 /** Records that a visitor wants these names' $1,000 buys soon (their favourites, the cards on screen, their bag). */
 export async function wantNames(symbols: string[]) {
   const mints = symbols.map((symbol) => TOKEN_BY_SYMBOL.get(symbol)?.mint).filter((mint): mint is string => mint != null);
@@ -234,7 +246,7 @@ export async function wantNames(symbols: string[]) {
 }
 
 async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
-  const [jupiter, gecko, stocks, sharedBuys, wanted] = await Promise.all([
+  const [jupiter, gecko, stocks, sharedBuys] = await Promise.all([
     jupiterPrices(TOKENS.map((token) => token.mint)),
     geckoPrices().catch(() => {
       console.warn("[par] GeckoTerminal: no prices this round");
@@ -242,7 +254,6 @@ async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
     }),
     stockPrints().catch(() => freshPrints(prints, Date.now())),
     readSharedBuys(),
-    refreshBuys ? readWanted() : Promise.resolve(new Map<string, number>()),
   ]);
   buys = mergeBuyMaps(buys, sharedBuys, Date.now(), BUY_KEEP_MS);
   const now = Date.now();
@@ -283,9 +294,10 @@ async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
     };
   });
 
-  if (refreshBuys) await rotateBuys(base, wanted);
+  if (refreshBuys) await rotateBuys(base);
   const quotes = base.map((quote) => {
-    const buy = buys.get(quote.mint);
+    const held = buys.get(quote.mint);
+    const buy = held && buyShown(held, quote) ? held : null;
     return { ...quote, buyPrice: buy?.price ?? null, buyImpactPct: buy?.impactPct ?? null, buyAt: buy?.at ?? null };
   });
   if (!quotes.some((quote) => quote.usdPrice != null)) {

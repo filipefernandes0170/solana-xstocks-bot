@@ -114,17 +114,20 @@ test("wanted names whose buy is missing or 45 s old go first, two per refresh at
     [D, NOW - 5_000],
   ]);
   assert.deepEqual(pickBuys(mints, current, wanted, NOW, 4), [D, E, F, A]);
-  // Three wanted names that are due: only WANTED_PER_REFRESH of them go first, the oldest ones.
+  // Four wanted names that are due: only WANTED_PER_REFRESH (3) of them go first, the oldest ones (F has no buy);
+  // the last slot goes to the oldest of the rest, so the list keeps moving.
   const many = new Map([
     [A, NOW],
     [B, NOW],
     [D, NOW],
+    [F, NOW],
   ]);
   const picked = pickBuys(mints, current, many, NOW, 4);
-  assert.equal(WANTED_PER_REFRESH, 2);
-  assert.deepEqual(picked.slice(0, 2), [A, B]);
-  assert.deepEqual(picked, [A, B, E, F]);
+  assert.equal(WANTED_PER_REFRESH, 3);
+  assert.deepEqual(picked, [F, A, B, E]);
   assert.equal(new Set(picked).size, picked.length);
+  // Three due wanted names and four slots: all three first, then the oldest other.
+  assert.deepEqual(pickBuys(mints, current, new Map([[A, NOW], [B, NOW], [D, NOW]]), NOW, 4), [A, B, D, E]);
   // A wish older than 2 minutes no longer counts.
   assert.deepEqual(pickBuys(mints, current, new Map([[D, NOW - WANT_KEEP_MS - 1]]), NOW, 4), [E, F, A, B]);
   // Never more than asked for, and nothing when asked for nothing.
