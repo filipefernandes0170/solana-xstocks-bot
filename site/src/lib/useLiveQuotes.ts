@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getQuotes } from "../server/functions";
+import { STALE_PAGE_MS } from "./site";
 import type { Quote } from "./types";
 import { mergeBuys } from "./verdict";
 
@@ -8,31 +9,45 @@ import { mergeBuys } from "./verdict";
  * the tab is hidden, keeping the newest buy per name, plus a clock for the "seconds ago" counter.
  * `enabled: false` waits (the portfolio polls only once a wallet is read); `paused: true` skips polls for a while
  * (the portfolio's exit checks need Jupiter's whole rate limit).
+ * With no prices yet, or prices over a minute old (a cached copy of the page), it first asks for prices alone, which
+ * answers fastest. Answers older than the prices already shown are ignored. `stale` says the prices shown are over a
+ * minute old; `ready` turns true once the browser runs the page (its own clock is in use).
  */
 export function useLiveQuotes(initial: Quote[], initialAsOf: number, options: { enabled?: boolean; paused?: boolean } = {}) {
   const enabled = options.enabled ?? true;
   const [quotes, setQuotes] = useState(initial);
   const [asOf, setAsOf] = useState(initialAsOf);
   const [now, setNow] = useState(initialAsOf);
+  const [ready, setReady] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const paused = useRef(options.paused === true);
+  const newestAsOf = useRef(initialAsOf);
+  const shown = useRef(initial.length);
 
   useEffect(() => {
     paused.current = options.paused === true;
   }, [options.paused]);
 
   useEffect(() => {
+    setNow(Date.now());
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
     if (!enabled) return;
     let alive = true;
-    async function refresh() {
+    async function refresh(rotate = true) {
       try {
-        const result = await getQuotes({ data: { refreshBuys: true } });
+        const result = await (rotate ? getQuotes({ data: { refreshBuys: true } }) : getQuotes());
         if (!alive) return;
         if (!result.ok) {
           setFeedError(result.message ?? "Price feed paused.");
           return;
         }
         setFeedError(null);
+        if (result.asOf < newestAsOf.current) return;
+        newestAsOf.current = result.asOf;
+        shown.current = result.quotes.length;
         setQuotes((previous) => mergeBuys(previous, result.quotes, Date.now()));
         setAsOf(result.asOf);
       } catch {
@@ -40,6 +55,7 @@ export function useLiveQuotes(initial: Quote[], initialAsOf: number, options: { 
       }
     }
     setNow(Date.now());
+    if (shown.current === 0 || Date.now() - newestAsOf.current > STALE_PAGE_MS) void refresh(false);
     void refresh();
     const poll = window.setInterval(() => {
       if (document.visibilityState !== "hidden" && !paused.current) void refresh();
@@ -57,5 +73,6 @@ export function useLiveQuotes(initial: Quote[], initialAsOf: number, options: { 
     };
   }, [enabled]);
 
-  return { quotes, asOf, now, feedError, age: Math.max(0, Math.round((now - asOf) / 1000)) };
+  const stale = ready && quotes.length > 0 && now - asOf > STALE_PAGE_MS;
+  return { quotes, asOf, now, feedError, ready, stale, age: Math.max(0, Math.round((now - asOf) / 1000)) };
 }

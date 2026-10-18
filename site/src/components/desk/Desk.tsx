@@ -4,8 +4,11 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { formatGap, formatPct, formatUsd } from "../../lib/format";
 import { nearLabel } from "../../lib/ranking";
 import { closedLine, etClock, isSessionOpen, sessionLabel, sessionLine } from "../../lib/session";
+import { STALE_PAGE_MS } from "../../lib/site";
 import { TOKENS } from "../../lib/tokens";
 import { useFavourites, watchLink } from "../../lib/useFavourites";
+import { useOnScreenSymbols } from "../../lib/useOnScreen";
+import { useWantBuys } from "../../lib/useWantBuys";
 import type { CryptoRow, HolderStatus, HoldingsResult, Offer, Quote } from "../../lib/types";
 import { buyUsable, gapPct, mergeBuys, verdict } from "../../lib/verdict";
 import { checkHolder, getHoldings, getOffers, getQuotes, getRanking } from "../../server/functions";
@@ -13,6 +16,7 @@ import type { RankingResult } from "../../server/history";
 import { SiteFooter } from "../SiteFooter";
 import { Backdrop } from "../Backdrop";
 import { SiteNav } from "../SiteNav";
+import { StaleMark, StaleNote } from "../StaleMark";
 import { CryptoPanel } from "./CryptoPanel";
 import type { GapRow } from "./GapView";
 import { Glossary } from "./Glossary";
@@ -131,12 +135,15 @@ function sortRows(rows: DeskRow[], sort: Sort) {
 
 export function Desk({
   initial,
+  initialAsOf,
   initialError = null,
   initialOffers = [],
   offersError = null,
   initialCryptos = [],
 }: {
   initial: Quote[];
+  /** When the server read these prices. The page may be a cached copy, so this can be well in the past. */
+  initialAsOf: number;
   initialError?: string | null;
   initialOffers?: Offer[];
   offersError?: string | null;
@@ -145,8 +152,10 @@ export function Desk({
   const [tab, setTab] = useState<Tab>("markets");
   const [quotes, setQuotes] = useState(initial);
   const [feedError, setFeedError] = useState(initialError);
-  const [asOf, setAsOf] = useState(() => Date.now());
-  const [now, setNow] = useState(() => Date.now());
+  // Both start at the time of the server's prices, so the first render in the browser matches the server's page.
+  const [asOf, setAsOf] = useState(initialAsOf);
+  const [now, setNow] = useState(initialAsOf);
+  const newestAsOf = useRef(initialAsOf);
   const [ticks, setTicks] = useState<Record<string, "up" | "down">>({});
   const lastPrices = useRef(new Map<string, number>());
   const alertsPrimed = useRef(false);
@@ -182,6 +191,7 @@ export function Desk({
   const [holder, setHolder] = useState<HolderStatus | null>(null);
 
   useEffect(() => {
+    setNow(Date.now());
     setMounted(true);
     setAlerts(loadAlerts());
     const wallet = readSetting(WALLET_KEY);
@@ -220,12 +230,14 @@ export function Desk({
 
   // Prices every 10 s, the clock every second. Prices that moved flash green or red.
   // Polling pauses while the tab is hidden, unless a saved alert could still ping this browser.
+  // A page that arrived as an old cached copy first asks for prices alone (no buy rotation), which answers fastest.
+  // Answers older than the prices already shown are ignored, so a slower answer never takes the page back in time.
   useEffect(() => {
     let alive = true;
-    async function refresh() {
+    async function refresh(rotate = true) {
       let result: Awaited<ReturnType<typeof getQuotes>>;
       try {
-        result = await getQuotes({ data: { refreshBuys: true } });
+        result = await (rotate ? getQuotes({ data: { refreshBuys: true } }) : getQuotes());
       } catch {
         if (alive) setFeedError("Price feed paused.");
         return;
@@ -235,6 +247,9 @@ export function Desk({
         setFeedError(result.message ?? "Price feed paused.");
         return;
       }
+      setFeedError(null);
+      if (result.asOf < newestAsOf.current) return;
+      newestAsOf.current = result.asOf;
       const moved: Record<string, "up" | "down"> = {};
       for (const quote of result.quotes) {
         if (quote.usdPrice == null) continue;
@@ -242,7 +257,6 @@ export function Desk({
         if (previous != null && previous !== quote.usdPrice) moved[quote.symbol] = quote.usdPrice > previous ? "up" : "down";
         lastPrices.current.set(quote.symbol, quote.usdPrice);
       }
-      setFeedError(null);
       setQuotes((previous) => mergeBuys(previous, result.quotes, Date.now()));
       setAsOf(result.asOf);
       if (Object.keys(moved).length > 0) {
@@ -252,6 +266,7 @@ export function Desk({
         }, 700);
       }
     }
+    if (Date.now() - initialAsOf > STALE_PAGE_MS) void refresh(false);
     void refresh();
     const poll = window.setInterval(() => {
       if (pageVisible() || (alertsActive.current && canNotify())) void refresh();
@@ -456,9 +471,15 @@ export function Desk({
   }, [hits, quotes]);
 
   const age = Math.max(0, Math.round((now - asOf) / 1000));
+  const stale = mounted && now - asOf > STALE_PAGE_MS;
+
+  // The $1,000 buys to quote first: this visitor's favourites, then the names on screen, in the order the desk shows them.
+  const onScreen = useOnScreenSymbols(`${tab}|${view}|${visible.map((row) => row.symbol).join(",")}`);
+  useWantBuys(() => [...favourites, ...visible.filter((row) => onScreen.current.has(row.symbol)).map((row) => row.symbol)], quotes);
 
   return (
     <>
+      <StaleMark asOf={initialAsOf} stale={stale} ready={mounted} />
       <Backdrop />
       <Ticker rows={rows} onPick={jumpTo} />
       <SiteNav current="/" />
@@ -478,6 +499,7 @@ export function Desk({
             {closestFair ? (
               <button
                 type="button"
+                data-verdict
                 onClick={() => jumpTo(closestFair.symbol)}
                 className="mt-2 block text-left text-lg text-foam underline decoration-gold/70 underline-offset-4"
               >
@@ -490,6 +512,7 @@ export function Desk({
             ) : (
               <button
                 type="button"
+                data-verdict
                 onClick={() => widest && jumpTo(widest.symbol)}
                 disabled={!widest}
                 className="mt-2 block text-left text-lg text-foam underline decoration-gold/70 underline-offset-4 disabled:no-underline"
@@ -538,6 +561,8 @@ export function Desk({
           rebases={rebases}
           onPick={jumpTo}
         />
+
+        <StaleNote age={now - asOf} ready={mounted} className="mt-4 rounded-2xl bg-dusk/80 px-4 py-3 text-mist ring-1 ring-white/10" />
 
         {ranking && ranking.rows.length > 0 ? (
           <Link

@@ -6,12 +6,19 @@
 // Buy quotes are refreshed in rotation, a few per load and the oldest first, because Jupiter's
 // rate limit cannot take 25 quotes at once (see jupiter.ts). Only loads asked for by the browser's
 // polling refresh them; the server-rendered first page uses what is already there, so it stays fast.
+// Names a visitor starred, has on screen or holds go first (wantNames). The buys and the Nasdaq prints
+// are shared by every copy of the function through Netlify Blobs (deskShare.ts), so a fresh copy starts
+// with what the others already have and every answer carries all of them.
 
 import { THIN_POOL_USD } from "../lib/brand";
+import { mergeBuyMaps, mergePrintRows, pickBuys, WANT_KEEP_MS, type Buy, type PrintRow } from "../lib/shared";
 import { ETF_UNDERLYINGS, TOKEN_BY_SYMBOL, TOKENS, USDC_MINT } from "../lib/tokens";
 import type { ExitCheck, Quote, QuotesResult, Rebase, SizeCheck } from "../lib/types";
+import { addWanted, readSharedBuys, readSharedPrints, readWanted, shareBuys, sharePrints } from "./deskShare";
 import { getJson } from "./http";
 import { jupiterGet } from "./jupiter";
+
+export { stalestMints, type Buy } from "../lib/shared";
 
 type JupiterPrice = {
   usdPrice?: number;
@@ -23,7 +30,6 @@ type JupiterPrice = {
 };
 
 type StockPrint = { price: number; state: string };
-export type Buy = { price: number; impactPct: number; at: number };
 
 const QUOTES_TTL_MS = 8_000;
 const BUY_KEEP_MS = 120_000;
@@ -32,11 +38,13 @@ let quotesCache: { at: number; quotes: Quote[] } | null = null;
 let inflight: Promise<Quote[]> | null = null;
 // Nasdaq prints by symbol, each with the time it was read. A symbol whose request fails keeps its last
 // good print for PRINT_KEEP_MS, so one dropped request does not blank a card. Same rule as the bot.
-const prints = new Map<string, StockPrint & { at: number }>();
+const prints = new Map<string, PrintRow>();
 let printsReadAt = 0;
+let printsInflight: Promise<void> | null = null;
 const PRINTS_TTL_MS = 180_000;
 const PRINT_KEEP_MS = 30 * 60_000;
-const buys = new Map<string, Buy>();
+let buys = new Map<string, Buy>();
+let rotating = false;
 const decimalsByMint = new Map<string, number>();
 
 /**
@@ -48,28 +56,17 @@ export function buysPerRefresh() {
   return 4;
 }
 
-/**
- * The mints whose buy quote is oldest (missing first), limited to `count`. Ties (above all, the names a fresh copy of
- * the function has never quoted) go in list order starting at `start`: Netlify runs several copies, each with its own
- * buys, and a clock-based start keeps them from all quoting the first names of the list.
- */
-export function stalestMints(mints: string[], current: Map<string, Buy>, count: number, start = 0) {
-  const n = mints.length;
-  const place = new Map(mints.map((mint, index) => [mint, n > 0 ? (((index - start) % n) + n) % n : 0]));
-  return [...mints]
-    .sort((a, b) => (current.get(a)?.at ?? 0) - (current.get(b)?.at ?? 0) || (place.get(a) ?? 0) - (place.get(b) ?? 0))
-    .slice(0, Math.max(0, count));
-}
-
 export async function jupiterPrices(mints: string[], maxWaitMs = 5000): Promise<Record<string, JupiterPrice> | null> {
   return jupiterGet<Record<string, JupiterPrice>>(`/price/v3?ids=${mints.join(",")}`, { maxWaitMs });
 }
 
+/** The fallback price for names Jupiter misses. It waits at most 5 s, so a slow answer never holds up the desk. */
 async function geckoPrices() {
   const ids = TOKENS.map((token) => token.mint).join(",");
   const data = await getJson<{ data?: { attributes?: { token_prices?: Record<string, string> } } }>(
     `https://api.geckoterminal.com/api/v2/simple/networks/solana/token_price/${ids}`,
     { headers: { accept: "application/json", "user-agent": "ParDesk/1.0" } },
+    5000,
   );
   return data?.data?.attributes?.token_prices ?? null;
 }
@@ -107,7 +104,7 @@ async function fetchPrints(symbols: string[]) {
   return failed;
 }
 
-/** One round of prints; symbols that fail are asked once more a second later. */
+/** One round of prints; symbols that fail are asked once more a second later. Returns how many symbols got a print. */
 async function refreshPrints() {
   const symbols = [...new Set(TOKENS.map((token) => token.underlying))];
   let failed = await fetchPrints(symbols);
@@ -116,14 +113,34 @@ async function refreshPrints() {
     failed = await fetchPrints(failed.map((row) => row.symbol));
   }
   if (failed.length > 0) console.warn(`[par] Nasdaq: no print this round for ${failed.map((row) => `${row.symbol} (${row.reason})`).join(", ")}`);
+  return symbols.length - failed.length;
 }
 
-/** Nasdaq prints, refreshed every 3 minutes. */
+/**
+ * Nasdaq prints, refreshed every 3 minutes. A copy whose prints are older first looks at the shared round: if another
+ * copy read Nasdaq less than 3 minutes ago it takes that (no Nasdaq wait), otherwise it reads Nasdaq and shares the result.
+ */
 async function stockPrints() {
   if (Date.now() - printsReadAt < PRINTS_TTL_MS) return freshPrints(prints, Date.now());
-  printsReadAt = Date.now();
-  await refreshPrints();
+  printsInflight ??= loadPrints().finally(() => {
+    printsInflight = null;
+  });
+  await printsInflight;
   return freshPrints(prints, Date.now());
+}
+
+async function loadPrints() {
+  const shared = await readSharedPrints();
+  if (shared) mergePrintRows(prints, shared.rows);
+  const sharedAge = shared ? Date.now() - shared.readAt : Number.POSITIVE_INFINITY;
+  if (shared && sharedAge > -60_000 && sharedAge < PRINTS_TTL_MS) {
+    printsReadAt = Math.min(shared.readAt, Date.now());
+    return;
+  }
+  printsReadAt = Date.now();
+  const read = await refreshPrints();
+  // A round where Nasdaq answered nothing is not shared, so the other copies still try for themselves.
+  if (read > 0) await sharePrints({ readAt: printsReadAt, rows: Object.fromEntries(prints) });
 }
 
 /**
@@ -181,32 +198,53 @@ async function oneBuy(quote: Quote): Promise<Buy | null> {
   return { price: fill.price, impactPct: fill.impactPct, at: fill.at };
 }
 
-/** Refreshes the oldest few buy quotes, one after another so Jupiter's per-second limit holds. */
-async function rotateBuys(base: Quote[]) {
-  const byMint = new Map(base.map((quote) => [quote.mint, quote]));
-  // A pool under THIN_POOL_USD is not quoted: a $1,000 buy there says more about the pool than the price.
-  const candidates = base
-    .filter((quote) => quote.usdPrice != null && decimalsByMint.has(quote.mint) && !(quote.poolUsd != null && quote.poolUsd < THIN_POOL_USD))
-    .map((quote) => quote.mint);
-  // The start moves on by one refresh's worth of names every 10 s, the browser's polling pace.
-  const start = Math.floor(Date.now() / 10_000) * buysPerRefresh();
-  for (const mint of stalestMints(candidates, buys, buysPerRefresh(), start)) {
-    const buy = await oneBuy(byMint.get(mint) as Quote);
-    if (buy) buys.set(mint, buy);
+/**
+ * Refreshes a few buy quotes, one after another so Jupiter's per-second limit holds: names visitors asked for first
+ * (pickBuys), then the oldest. The result is shared with the other copies. One rotation at a time per copy.
+ */
+async function rotateBuys(base: Quote[], wanted: Map<string, number>) {
+  if (rotating) return;
+  rotating = true;
+  try {
+    const byMint = new Map(base.map((quote) => [quote.mint, quote]));
+    // A pool under THIN_POOL_USD is not quoted: a $1,000 buy there says more about the pool than the price.
+    const candidates = base
+      .filter((quote) => quote.usdPrice != null && decimalsByMint.has(quote.mint) && !(quote.poolUsd != null && quote.poolUsd < THIN_POOL_USD))
+      .map((quote) => quote.mint);
+    // The start moves on by one refresh's worth of names every 10 s, the browser's polling pace.
+    const start = Math.floor(Date.now() / 10_000) * buysPerRefresh();
+    let quoted = 0;
+    for (const mint of pickBuys(candidates, buys, wanted, Date.now(), buysPerRefresh(), start)) {
+      const buy = await oneBuy(byMint.get(mint) as Quote);
+      if (buy) {
+        buys.set(mint, buy);
+        quoted += 1;
+      }
+    }
+    buys = quoted > 0 ? await shareBuys(buys, Date.now(), BUY_KEEP_MS) : mergeBuyMaps(buys, new Map(), Date.now(), BUY_KEEP_MS);
+  } finally {
+    rotating = false;
   }
-  const now = Date.now();
-  for (const [mint, buy] of buys) if (now - buy.at > BUY_KEEP_MS) buys.delete(mint);
+}
+
+/** Records that a visitor wants these names' $1,000 buys soon (their favourites, the cards on screen, their bag). */
+export async function wantNames(symbols: string[]) {
+  const mints = symbols.map((symbol) => TOKEN_BY_SYMBOL.get(symbol)?.mint).filter((mint): mint is string => mint != null);
+  await addWanted([...new Set(mints)], Date.now(), WANT_KEEP_MS);
 }
 
 async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
-  const [jupiter, gecko, stocks] = await Promise.all([
+  const [jupiter, gecko, stocks, sharedBuys, wanted] = await Promise.all([
     jupiterPrices(TOKENS.map((token) => token.mint)),
     geckoPrices().catch(() => {
       console.warn("[par] GeckoTerminal: no prices this round");
       return null;
     }),
     stockPrints().catch(() => freshPrints(prints, Date.now())),
+    readSharedBuys(),
+    refreshBuys ? readWanted() : Promise.resolve(new Map<string, number>()),
   ]);
+  buys = mergeBuyMaps(buys, sharedBuys, Date.now(), BUY_KEEP_MS);
   const now = Date.now();
   const sessionState = Object.values(stocks).find((row) => row.state)?.state ?? null;
 
@@ -245,7 +283,7 @@ async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
     };
   });
 
-  if (refreshBuys) await rotateBuys(base);
+  if (refreshBuys) await rotateBuys(base, wanted);
   const quotes = base.map((quote) => {
     const buy = buys.get(quote.mint);
     return { ...quote, buyPrice: buy?.price ?? null, buyImpactPct: buy?.impactPct ?? null, buyAt: buy?.at ?? null };

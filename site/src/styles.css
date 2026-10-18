@@ -274,6 +274,61 @@ summary::-webkit-details-marker {
   }
 }
 
+/*
+ * A cached copy of a live page whose prices are over a minute old (StaleMark sets the mark on <html>): the numbers fade
+ * back and the verdicts are hidden until the page's own first poll brings live prices. The note says so.
+ */
+[data-live] {
+  transition:
+    opacity 0.4s ease-out,
+    filter 0.4s ease-out;
+}
+
+/* A desk card keeps its hover lift as well as the fade. */
+.stock-card[data-live] {
+  transition:
+    translate 0.2s ease-out,
+    box-shadow 0.2s ease-out,
+    opacity 0.4s ease-out,
+    filter 0.4s ease-out;
+}
+
+html[data-par-stale] [data-live] {
+  opacity: 0.45;
+  filter: saturate(0.25);
+}
+
+html[data-par-stale] [data-verdict] {
+  visibility: hidden;
+}
+
+/* Where a gap meter sits, a stale page shows a shimmering bar instead of an empty space. */
+html[data-par-stale] [data-verdict-slot] {
+  position: relative;
+}
+
+html[data-par-stale] [data-verdict-slot] > * {
+  visibility: hidden;
+}
+
+html[data-par-stale] [data-verdict-slot]::after {
+  content: "";
+  position: absolute;
+  inset: 0.5rem 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-line) 0%, #fffaf0 50%, var(--color-line) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.stale-note {
+  display: none;
+}
+
+html[data-par-stale] .stale-note {
+  display: flex;
+}
+
 /* A placeholder that shimmers while a live number is on its way (the $1,000 buy on a card). */
 .shimmer {
   background: linear-gradient(90deg, var(--color-line) 0%, #fffaf0 50%, var(--color-line) 100%);
@@ -290,7 +345,121 @@ summary::-webkit-details-marker {
   }
 }
 
+/* Portfolio graphics: the map's tiles fade in one after another, bars grow from zero, the donut turns in. */
+.bag-tile {
+  box-shadow:
+    inset 0 1px 0 #ffffff24,
+    inset 0 0 0 1px #ffffff12;
+  animation: tileIn 0.5s ease-out both;
+  transition:
+    filter 0.2s ease-out,
+    scale 0.2s ease-out;
+}
+
+/* A map tile shows its symbol, share and value only when there is room for them, measured on screen. */
+.bag-cell {
+  container-type: size;
+}
+
+.bag-name,
+.bag-weight,
+.bag-value {
+  display: none;
+}
+
+.bag-name {
+  font-size: 0.75rem;
+}
+
+.bag-weight {
+  font-size: 1.125rem;
+}
+
+@container (min-width: 50px) and (min-height: 30px) {
+  .bag-name {
+    display: block;
+  }
+}
+
+@container (min-width: 72px) and (min-height: 66px) {
+  .bag-weight {
+    display: block;
+  }
+}
+
+@container (min-width: 80px) and (min-height: 84px) {
+  .bag-value {
+    display: block;
+  }
+}
+
+@container (min-width: 90px) {
+  .bag-name {
+    font-size: 0.875rem;
+  }
+}
+
+@container (min-width: 140px) and (min-height: 120px) {
+  .bag-weight {
+    font-size: 1.875rem;
+  }
+}
+
+@media (hover: hover) {
+  .bag-tile:hover {
+    filter: brightness(1.15);
+  }
+}
+
+.bar-grow {
+  animation: barGrow 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transition: width 0.6s ease-out;
+}
+
+.donut-ring {
+  transform-origin: 60px 60px;
+  animation: donutIn 0.9s ease-out both;
+}
+
+/* The dark panels on the portfolio: a faint gold glow in one corner over the dusk blue. */
+.chart-panel {
+  border-radius: 1rem;
+  border: 1px solid #ffffff14;
+  background:
+    radial-gradient(28rem 14rem at 100% 0%, #e0a04a10, transparent 70%),
+    linear-gradient(180deg, #173a4b, #12303e);
+  box-shadow:
+    inset 0 1px 0 #ffffff0d,
+    0 18px 40px #07141c40;
+}
+
+@keyframes tileIn {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+}
+
+@keyframes barGrow {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes donutIn {
+  from {
+    opacity: 0;
+    rotate: -40deg;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .bag-tile,
+  .bar-grow,
+  .donut-ring {
+    animation: none;
+    transition: none;
+  }
   .shimmer,
   .hero-flow,
   .hero-halo,
@@ -298,14 +467,17 @@ summary::-webkit-details-marker {
   .live-dot,
   .tick-up,
   .tick-down,
-  .ticker-track {
+  .ticker-track,
+  html[data-par-stale] [data-verdict-slot]::after {
     animation: none;
   }
   .ticker-window {
     overflow-x: auto;
   }
   .stock-card,
-  .gap-dot {
+  .gap-dot,
+  [data-live],
+  .stock-card[data-live] {
     transition: none;
   }
   .hero-lines svg > path:not(.hero-flow) {

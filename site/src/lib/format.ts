@@ -81,3 +81,15 @@ export function impactHint(impactPct: number | null | undefined) {
 export function jupiterBuyUrl(mint: string) {
   return `https://jup.ag/swap?${new URLSearchParams({ sell: USDC_MINT, buy: mint }).toString()}`;
 }
+
+/** How old a snapshot is, in words: "40 s", "3 min", "2 h", "1 day". Never negative. */
+export function ageLabel(ms: number) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"}`;
+}

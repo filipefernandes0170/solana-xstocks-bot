@@ -1,15 +1,16 @@
-// The desk's sixteen server functions. Handlers run only on the server (a Netlify Function in production);
+// The desk's seventeen server functions. Handlers run only on the server (a Netlify Function in production);
 // the browser gets small RPC stubs that call /_serverFn/…
 
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
-import { EVENTS_CACHE, PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE, VENUES_CACHE } from "../lib/site";
+import { EVENTS_CACHE, PUBLIC_DATA_CACHE, STATIC_PAGE_CACHE, VENUES_CACHE, WANT_CACHE } from "../lib/site";
+import { wantedSymbols } from "../lib/shared";
 import { cryptosResult } from "./cryptos";
 import { eventsResult } from "./events";
 import { historyResult, rankingResult } from "./history";
 import { issuerResult } from "./issuer";
 import { offersResult } from "./offers";
-import { exitCheck, quotesResult, sizeCheck } from "./quotes";
+import { exitCheck, quotesResult, sizeCheck, wantNames } from "./quotes";
 import { supplyResult } from "./supply";
 import { venuesResult } from "./venues";
 import { env } from "./http";
@@ -31,6 +32,19 @@ export const getQuotes = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     sharePublicData();
     return quotesResult({ refreshBuys: data.refreshBuys });
+  });
+
+/**
+ * "Quote these first": the names a visitor starred, has on screen or holds, up to 8 known symbols, sorted so the same
+ * list from many visitors is one cached request. It only marks the names in the shared rotation (no Jupiter call here);
+ * the next refresh quotes them before the others.
+ */
+export const wantBuys = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ symbols: wantedSymbols((input as { symbols?: unknown } | undefined)?.symbols) }))
+  .handler(async ({ data }) => {
+    setResponseHeader("Netlify-CDN-Cache-Control", WANT_CACHE);
+    await wantNames(data.symbols);
+    return { ok: true as const };
   });
 
 export const getOffers = createServerFn({ method: "GET" }).handler(async () => {

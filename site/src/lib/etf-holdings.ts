@@ -54,7 +54,7 @@ export function canonical(symbol: string) {
 export type Exposure = { symbol: string; name: string; usd: number; direct: number; through: { fund: string; usd: number }[] };
 
 /** Company exposure: direct stock tokens in full, plus each fund's share of its published top holdings. */
-export function exposures(lines: { symbol: string; underlying: string; kind: string; usd: number }[]): Exposure[] {
+export function exposures(lines: { symbol: string; underlying: string; kind: string; usd: number; name?: string }[]): Exposure[] {
   const byCompany = new Map<string, Exposure>();
   const entry = (symbol: string, name: string) => {
     const key = canonical(symbol);
@@ -67,7 +67,8 @@ export function exposures(lines: { symbol: string; underlying: string; kind: str
   for (const line of lines) {
     if (!(line.usd > 0)) continue;
     if (line.kind === "Stock") {
-      const company = entry(line.underlying, line.underlying);
+      // The company name (NVIDIA, not NVDA), whichever line names it first.
+      const company = entry(line.underlying, line.name ?? line.underlying);
       company.direct += line.usd;
       company.usd += line.usd;
       continue;

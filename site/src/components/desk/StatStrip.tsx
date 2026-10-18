@@ -4,15 +4,34 @@ import { formatGap } from "../../lib/format";
 import { etClock, isSessionOpen, sessionLabel, timeToOpen, utcStamp } from "../../lib/session";
 import type { Quote } from "../../lib/types";
 
-function Tile({ icon, label, value, hint, onClick }: { icon: ReactNode; label: string; value: string; hint: string; onClick?: () => void }) {
+/** `verdict`: the value comes from the verdicts, so a stale page hides it (see StaleMark). */
+function Tile({
+  icon,
+  label,
+  value,
+  hint,
+  onClick,
+  verdict = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+  onClick?: () => void;
+  verdict?: boolean;
+}) {
   const body = (
     <>
       <span className="flex items-center gap-2 text-sm text-mist">
         {icon}
         {label}
       </span>
-      <span className="mt-2 block font-display text-2xl leading-tight text-foam sm:text-3xl">{value}</span>
-      <span className="mt-1 block text-sm text-mist">{hint}</span>
+      <span className="mt-2 block font-display text-2xl leading-tight text-foam sm:text-3xl" data-verdict={verdict || undefined}>
+        {value}
+      </span>
+      <span className="mt-1 block text-sm text-mist" data-verdict={verdict || undefined}>
+        {hint}
+      </span>
     </>
   );
   const tile = "rounded-2xl bg-dusk/80 p-4 text-left ring-1 ring-white/10 backdrop-blur";
@@ -48,7 +67,7 @@ export function StatStrip({
   const open = isSessionOpen(marketState);
   const next = rebases[0];
   return (
-    <section aria-label="The desk right now" className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <section aria-label="The desk right now" className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4" data-live>
       <Tile
         icon={<Clock3 className="size-4" aria-hidden />}
         label="Nasdaq"
@@ -58,12 +77,14 @@ export function StatStrip({
       <Tile
         icon={<ShieldCheck className="size-4" aria-hidden />}
         label="Fair now"
+        verdict
         value={`${fairCount} of ${total}`}
         hint={open ? "Within 0.4% of the print" : "Only while Nasdaq is open"}
       />
       <Tile
         icon={<Scale className="size-4" aria-hidden />}
         label="Widest gap"
+        verdict
         value={widest?.gap == null ? "—" : widest.symbol}
         hint={
           widest?.gap == null

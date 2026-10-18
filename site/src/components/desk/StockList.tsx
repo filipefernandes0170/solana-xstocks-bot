@@ -28,6 +28,8 @@ export function StockList({
         {rows.map((row) => (
           <li
             key={row.mint}
+            data-want-symbol={row.symbol}
+            data-live
             className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_10rem]"
           >
             <span className="flex min-w-0 items-center gap-1">
@@ -50,14 +52,17 @@ export function StockList({
             <span className="hidden text-right sm:block">
               <ChangePill value={row.change24h} />
             </span>
-            <span className="hidden text-right sm:block">
+            <span className="hidden text-right sm:block" data-verdict>
               <GapPill value={row.gap} />
             </span>
             <span className="flex items-center justify-end gap-2">
-              <span className="sm:hidden">
+              <span className="sm:hidden" data-verdict>
                 <GapPill value={row.gap} />
               </span>
-              <span className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex ${verdictPillClass(row.verdict.id)}`}>
+              <span
+                data-verdict
+                className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex ${verdictPillClass(row.verdict.id)}`}
+              >
                 {row.verdict.title}
               </span>
               <BuyLink mint={row.mint} symbol={row.symbol} />

@@ -2,12 +2,14 @@ import { Link } from "@tanstack/react-router";
 import { DoorOpen } from "lucide-react";
 import { useState } from "react";
 import { EXIT_LIMIT, exitTotals, exitVersus, realPriceTotals, type RealPriceRow } from "../../lib/bag";
+import { THIN_POOL_USD } from "../../lib/brand";
 import { formatImpact, formatUsd } from "../../lib/format";
 import { sessionLine } from "../../lib/session";
 import type { ExitCheck } from "../../lib/types";
 import { verdictPillClass } from "../../lib/verdict";
 import { checkExit } from "../../server/functions";
 import { GapPill, TickerBadge } from "../desk/parts";
+import { MarkMeter, versusNasdaq } from "./charts";
 
 type ExitOk = Extract<ExitCheck, { ok: true }>;
 type ExitState = ExitCheck | "queued" | "checking" | "small" | "beyond";
@@ -28,11 +30,11 @@ function shareCount(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
 }
 
-/** "0.31% under Nasdaq", "0.12% over Nasdaq" or "at Nasdaq". */
-function versusNasdaq(pct: number | null) {
-  if (pct == null) return "no Nasdaq print";
-  if (Math.abs(pct) < 0.005) return "at Nasdaq";
-  return `${Math.abs(pct).toFixed(2)}% ${pct > 0 ? "over" : "under"} Nasdaq`;
+/** What the $1,000 buy column says: the buy against Nasdaq, or why there is none (a thin pool is never quoted). */
+function buyNote(row: RealPriceRow) {
+  if (row.buyGap != null) return versusNasdaq(row.buyGap);
+  if (row.quote.poolUsd != null && row.quote.poolUsd < THIN_POOL_USD) return "Pool too thin to quote $1,000";
+  return "Buy quote loading";
 }
 
 /** One sale quote, asked once more after a pause when Jupiter is busy. */
@@ -171,6 +173,7 @@ export function RealPrice({
           <p className="text-sm text-muted">{signedPct(totals.diffPct)}</p>
         </div>
       </div>
+      <MarkMeter pct={totals.diffPct} />
       <p className="mt-3 text-sm leading-relaxed">
         {markLine}
         {totals.unprinted > 0 ? " Names whose Nasdaq print has not come in are left out of these sums." : ""}
@@ -251,7 +254,7 @@ export function RealPrice({
                 </td>
                 <td className="px-3 py-4">
                   <span className={`inline-flex rounded-full px-2.5 py-0.5 text-sm font-medium ${verdictPillClass(row.verdict.id)}`}>{row.verdict.title}</span>
-                  <span className="mt-1 block text-xs text-muted">{row.buyGap == null ? "Buy quote loading" : versusNasdaq(row.buyGap)}</span>
+                  <span className="mt-1 block text-xs text-muted">{buyNote(row)}</span>
                 </td>
                 <td className="max-w-[16rem] py-4 pl-3">
                   <ExitCell state={exits[row.line.symbol]} />
@@ -286,7 +289,7 @@ export function RealPrice({
               </div>
               <div>
                 <dt className="text-xs text-muted">$1,000 buy</dt>
-                <dd>{row.buyGap == null ? "Loading" : versusNasdaq(row.buyGap)}</dd>
+                <dd>{buyNote(row)}</dd>
               </div>
               <div className="col-span-2">
                 <dt className="text-xs text-muted">Exit now</dt>

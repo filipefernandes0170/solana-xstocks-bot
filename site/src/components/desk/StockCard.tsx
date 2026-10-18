@@ -64,9 +64,9 @@ export function StockCard({
   // The same company's token from another issuer, if Par tracks one (for example AMDx and AMD).
   const siblings = TOKENS.filter((token) => token.underlying === row.underlying && token.symbol !== row.symbol);
   return (
-    <li id={`stock-${row.symbol}`} className="stock-card panel scroll-mt-24 overflow-hidden ring-1 ring-line">
+    <li id={`stock-${row.symbol}`} data-want-symbol={row.symbol} data-live className="stock-card panel scroll-mt-24 overflow-hidden ring-1 ring-line">
       <div className="flex h-full">
-        <div className={`w-1.5 shrink-0 ${verdictBarClass(row.verdict.id)}`} />
+        <div data-verdict className={`w-1.5 shrink-0 ${verdictBarClass(row.verdict.id)}`} />
         <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 items-center gap-3">
@@ -85,7 +85,9 @@ export function StockCard({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${verdictPillClass(row.verdict.id)}`}>{row.verdict.title}</span>
+              <span data-verdict className={`rounded-full px-2.5 py-1 text-sm font-medium ${verdictPillClass(row.verdict.id)}`}>
+                {row.verdict.title}
+              </span>
               <FavouriteButton symbol={row.symbol} on={favourite} onToggle={onFavourite} />
             </div>
           </div>
@@ -102,11 +104,15 @@ export function StockCard({
             </div>
           </div>
 
-          <div className="mt-3">
+          <div className="mt-3" data-verdict-slot>
             <GapMeter gap={row.gap} waiting={waiting.text} loading={waiting.loading} />
           </div>
 
-          {sessionOpen ? <p className="mt-3 text-sm leading-relaxed text-ink">{row.verdict.line}</p> : null}
+          {sessionOpen ? (
+            <p data-verdict className="mt-3 text-sm leading-relaxed text-ink">
+              {row.verdict.line}
+            </p>
+          ) : null}
           {row.rebase && row.rebase.at * 1000 > now ? (
             <p className="mt-3 rounded-xl bg-gold/15 px-3 py-2 text-sm leading-relaxed text-ink">{rebaseLine(row.symbol, row.rebase)}</p>
           ) : null}

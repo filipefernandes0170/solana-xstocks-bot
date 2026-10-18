@@ -4,6 +4,7 @@ import { THIN_POOL_USD, poolLabel } from "../../lib/brand";
 import { formatUsd, jupiterBuyUrl } from "../../lib/format";
 import type { StockToken } from "../../lib/tokens";
 import type { Quote } from "../../lib/types";
+import { STALE_PAGE_MS } from "../../lib/site";
 import type { VenueQuote, VenuesResult } from "../../lib/venues";
 import { buyUsable, gapPct } from "../../lib/verdict";
 import { getVenues } from "../../server/functions";
@@ -50,9 +51,10 @@ function venueRow(venue: VenueQuote): Row {
 export function Venues({ token, quote, initial, now }: { token: StockToken; quote: Quote | null; initial: VenuesResult; now: number }) {
   const [result, setResult] = useState(initial);
 
+  // Every minute while the tab is visible, and at once when the page arrived as a cached copy over a minute old.
   useEffect(() => {
     let alive = true;
-    const timer = setInterval(async () => {
+    async function load() {
       if (document.hidden) return;
       try {
         const next = await getVenues({ data: { symbol: token.symbol } });
@@ -60,11 +62,14 @@ export function Venues({ token, quote, initial, now }: { token: StockToken; quot
       } catch {
         // Keep the last answer; the next round tries again.
       }
-    }, 60_000);
+    }
+    if (Date.now() - initial.asOf > STALE_PAGE_MS) void load();
+    const timer = setInterval(load, 60_000);
     return () => {
       alive = false;
       clearInterval(timer);
     };
+    // initial.asOf is read once, when the page arrives.
   }, [token.symbol]);
 
   if (result.venues.length === 0) return null;

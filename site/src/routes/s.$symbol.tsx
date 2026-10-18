@@ -3,6 +3,7 @@ import { ArrowRight, CalendarDays, Send, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Backdrop } from "../components/Backdrop";
 import { NotFound } from "../components/NotFound";
+import { StaleMark, StaleNote } from "../components/StaleMark";
 import { HeroLines } from "../components/desk/HeroLines";
 import { SizeCheck } from "../components/desk/SizeCheck";
 import { BuyLink, ChangePill, GapMeter, MultiplierNote, TickerBadge, VerdictDetail } from "../components/desk/parts";
@@ -22,13 +23,14 @@ import { formatUsd } from "../lib/format";
 import type { HistoryPoint } from "../lib/history";
 import type { IssuerResult } from "../lib/issuer";
 import { cardShareText, stockUrl } from "../lib/share";
-import { PUBLIC_DATA_CACHE, SITE_URL } from "../lib/site";
+import { LIVE_PAGE_CACHE, SITE_URL } from "../lib/site";
 import { ISSUER_LABEL, TOKENS } from "../lib/tokens";
 import type { SupplyResult } from "../lib/supply";
 import type { Offer, Quote } from "../lib/types";
 import type { VenuesResult } from "../lib/venues";
 import { useFavourites, watchLink } from "../lib/useFavourites";
 import { useLiveQuotes } from "../lib/useLiveQuotes";
+import { useWantBuys } from "../lib/useWantBuys";
 import { buyUsable, gapPct, rebaseLine, verdict, verdictPillClass } from "../lib/verdict";
 import { getHistory, getIssuer, getOffers, getQuotes, getSupply, getVenues } from "../server/functions";
 
@@ -37,7 +39,7 @@ function tokenFor(param: string) {
 }
 
 export const Route = createFileRoute("/s/$symbol")({
-  headers: () => ({ "Netlify-CDN-Cache-Control": PUBLIC_DATA_CACHE }),
+  headers: () => ({ "Netlify-CDN-Cache-Control": LIVE_PAGE_CACHE }),
   head: ({ params }) => {
     const token = tokenFor(params.symbol);
     if (!token) return {};
@@ -117,9 +119,12 @@ function StockView({ data }: { data: StockData }) {
     return { ...quote, verdict: verdict(quote, live.now), gap: gapPct(buyUsable(quote.buyAt, live.now) ? quote.buyPrice : null, quote.stockPrice) };
   }, [live.quotes, live.now, token.symbol]);
   const favourite = favourites.includes(token.symbol);
+  // This page is about one name, so its $1,000 buy is quoted before the rest of the list.
+  useWantBuys(() => [token.symbol], live.quotes);
 
   return (
     <div className="relative min-h-screen text-foam">
+      <StaleMark asOf={data.asOf} stale={live.stale} ready={live.ready} />
       <Backdrop />
       <SiteNav current={null} />
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 sm:px-6">
@@ -148,7 +153,11 @@ function StockView({ data }: { data: StockData }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {row ? <span className={`rounded-full px-3 py-1 text-sm font-medium ${verdictPillClass(row.verdict.id)}`}>{row.verdict.title}</span> : null}
+            {row ? (
+              <span data-verdict className={`rounded-full px-3 py-1 text-sm font-medium ${verdictPillClass(row.verdict.id)}`}>
+                {row.verdict.title}
+              </span>
+            ) : null}
             <button
               type="button"
               onClick={() => toggleFavourite(token.symbol)}
@@ -161,8 +170,10 @@ function StockView({ data }: { data: StockData }) {
           </div>
         </header>
 
+        <StaleNote age={live.now - live.asOf} ready={live.ready} className="mt-6 rounded-2xl bg-dusk/80 px-4 py-3 text-mist ring-1 ring-white/10" />
+
         <section className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
-          <div className="panel p-6 text-ink ring-1 ring-line sm:p-7">
+          <div className="panel p-6 text-ink ring-1 ring-line sm:p-7" data-live>
             {row ? (
               <>
                 <div className="flex flex-wrap items-end justify-between gap-3">
@@ -174,10 +185,12 @@ function StockView({ data }: { data: StockData }) {
                     24h <ChangePill value={row.change24h} />
                   </div>
                 </div>
-                <div className="mt-5">
+                <div className="mt-5" data-verdict-slot>
                   <GapMeter gap={row.gap} waiting={meterWaiting(row).text} loading={meterWaiting(row).loading} />
                 </div>
-                <p className="mt-5 text-lg leading-relaxed">{row.verdict.line}</p>
+                <p className="mt-5 text-lg leading-relaxed" data-verdict>
+                  {row.verdict.line}
+                </p>
                 {row.rebase && row.rebase.at * 1000 > live.now ? (
                   <p className="mt-3 rounded-xl bg-gold/15 px-3 py-2 text-sm leading-relaxed">{rebaseLine(row.symbol, row.rebase)}</p>
                 ) : null}
@@ -206,9 +219,10 @@ function StockView({ data }: { data: StockData }) {
           {row ? <HeroLines rows={[row]} age={live.age} feedError={live.feedError} onPick={() => undefined} /> : null}
         </section>
 
-        <OtherTokens symbol={token.symbol} quotes={live.quotes} now={live.now} />
-
-        <Venues token={token} quote={live.quotes.find((q) => q.symbol === token.symbol) ?? null} initial={data.venues} now={live.now} />
+        <div data-live>
+          <OtherTokens symbol={token.symbol} quotes={live.quotes} now={live.now} />
+          <Venues token={token} quote={live.quotes.find((q) => q.symbol === token.symbol) ?? null} initial={data.venues} now={live.now} />
+        </div>
 
         <SupplyCard token={token} supply={data.supply} price={live.quotes.find((q) => q.symbol === token.symbol)?.usdPrice ?? null} />
 

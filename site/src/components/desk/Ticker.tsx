@@ -21,7 +21,7 @@ export function Ticker({ rows, onPick }: { rows: TickerRow[]; onPick: (symbol: s
           className="inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm text-foam hover:bg-white/5"
           title={`${row.name}: ${row.verdict.title}`}
         >
-          <span className={`h-2 w-2 rounded-full ${verdictDotClass(row.verdict.id)}`} aria-hidden />
+          <span data-verdict className={`h-2 w-2 rounded-full ${verdictDotClass(row.verdict.id)}`} aria-hidden />
           <span className="font-medium">{row.symbol}</span>
           <span className="tabular-nums text-mist">{formatUsd(row.usdPrice)}</span>
           {row.change24h == null ? null : (
@@ -31,7 +31,7 @@ export function Ticker({ rows, onPick }: { rows: TickerRow[]; onPick: (symbol: s
       </li>
     ));
   return (
-    <div aria-hidden className="ticker relative z-10 border-b border-white/10 bg-night/70 backdrop-blur">
+    <div aria-hidden className="ticker relative z-10 border-b border-white/10 bg-night/70 backdrop-blur" data-live>
       <div className="ticker-window">
         <div className="ticker-track flex w-max py-1.5">
           <ul className="flex items-center gap-1 pr-1">{items(0)}</ul>

@@ -1,20 +1,35 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Download } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Backdrop } from "../components/Backdrop";
 import { BagEvents } from "../components/portfolio/BagEvents";
 import { BagMap } from "../components/portfolio/BagMap";
 import { BagPromise } from "../components/portfolio/BagPromise";
 import { BagYield } from "../components/portfolio/BagYield";
+import {
+  ChangeChip,
+  Donut,
+  ExposureBars,
+  LineBadge,
+  OverlapChart,
+  ShareBars,
+  SliceKey,
+  SpreadMeter,
+  TodayPill,
+  lineColour,
+  shareLabel,
+  type Slice,
+} from "../components/portfolio/charts";
 import { RealPrice } from "../components/portfolio/RealPrice";
 import { WatchBag } from "../components/portfolio/WatchBag";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteNav } from "../components/SiteNav";
 import { bagEvents, forgetWallet, isXStock, liveLines, readSavedWallet, realPriceRows, saveWallet, withoutDust } from "../lib/bag";
 import { HOLDINGS_AS_OF, exposures, holdingsMayBeStale, overlap } from "../lib/etf-holdings";
-import { SITE_URL, STATIC_PAGE_CACHE } from "../lib/site";
+import { SHELL_PAGE_CACHE, SITE_URL } from "../lib/site";
 import type { Offer, PortfolioLine, PortfolioResult } from "../lib/types";
 import { useLiveQuotes } from "../lib/useLiveQuotes";
+import { useWantBuys } from "../lib/useWantBuys";
 import {
   cleanName,
   connectError,
@@ -31,7 +46,7 @@ const DESCRIPTION =
   "Your Solana wallet's stock tokens next to the shares they track: the Nasdaq value, a live exit price, possible yield and coming rebases. Read-only.";
 
 export const Route = createFileRoute("/portfolio")({
-  headers: () => ({ "Netlify-CDN-Cache-Control": STATIC_PAGE_CACHE }),
+  headers: () => ({ "Netlify-CDN-Cache-Control": SHELL_PAGE_CACHE }),
   head: () => ({
     meta: [
       { title: "Portfolio · Par" },
@@ -45,7 +60,11 @@ export const Route = createFileRoute("/portfolio")({
   component: PortfolioPage,
 });
 
-const KIND_COLOURS: Record<string, string> = { Stock: "#3d7eff", ETF: "#8eb6ff", Crypto: "#3dbe8b", Cash: "#e0a04a" };
+// Asset kinds in the allocation donut. Stocks blue, ETFs gold (as the Index sector), crypto green, cash sand.
+const KIND_COLOURS: Record<string, string> = { Stock: "#5b8def", ETF: "#e0a04a", Crypto: "#2fd3a5", Cash: "#cdb88e" };
+const KIND_LABELS: Record<string, string> = { Stock: "Stocks", ETF: "ETFs", Crypto: "Crypto", Cash: "Cash" };
+// Country and currency bars, in order of size.
+const PLAIN_COLOURS = ["#5b8def", "#e0a04a", "#2fd3a5", "#a184f5", "#e472b0", "#8fb3c0"];
 
 function usd(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
@@ -61,10 +80,6 @@ function usdShort(value: number) {
 
 function pct(value: number) {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
-}
-
-function share(part: number, total: number) {
-  return total > 0 ? `${((part / total) * 100).toFixed(1)}%` : "—";
 }
 
 type GroupKey = "kind" | "sector" | "country" | "currency";
@@ -89,71 +104,13 @@ function shortAddress(address: string) {
   return address.length < 12 ? address : `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
-function AllocationRing({ rows, total }: { rows: [string, number][]; total: number }) {
-  const circumference = 2 * Math.PI * 42;
-  let offset = 0;
-  const equities = rows.filter(([kind]) => kind === "Stock" || kind === "ETF").reduce((sum, [, value]) => sum + value, 0);
-  const equityPct = total > 0 ? Math.round((equities / total) * 100) : 0;
-  return (
-    <svg viewBox="0 0 120 120" className="h-48 w-48 shrink-0" aria-hidden>
-      <circle cx="60" cy="60" r={42} fill="none" stroke="#1c3340" strokeWidth="12" />
-      {rows.map(([kind, value]) => {
-        const fraction = total > 0 ? value / total : 0;
-        const length = Math.max(0, fraction * circumference - 1.5);
-        const arc = (
-          <circle
-            key={kind}
-            cx="60"
-            cy="60"
-            r={42}
-            fill="none"
-            stroke={KIND_COLOURS[kind] ?? "#8aa"}
-            strokeWidth="12"
-            strokeDasharray={`${length} ${circumference - length}`}
-            strokeDashoffset={-offset}
-            transform="rotate(-90 60 60)"
-          />
-        );
-        offset += fraction * circumference;
-        return arc;
-      })}
-      <text x="60" y="56" textAnchor="middle" fill="#a9c4bc" fontSize="7" letterSpacing="1.2">
-        EQUITIES
-      </text>
-      <text x="60" y="74" textAnchor="middle" fill="#e7f3ee" fontSize="16" fontFamily="Fraunces, Georgia, serif">
-        {equityPct}%
-      </text>
-    </svg>
-  );
-}
-
-function Fact({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Fact({ label, value, hint, children }: { label: string; value: string; hint?: string; children?: ReactNode }) {
   return (
     <div className="rounded-2xl bg-foam px-3 py-3">
       <dt className="text-xs text-muted">{label}</dt>
       <dd className="mt-0.5 font-display text-lg tabular-nums sm:text-xl">{value}</dd>
-      {hint ? <dd className="text-xs text-muted">{hint}</dd> : null}
-    </div>
-  );
-}
-
-function Breakdown({ title, rows, total }: { title: string; rows: [string, number][]; total: number }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-dusk p-5">
-      <p className="text-sm font-medium text-foam">{title}</p>
-      <ul className="mt-3 space-y-2">
-        {rows.length === 0 ? <li className="text-sm text-mist">Nothing priced.</li> : null}
-        {rows.map(([label, value]) => (
-          <li key={label} className="flex items-baseline justify-between gap-3 text-sm">
-            <span className="text-mist">{label}</span>
-            <span className="text-foam">
-              {usd(value)}
-              {" · "}
-              {share(value, total)}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {children ? <dd>{children}</dd> : null}
+      {hint ? <dd className="mt-1 text-xs text-muted">{hint}</dd> : null}
     </div>
   );
 }
@@ -182,6 +139,15 @@ function PortfolioPage() {
   const rows = realPriceRows(lines, live.quotes, live.now);
   const events = bagEvents(lines, live.quotes, live.now);
   const heldSymbols = rows.map((row) => row.line.symbol);
+  // The stock tokens in this bag, largest first, get their $1,000 buys quoted before the rest of the list.
+  useWantBuys(
+    () =>
+      lines
+        .filter(isXStock)
+        .sort((a, b) => b.usdValue - a.usdValue)
+        .map((line) => line.symbol),
+    live.quotes,
+  );
 
   const overlapRows = overlap();
   const total = lines.reduce((sum, line) => sum + line.usdValue, 0);
@@ -191,7 +157,7 @@ function PortfolioPage() {
   const sleeve = lines.filter((line) => line.kind === "Stock" || line.kind === "ETF").filter((line) => line.change24h != null);
   const sleeveBase = sleeve.reduce((sum, line) => sum + line.usdValue, 0);
   const sleeveMove = sleeveBase > 0 ? sleeve.reduce((sum, line) => sum + line.usdValue * ((line.change24h ?? 0) / 100), 0) / sleeveBase : null;
-  const companies = exposures(lines.map((line) => ({ symbol: line.symbol, underlying: line.underlying, kind: line.kind, usd: line.usdValue })));
+  const companies = exposures(lines.map((line) => ({ symbol: line.symbol, underlying: line.underlying, kind: line.kind, usd: line.usdValue, name: line.name })));
   const apple = companies.find((company) => company.symbol === "AAPL");
 
   /** Reads the wallet, shows it, and keeps it on this device (the desk's Portfolio tab uses the same key). */
@@ -304,6 +270,17 @@ function PortfolioPage() {
   const spread = spreadScore(lines, total);
   const byKind = groupBy(lines, "kind");
   const bySector = groupBy(lines, "sector");
+  const stockCount = lines.filter(isXStock).length;
+  const kindSlices: Slice[] = byKind.map(([kind, value]) => ({ key: kind, label: KIND_LABELS[kind] ?? kind, value, colour: KIND_COLOURS[kind] ?? "#8fb3c0" }));
+  const sectorRows: Slice[] = bySector.map(([sector, value]) => ({
+    key: sector,
+    label: sector,
+    value,
+    colour: lineColour({ kind: sector === "Cash" ? "Cash" : sector === "Crypto" ? "Crypto" : "Stock", sector }),
+  }));
+  const equities = byKind.filter(([kind]) => kind === "Stock" || kind === "ETF").reduce((sum, [, value]) => sum + value, 0);
+  const plainRows = (rows: [string, number][]): Slice[] =>
+    rows.map(([label, value], index) => ({ key: label, label, value, colour: PLAIN_COLOURS[index % PLAIN_COLOURS.length] }));
 
   function exportCsv() {
     const body = lines
@@ -498,17 +475,20 @@ function PortfolioPage() {
                   </div>
                 </div>
                 <p className="mt-2 font-display text-5xl tabular-nums sm:text-6xl">{usd(total)}</p>
-                <p className="mt-2 text-base">
+                <p className="mt-3 flex flex-wrap items-center gap-2 text-base">
                   {"Today "}
-                  <span className={todayUsd == null ? "text-muted" : todayUsd >= 0 ? "text-pine" : "text-clay"}>
-                    {todayUsd == null ? "—" : `${todayUsd >= 0 ? "+" : "−"}${usd(Math.abs(todayUsd))}`}
-                    {dayMove == null ? "" : ` (${pct(dayMove * 100)})`}
-                  </span>
+                  <TodayPill usdMove={todayUsd} pct={dayMove == null ? null : dayMove * 100} />
                 </p>
                 <dl className="mt-5 grid grid-cols-3 gap-2">
-                  <Fact label="Positions" value={String(lines.length)} />
-                  <Fact label="Cash" value={usdShort(cash)} hint="USDC and USDT" />
-                  <Fact label="Spread" value={spread == null ? "—" : `${spread.toFixed(1)}/10`} hint="10 is even" />
+                  <Fact label="Positions" value={String(lines.length)} hint={`${stockCount} stock token${stockCount === 1 ? "" : "s"}`} />
+                  <Fact label="Cash" value={usdShort(cash)} hint={`USDC and USDT · ${shareLabel(cash, total)}`}>
+                    <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
+                      <span className="bar-grow block h-full rounded-full bg-[#cdb88e]" style={{ width: total > 0 ? `${(cash / total) * 100}%` : "0%" }} />
+                    </span>
+                  </Fact>
+                  <Fact label="Spread" value={spread == null ? "—" : `${spread.toFixed(1)}/10`} hint="10 is even">
+                    <SpreadMeter score={spread} />
+                  </Fact>
                 </dl>
                 <p className="mt-4 text-sm text-muted">
                   {shortAddress(loadedAddress)}
@@ -578,72 +558,50 @@ function PortfolioPage() {
         {book ? (
           <>
             <h2 className="mt-12 font-display text-3xl">The mix</h2>
+            <p className="mt-1 text-sm text-mist">Every line in the wallet, by what it is, by sector, and by the companies behind it.</p>
             <section className="mt-4 grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-              <div className="rounded-2xl border border-white/10 bg-dusk p-5">
+              <div className="chart-panel p-5">
                 <p className="text-sm font-medium text-foam">Asset allocation</p>
                 <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row">
-                  <AllocationRing rows={byKind} total={total} />
-                  <ul className="w-full space-y-3">
-                    {byKind.length === 0 ? <li className="text-sm text-mist">Nothing priced yet.</li> : null}
-                    {byKind.map(([kind, value]) => (
-                      <li key={kind} className="flex items-center justify-between gap-3 text-sm">
-                        <span className="flex items-center gap-2 text-mist">
-                          <span className="h-2.5 w-2.5 rounded-full" style={{ background: KIND_COLOURS[kind] ?? "#8aa" }} />
-                          {kind === "Stock" ? "Stocks" : kind === "ETF" ? "ETFs" : kind}
-                        </span>
-                        <span className="text-foam">{usd(value)}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <Donut slices={kindSlices} total={total} label="Equities" value={shareLabel(equities, total)} />
+                  {kindSlices.length === 0 ? <p className="text-sm text-mist">Nothing priced yet.</p> : <SliceKey slices={kindSlices} total={total} />}
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-dusk p-5">
+              <div className="chart-panel p-5">
                 <p className="text-sm font-medium text-foam">Sector exposure</p>
-                <ul className="mt-4 space-y-4">
-                  {bySector.length === 0 ? <li className="text-sm text-mist">Nothing priced yet.</li> : null}
-                  {bySector.map(([sector, value]) => (
-                    <li key={sector}>
-                      <div className="flex items-baseline justify-between text-sm">
-                        <span className="text-mist">{sector}</span>
-                        <span className="text-foam">{share(value, total)}</span>
-                      </div>
-                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-                        <div className="h-full rounded-full bg-[#3d7eff]" style={{ width: total > 0 ? `${(value / total) * 100}%` : "0%" }} />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-4">
+                  <ShareBars rows={sectorRows} total={total} empty="Nothing priced yet." />
+                </div>
                 <p className="mt-4 text-xs leading-relaxed text-mist">An ETF stays one sector here. The companies inside it are in the exposure list.</p>
               </div>
             </section>
 
-            <section className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-dusk">
-              <div className="px-5 py-4">
+            <section className="chart-panel mt-3 overflow-hidden">
+              <div className="flex items-baseline justify-between gap-3 px-5 py-4">
                 <p className="text-sm font-medium text-foam">Holdings</p>
+                <p className="text-xs text-mist">{lines.length === 1 ? "1 line" : `${lines.length} lines`}, largest first</p>
               </div>
               <ul className="divide-y divide-white/5 border-t border-white/10 sm:hidden">
                 {lines.length === 0 ? <li className="px-5 py-6 text-sm text-mist">Nothing priced in this wallet.</li> : null}
-                {lines.map((line) => {
-                  const change = line.change24h;
-                  return (
-                    <li key={`${line.kind}-${line.symbol}-${line.underlying}`} className="flex items-center justify-between gap-3 px-5 py-3">
+                {lines.map((line) => (
+                  <li key={`${line.kind}-${line.symbol}-${line.underlying}`} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <LineBadge line={line} />
                       <div className="min-w-0">
                         <p className="truncate font-medium text-foam">{line.name}</p>
                         <p className="text-xs text-mist">
                           {line.symbol}
                           {" · "}
-                          {share(line.usdValue, total)}
+                          {shareLabel(line.usdValue, total)}
                         </p>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-foam">{usd(line.usdValue)}</p>
-                        <p className={`text-xs ${change == null ? "text-mist" : change >= 0 ? "text-[#3dbe8b]" : "text-clay-bright"}`}>
-                          {change == null ? "—" : pct(change)}
-                        </p>
-                      </div>
-                    </li>
-                  );
-                })}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="tabular-nums text-foam">{usd(line.usdValue)}</p>
+                      <ChangeChip value={line.change24h} />
+                    </div>
+                  </li>
+                ))}
               </ul>
               <div className="hidden overflow-x-auto sm:block">
                 <table className="w-full min-w-[640px] text-left text-sm">
@@ -666,29 +624,35 @@ function PortfolioPage() {
                     ) : null}
                     {lines.map((line) => {
                       const price = line.amount > 0 ? line.usdValue / line.amount : null;
-                      const change = line.change24h;
-                      const up = change != null && change >= 0;
                       return (
-                        <tr key={`${line.kind}-${line.symbol}-${line.underlying}`} className="border-b border-white/5">
-                          <td className="px-5 py-4">
-                            <p className="font-medium text-foam">{line.name}</p>
-                            <p className="text-xs text-mist">
-                              {line.symbol}
-                              {" · "}
-                              {line.kind}
-                            </p>
-                          </td>
-                          <td className="px-3 py-4">
-                            <p className="text-foam">{share(line.usdValue, total)}</p>
-                            <div className="mt-1 h-1 w-24 overflow-hidden rounded-full bg-white/10">
-                              <div className="h-full rounded-full bg-[#3d7eff]" style={{ width: total > 0 ? `${(line.usdValue / total) * 100}%` : "0%" }} />
+                        <tr key={`${line.kind}-${line.symbol}-${line.underlying}`} className="border-b border-white/5 transition-colors hover:bg-white/[0.03]">
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <LineBadge line={line} />
+                              <div className="min-w-0">
+                                <p className="font-medium text-foam">{line.name}</p>
+                                <p className="text-xs text-mist">
+                                  {line.symbol}
+                                  {" · "}
+                                  {line.kind}
+                                </p>
+                              </div>
                             </div>
                           </td>
-                          <td className="px-3 py-4 text-foam">{price == null ? "—" : usd(price)}</td>
-                          <td className={`px-3 py-4 ${change == null ? "text-mist" : up ? "text-[#3dbe8b]" : "text-clay-bright"}`}>
-                            {change == null ? "—" : pct(change)}
+                          <td className="px-3 py-3.5">
+                            <p className="tabular-nums text-foam">{shareLabel(line.usdValue, total)}</p>
+                            <div className="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-white/10">
+                              <div
+                                className="bar-grow h-full rounded-full"
+                                style={{ width: total > 0 ? `${Math.max((line.usdValue / total) * 100, line.usdValue > 0 ? 2 : 0)}%` : "0%", background: lineColour(line) }}
+                              />
+                            </div>
                           </td>
-                          <td className="px-5 py-4 text-right text-foam">{usd(line.usdValue)}</td>
+                          <td className="px-3 py-3.5 tabular-nums text-foam">{price == null ? "—" : usd(price)}</td>
+                          <td className="px-3 py-3.5">
+                            <ChangeChip value={line.change24h} />
+                          </td>
+                          <td className="px-5 py-3.5 text-right tabular-nums text-foam">{usd(line.usdValue)}</td>
                         </tr>
                       );
                     })}
@@ -697,7 +661,7 @@ function PortfolioPage() {
               </div>
             </section>
 
-            <section className="mt-3 rounded-2xl border border-white/10 bg-dusk p-5">
+            <section className="chart-panel mt-3 p-5">
               <p className="text-sm font-medium text-foam">Effective exposure</p>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-mist">
                 {"A direct stock counts in full. SPYx and QQQx are opened with published top holdings as of "}
@@ -718,25 +682,12 @@ function PortfolioPage() {
               ) : (
                 <p className="mt-4 text-sm text-mist">No Apple exposure in the published top holdings or as a direct token.</p>
               )}
-              <ul className="mt-4 divide-y divide-white/10">
-                {companies.slice(0, 12).map((company) => (
-                  <li key={company.symbol} className="flex items-baseline justify-between gap-4 py-3 text-sm">
-                    <div>
-                      <p className="text-foam">{company.name}</p>
-                      <p className="text-mist">
-                        {company.direct > 0 ? `${usd(company.direct)} direct` : "Only through a fund"}
-                        {company.through.length > 0 ? ` · ${company.through.map((t) => t.fund).join(", ")}` : ""}
-                      </p>
-                    </div>
-                    <p className="text-foam">{usd(company.usd)}</p>
-                  </li>
-                ))}
-              </ul>
+              {companies.length > 0 ? <ExposureBars rows={companies.slice(0, 12)} /> : null}
             </section>
           </>
         ) : null}
 
-        <section className="mt-3 rounded-2xl border border-white/10 bg-dusk p-5">
+        <section className="chart-panel mt-3 p-5">
           <p className="text-sm font-medium text-foam">SPYx and QQQx are not the same bet</p>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-mist">
             {"Published top holdings as of "}
@@ -744,26 +695,23 @@ function PortfolioPage() {
             {". Owning both is the same company twice. QQQx is the heavier chip bet."}
             {holdingsMayBeStale() ? " These weights may have changed since." : ""}
           </p>
-          <ul className="mt-4 divide-y divide-white/10">
-            {overlapRows.map((row) => (
-              <li key={row.symbol} className="flex items-baseline justify-between gap-4 py-3 text-sm">
-                <p className="text-foam">{row.name}</p>
-                <p className="text-mist">
-                  {"SPY "}
-                  {(row.spy * 100).toFixed(2)}
-                  {"% · QQQ "}
-                  {(row.qqq * 100).toFixed(2)}
-                  {"%"}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <OverlapChart rows={overlapRows} />
         </section>
 
         {book ? (
           <section className="mt-3 grid gap-3 sm:grid-cols-2">
-            <Breakdown title="Country" rows={groupBy(lines, "country")} total={total} />
-            <Breakdown title="Currency" rows={groupBy(lines, "currency")} total={total} />
+            <div className="chart-panel p-5">
+              <p className="text-sm font-medium text-foam">Country</p>
+              <div className="mt-4">
+                <ShareBars rows={plainRows(groupBy(lines, "country"))} total={total} empty="Nothing priced." />
+              </div>
+            </div>
+            <div className="chart-panel p-5">
+              <p className="text-sm font-medium text-foam">Currency</p>
+              <div className="mt-4">
+                <ShareBars rows={plainRows(groupBy(lines, "currency"))} total={total} empty="Nothing priced." />
+              </div>
+            </div>
           </section>
         ) : null}
 

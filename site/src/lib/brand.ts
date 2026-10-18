@@ -27,6 +27,35 @@ export function sectorColours(sector: string) {
 }
 
 /**
+ * One bright colour per sector for the portfolio's charts (bars, the donut, the map's edge and its key), readable on
+ * both the dark sky and the light cards. Cash and Crypto are the wallet's other kinds of line.
+ */
+const SECTOR_ACCENTS: Record<string, string> = {
+  Semiconductors: "#5b8def",
+  Autos: "#a184f5",
+  "Consumer tech": "#4cc79a",
+  Index: "#e0a04a",
+  Software: "#3fbfd9",
+  Internet: "#e472b0",
+  Consumer: "#d9925a",
+  Fintech: "#7fd1c1",
+  Treasury: "#f2c14e",
+  Exchange: "#7aa2ff",
+  Commodity: "#e8d06a",
+  Aerospace: "#9aa6e6",
+  Brokerage: "#8bd36c",
+  Media: "#ef6f6c",
+  Restaurants: "#f59a5b",
+  Gaming: "#c58af5",
+  Cash: "#cdb88e",
+  Crypto: "#2fd3a5",
+};
+
+export function sectorAccent(sector: string) {
+  return SECTOR_ACCENTS[sector] ?? "#8fb3c0";
+}
+
+/**
  * Pools under this many dollars are too thin for a $1,000 buy to mean anything (it would move the price by
  * percents), so they are not quoted: the rotation's few requests go to the names a buy can judge.
  */

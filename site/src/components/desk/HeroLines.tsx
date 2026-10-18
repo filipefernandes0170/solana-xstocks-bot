@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { formatGap, formatUsd } from "../../lib/format";
+import { ageLabel, formatGap, formatUsd } from "../../lib/format";
 import { gapPct, verdictPillClass } from "../../lib/verdict";
 import type { DeskRow } from "./StockCard";
 
@@ -65,6 +65,7 @@ export function HeroLines({
 
   return (
     <figure
+      data-live
       className="hero-lines relative w-full select-none"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -86,12 +87,12 @@ export function HeroLines({
         )}
         <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-foam">
           {current ? (
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${verdictPillClass(current.row.verdict.id)}`}>
+            <span data-verdict className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${verdictPillClass(current.row.verdict.id)}`}>
               {current.row.verdict.title}
             </span>
           ) : null}
           <span className="live-dot" aria-hidden />
-          <span aria-hidden>{feedError ? "Reconnecting" : `${age}s`}</span>
+          <span aria-hidden>{feedError ? "Reconnecting" : age < 60 ? `${age}s` : ageLabel(age * 1000)}</span>
           {/* Screen readers hear only the change between live and reconnecting, not every second. */}
           <span className="sr-only" role="status">
             {feedError ? "Prices reconnecting" : "Prices live"}
