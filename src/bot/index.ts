@@ -10,6 +10,7 @@ import { briefCommand, briefReply } from "./commands/brief.js";
 import { sendCard } from "./commands/card.js";
 import { helpCommand } from "./commands/help.js";
 import { eventsCommand } from "./commands/events.js";
+import { flowsCommand } from "./commands/flows.js";
 import { confirmProof, holdCommand } from "./commands/hold.js";
 import { portfolioCommand } from "./commands/portfolio.js";
 import { pricesCommand } from "./commands/prices.js";
@@ -26,6 +27,7 @@ export const MENU_COMMANDS = [
   { command: "prices", description: "The whole desk: verdicts, prices and gaps" },
   { command: "events", description: "Market days off, balance changes and SEC filings" },
   { command: "week", description: "This week's ranking, and tokens created on Solana" },
+  { command: "flows", description: "Large batches of tokens created or burned (texts for $PAR holders)" },
   { command: "pairs", description: "Same company, two tokens: which is cheaper" },
   { command: "sizealert", description: "A text when your order size is at the real price ($PAR holders)" },
   { command: "size", description: "What your order really costs: /size NVDAx 5000" },
@@ -49,6 +51,7 @@ export function createBot() {
   bot.command("prices", pricesCommand);
   bot.command("week", weekCommand);
   bot.command("events", eventsCommand);
+  bot.command("flows", flowsCommand);
   bot.command("pairs", pairsCommand);
   bot.command("sizealert", sizeAlertCommand);
   bot.command("size", sizeCommand);

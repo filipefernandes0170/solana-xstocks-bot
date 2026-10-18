@@ -19,8 +19,11 @@ export type DeskQuote = VerdictInput & {
 };
 
 
-/** `paused`: the issuer has paused every transfer (Token-2022 pausable extension); null when the mint was not read. */
-type MintInfo = { rebase: Rebase | null; decimals: number | null; multiplier: number | null; paused: boolean | null };
+/**
+ * `paused`: the issuer has paused every transfer (Token-2022 pausable extension); null when the mint was not read.
+ * `supplyRaw`: the mint's total supply in on-chain units, as a decimal string (it can exceed 2^53).
+ */
+type MintInfo = { rebase: Rebase | null; decimals: number | null; multiplier: number | null; paused: boolean | null; supplyRaw: string | null };
 
 let cache: { at: number; quotes: DeskQuote[] } | null = null;
 type StockPrint = { price: number; state: string };
@@ -71,6 +74,7 @@ async function mintRebases() {
               parsed?: {
                 info?: {
                   decimals?: number;
+                  supply?: string;
                   extensions?: Array<{
                     extension?: string;
                     state?: {
@@ -98,6 +102,7 @@ async function mintRebases() {
           multiplier: info ? currentMultiplier(scaled, nowSec) : null,
           // A mint without the pause extension cannot be paused.
           paused: info ? pausable?.paused === true : null,
+          supplyRaw: typeof info?.supply === "string" && /^\d+$/.test(info.supply) ? info.supply : null,
         });
       });
       rebaseCache = { at: Date.now(), rows };
@@ -107,6 +112,15 @@ async function mintRebases() {
     }
   }
   return rebaseCache?.rows ?? new Map();
+}
+
+/**
+ * Each mint as last read on chain (at most 5 minutes old), and when that read happened (null before the first read).
+ * The issuer flow alerts (services/flows.ts) take the supply from here, so they cost no extra request.
+ */
+export async function mintSupplies(): Promise<{ at: number | null; rows: Map<string, MintInfo> }> {
+  const rows = await mintRebases();
+  return { at: rebaseCache?.at ?? null, rows };
 }
 
 /** Whether each token's transfers are paused on chain, by symbol; null for a mint that could not be read. */

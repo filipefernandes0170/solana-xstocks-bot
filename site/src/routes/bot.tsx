@@ -5,6 +5,7 @@ import {
   Briefcase,
   CalendarDays,
   Check,
+  Factory,
   FingerprintPattern,
   Gauge,
   KeyRound,
@@ -109,6 +110,7 @@ const HOLDERS: { icon: ReactNode; title: string; line: string }[] = [
   { icon: <Zap className="size-5" aria-hidden />, title: "Fair pings", line: "A text the moment a name you watch turns Fair, and when one trades rich while Nasdaq is closed." },
   { icon: <Target className="size-5" aria-hidden />, title: "Size alerts", line: "A text when your own order size, not just $1,000, is within 0.4% of the Nasdaq print." },
   { icon: <CalendarDays className="size-5" aria-hidden />, title: "Event texts", line: "Key filings for the names you hold or watch, at most 5 a day, and a pause alert at once." },
+  { icon: <Factory className="size-5" aria-hidden />, title: "Issuer flows", line: "A text when a large batch of a name you hold or watch is created or burned on Solana." },
   { icon: <Sunrise className="size-5" aria-hidden />, title: "Morning brief", line: "Before the open on trading days: what is dearest and cheapest to buy, and today's balance changes." },
   { icon: <BellRing className="size-5" aria-hidden />, title: "Open bell", line: "One message as Nasdaq opens, with whatever is Fair and a Buy button for each." },
   { icon: <Briefcase className="size-5" aria-hidden />, title: "Bag watch and two-token pings", line: "A note when a stock in your wallet changes verdict, and when one token of a company gets cheaper." },
@@ -212,6 +214,13 @@ const HOLDER_DOCS: Doc[] = [
     when: "If a token you hold or watch has its transfers paused on chain, you hear at once, and again when they resume. That safety alert has no off switch.",
   },
   {
+    icon: <Factory className="size-5" aria-hidden />,
+    title: "Issuer flows",
+    commands: ["/flows", "/flows on", "/flows off"],
+    what: "Tokens are created when the issuer (xStocks or Backpack) issues new ones and burned when they are redeemed. Par reads each token's supply on Solana every 5 minutes. A large flow is at least $500,000 and 1% of the token's supply created or burned within about an hour. Anyone can list the last 24 hours with /flows. Holders get a text within minutes when one hits a name in their bag or watch list: how much, in dollars and shares, and the supply on Solana after it.",
+    when: "At most 3 texts a day and once per name every 6 hours; on unless you turn it off. A rebase never counts, since it changes the multiplier, not the supply. Par does not know who is behind a flow, and a flow is not a buy or sell signal.",
+  },
+  {
     icon: <Target className="size-5" aria-hidden />,
     title: "Size alerts",
     commands: ["/sizealert NVDAx 5000", "/sizealert", "/sizealert off"],
@@ -246,6 +255,7 @@ const COMMANDS: [string, string][] = [
   ["/size NVDAx 5000", "Your order, per share"],
   ["/portfolio", "Your stock-token bag"],
   ["/events", "Days off, rebases, filings"],
+  ["/flows", "Large creations and burns"],
   ["/week", "Ranking and supply"],
   ["/pairs", "Same company, two tokens"],
   ["/yield NVDAx", "Lending rates"],
@@ -255,6 +265,7 @@ const COMMANDS: [string, string][] = [
   ["/brief", "Morning brief on or off"],
   ["/bell", "Open bell on or off"],
   ["/events off", "Filing texts off"],
+  ["/flows off", "Flow texts off"],
   ["/hold", "Prove the wallet that holds $PAR"],
   ["/help", "How Par works"],
 ];
@@ -274,7 +285,7 @@ const questions = (coinLive: boolean): [string, string][] => [
   ],
   [
     "Does it cost anything?",
-    "No. Par takes no fee. Cards, /prices, /size, /portfolio, /events, /pairs, /week, /yield and /alert are free for everyone. The texts need $PAR in a wallet you prove: you hold it, you do not pay it.",
+    "No. Par takes no fee. Cards, /prices, /size, /portfolio, /events, /flows, /pairs, /week, /yield and /alert are free for everyone. The texts need $PAR in a wallet you prove: you hold it, you do not pay it.",
   ],
   coinLive
     ? [
@@ -287,11 +298,11 @@ const questions = (coinLive: boolean): [string, string][] => [
       ],
   [
     "How often will it text me?",
-    "Only when something changes, never the same thing twice, and at most once an hour about the same name, even when its price sits right on a verdict's edge. The brief and the bell come once a trading day, two-token pings once a day per company, filing texts at most 5 a day, and size and move alerts switch off after they fire. Every text has an off switch: /watch off, /brief, /bell, /pairs off, /events off, /sizealert off, /alert clear.",
+    "Only when something changes, never the same thing twice, and at most once an hour about the same name, even when its price sits right on a verdict's edge. The brief and the bell come once a trading day, two-token pings once a day per company, filing texts at most 5 a day, flow texts at most 3 a day, and size and move alerts switch off after they fire. Every text has an off switch: /watch off, /brief, /bell, /pairs off, /events off, /flows off, /sizealert off, /alert clear.",
   ],
   [
     "Where do the numbers come from?",
-    "Token prices and buy quotes from Jupiter, stock prints from Nasdaq, lending rates from Kamino, filings from SEC EDGAR, balance changes and pauses from each token's mint on Solana, and market days off from the exchanges' own calendars. None is made up.",
+    "Token prices and buy quotes from Jupiter, stock prints from Nasdaq, lending rates from Kamino, filings from SEC EDGAR, balance changes, pauses and supply from each token's mint on Solana, and market days off from the exchanges' own calendars. None is made up.",
   ],
   [
     "Does the bot know earnings dates in advance?",
