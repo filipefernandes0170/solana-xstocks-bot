@@ -7,9 +7,10 @@ import { FAIR_BAND, GAP_SCALE, gapPosition, sectorAccent } from "../../lib/brand
 import { isXStock } from "../../lib/bag";
 import type { PortfolioLine } from "../../lib/types";
 import { TickerBadge } from "../desk/parts";
+import { numberFormat } from "../../lib/intl";
 
 export function usd(value: number, digits = 2) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+  return numberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
 }
 
 /** "59.3%", and "<0.1%" for a part too small to show as 0.0% without hiding that it is there. */

@@ -1,5 +1,6 @@
 import { Info, ShieldAlert, ShieldCheck } from "lucide-react";
 import { shortKey, type IssuerResult, type PowerId } from "../../lib/issuer";
+import { dateFormat } from "../../lib/intl";
 
 // Powers that can take a holder's tokens or stop them moving. The rest are how the token works day to day.
 const SERIOUS: PowerId[] = ["seize", "freeze", "pause", "hook", "frozenStart"];
@@ -9,7 +10,7 @@ function explorer(address: string) {
 }
 
 function utcTime(ms: number) {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(
+  return dateFormat("en-GB", { timeZone: "UTC", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(
     new Date(ms),
   );
 }

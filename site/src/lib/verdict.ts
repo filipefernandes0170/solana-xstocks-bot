@@ -5,6 +5,7 @@ import { impactHint } from "./format";
 import { isSessionOpen } from "./session";
 import { AROUND_THE_CLOCK } from "./tokens";
 import type { Quote, Rebase, Verdict, VerdictId } from "./types";
+import { dateFormat } from "./intl";
 
 /** Percent difference of a versus b. */
 export function gapPct(a: number | null | undefined, b: number | null | undefined) {
@@ -77,7 +78,7 @@ export function legsCancel(l: Legs) {
 }
 
 export function rebaseLine(symbol: string, rebase: Rebase) {
-  const when = new Intl.DateTimeFormat("en-GB", {
+  const when = dateFormat("en-GB", {
     timeZone: "UTC",
     day: "2-digit",
     month: "short",

@@ -56,6 +56,7 @@ import {
 } from "../lib/lastLook";
 import type { SupplyResult } from "../lib/supply";
 import { getBagPowers, getOffers, getPortfolio, getSupply } from "../server/functions";
+import { numberFormat } from "../lib/intl";
 
 const DESCRIPTION =
   "Your Solana wallet's stock tokens next to the shares they track: the Nasdaq value, a live exit price, possible yield and coming rebases. Read-only.";
@@ -82,15 +83,15 @@ const KIND_LABELS: Record<string, string> = { Stock: "Stocks", ETF: "ETFs", Cryp
 const PLAIN_COLOURS = ["#5b8def", "#e0a04a", "#2fd3a5", "#a184f5", "#e472b0", "#8fb3c0"];
 
 function usd(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
+  return numberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
 }
 
 /** Whole dollars from $1,000 and $1.2M style from a million, so the small boxes never overflow. */
 function usdShort(value: number) {
   if (value >= 1_000_000) {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(value);
+    return numberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(value);
   }
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: value >= 1000 ? 0 : 2 }).format(value);
+  return numberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: value >= 1000 ? 0 : 2 }).format(value);
 }
 
 function pct(value: number) {

@@ -6,6 +6,7 @@ import { formatGap, formatUsd } from "../../lib/format";
 import { ISSUER_LABEL, TOKEN_BY_SYMBOL } from "../../lib/tokens";
 import type { Quote, Verdict, VerdictId } from "../../lib/types";
 import { INK, W, drawBrand, drawFooter, loadFonts, newCanvas, toPng } from "./canvas";
+import { dateFormat } from "../../lib/intl";
 
 export type CardImageRow = Pick<Quote, "symbol" | "name" | "usdPrice" | "stockPrice" | "poolUsd"> & { verdict: Verdict; gap: number | null };
 
@@ -21,7 +22,7 @@ const PILL: Record<VerdictId, string> = {
 
 /** "17 Oct 2026, 17:40 UTC" */
 export function stampUtc(ms: number) {
-  const when = new Intl.DateTimeFormat("en-GB", {
+  const when = dateFormat("en-GB", {
     timeZone: "UTC",
     day: "numeric",
     month: "short",

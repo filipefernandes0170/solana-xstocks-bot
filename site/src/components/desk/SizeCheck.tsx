@@ -11,6 +11,7 @@ import { checkSize } from "../../server/functions";
 import { sizeShareText, stockUrl } from "../../lib/share";
 import { ShareButton } from "../ShareButton";
 import { BuyLink, TickerBadge } from "./parts";
+import { numberFormat, dateFormat } from "../../lib/intl";
 
 const TONE_CLASS = {
   fair: "bg-pine-soft text-pine",
@@ -20,7 +21,7 @@ const TONE_CLASS = {
 } as const;
 
 const money = (value: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  numberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
 /**
  * Size check: a live Jupiter quote at the amount the visitor types, priced per share and set against the
@@ -192,7 +193,7 @@ export function SizeCheck({
               />
               <p className="text-xs leading-relaxed text-muted">
                 Live Jupiter quote,{" "}
-                {new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(
+                {dateFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(
                   new Date(result.at),
                 )}
                 . Prices move, so the fill is not guaranteed.

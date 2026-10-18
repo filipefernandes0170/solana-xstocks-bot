@@ -10,12 +10,13 @@ import { verdictPillClass } from "../../lib/verdict";
 import { checkExit } from "../../server/functions";
 import { GapPill, TickerBadge } from "../desk/parts";
 import { MarkMeter, versusNasdaq } from "./charts";
+import { numberFormat } from "../../lib/intl";
 
 type ExitOk = Extract<ExitCheck, { ok: true }>;
 type ExitState = ExitCheck | "queued" | "checking" | "small" | "beyond";
 
 function money(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  return numberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 }
 
 function signed(value: number) {
@@ -27,7 +28,7 @@ function signedPct(value: number | null) {
 }
 
 function shareCount(value: number) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
+  return numberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
 }
 
 /** What the $1,000 buy column says: the buy against Nasdaq, or why there is none (a thin pool is never quoted). */

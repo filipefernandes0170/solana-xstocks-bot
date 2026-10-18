@@ -5,6 +5,7 @@ import { isXStock } from "../../lib/bag";
 import { treemap } from "../../lib/treemap";
 import type { PortfolioLine } from "../../lib/types";
 import { lineColour, shareLabel } from "./charts";
+import { numberFormat } from "../../lib/intl";
 
 // The map is laid out in a 100 × 64 box (100 × 96 on a phone, so the tiles have room for their labels) and drawn in
 // percent, so it scales with the page.
@@ -37,7 +38,7 @@ function colours(line: PortfolioLine) {
 }
 
 function usd(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+  return numberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
 function keyLabel(line: PortfolioLine) {

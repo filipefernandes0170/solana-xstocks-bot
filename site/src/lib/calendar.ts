@@ -4,6 +4,8 @@
 // published 2027 yet; the US exchanges close on the same days. Every early close is at 1:00 p.m. ET.
 // @ONPAR_BOT keeps the same list in src/services/calendar.ts, and a bot test checks the two match.
 
+import { dateFormat } from "./intl";
+
 export type MarketDayKind = "closed" | "early";
 
 export type MarketDay = { date: string; name: string; kind: MarketDayKind; source: CalendarSource };
@@ -71,7 +73,7 @@ export function marketDay(date: string) {
 type NyParts = { weekday: string; year: number; month: number; day: number; hour: number; minute: number; second: number };
 
 export function newYorkParts(ms: number): NyParts {
-  const parts = new Intl.DateTimeFormat("en-US", {
+  const parts = dateFormat("en-US", {
     timeZone: "America/New_York",
     weekday: "short",
     year: "numeric",

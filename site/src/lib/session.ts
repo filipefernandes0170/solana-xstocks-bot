@@ -1,6 +1,7 @@
 // US market session helpers. All Nasdaq times are New York time. Holidays and early closes come from calendar.ts.
 
 import { EARLY_CLOSE_LABEL, OPEN_MINUTES, addDays, atNewYork, closeMinutes, isTradingDay, marketDay, newYorkParts, nextTradingDay, nyDate } from "./calendar";
+import { dateFormat } from "./intl";
 
 export function isSessionOpen(state: string | null | undefined) {
   return (state ?? "").trim().toLowerCase() === "open";
@@ -63,7 +64,7 @@ export function opensDay(now: number) {
   const days = Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86_400_000);
   if (days <= 0) return "today";
   if (days === 1) return "tomorrow";
-  return new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "long" }).format(new Date(open));
+  return dateFormat("en-US", { timeZone: "America/New_York", weekday: "long" }).format(new Date(open));
 }
 
 /** One calm line for when the regular session is not open: where Nasdaq stands and when it opens. */
@@ -114,12 +115,12 @@ export function sessionLabel(state: string | null, now: number) {
 
 /** "1:27 AM ET" */
 export function etClock(now: number) {
-  return `${new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(new Date(now))} ET`;
+  return `${dateFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(new Date(now))} ET`;
 }
 
 /** "17 Oct, 13:30" in UTC, from unix seconds. */
 export function utcStamp(seconds: number) {
-  return new Intl.DateTimeFormat("en-GB", {
+  return dateFormat("en-GB", {
     timeZone: "UTC",
     day: "2-digit",
     month: "short",

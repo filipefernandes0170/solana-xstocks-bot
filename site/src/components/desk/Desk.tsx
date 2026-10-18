@@ -31,6 +31,7 @@ import { StockList } from "./StockList";
 import { Ticker } from "./Ticker";
 import { WhyHold } from "./WhyHold";
 import { YieldPanel } from "./YieldPanel";
+import { numberFormat } from "../../lib/intl";
 
 // The Gap tab's chart library is large, so it loads only when that tab is opened.
 const GapView = lazy(() => import("./GapView").then((module) => ({ default: module.GapView })));
@@ -839,7 +840,7 @@ export function Desk({
                                 <div className="min-w-0">
                                   <div className="font-medium">{h.symbol}</div>
                                   <div className="truncate text-sm text-muted">
-                                    {new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(h.amount)}
+                                    {numberFormat("en-US", { maximumFractionDigits: 4 }).format(h.amount)}
                                     {" shares · "}
                                     {h.name}
                                   </div>

@@ -13,6 +13,7 @@ import { SITE_URL, STATIC_PAGE_CACHE } from "../lib/site";
 import { TOKEN_BY_SYMBOL } from "../lib/tokens";
 import { getQuotes, getRanking, getSupply } from "../server/functions";
 import { SupplyTable } from "../components/ranking/SupplyTable";
+import { dateFormat } from "../lib/intl";
 
 const TITLE = "Which tokenized stocks stayed at the real price? · Par";
 const DESCRIPTION =
@@ -38,7 +39,7 @@ export const Route = createFileRoute("/ranking")({
 });
 
 function utcDay(ms: number) {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(
+  return dateFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(
     new Date(ms),
   );
 }

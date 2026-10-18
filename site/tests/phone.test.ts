@@ -142,3 +142,14 @@ test("the early answer is taken once, and only when well formed", async () => {
   assert.equal(isQuotesResult({ ok: true, quotes: [], asOf: Number.NaN }), false);
   assert.equal(isQuotesResult(null), false);
 });
+
+test("formatters are made once per set of options and write the same text", async () => {
+  const { dateFormat, numberFormat } = await import("../src/lib/intl");
+  const options = { style: "currency", currency: "USD", maximumFractionDigits: 2 } as const;
+  assert.equal(numberFormat("en-US", options), numberFormat("en-US", { ...options }), "the same options reuse one formatter");
+  assert.notEqual(numberFormat("en-US", options), numberFormat("en-US", { ...options, maximumFractionDigits: 4 }));
+  for (const value of [0, 1.5, 99.999, 214.1337, -51e6]) assert.equal(numberFormat("en-US", options).format(value), new Intl.NumberFormat("en-US", options).format(value));
+  const ny = { timeZone: "America/New_York", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" } as const;
+  assert.equal(dateFormat("en-US", ny), dateFormat("en-US", { ...ny }));
+  assert.equal(dateFormat("en-US", ny).format(new Date(NOW)), new Intl.DateTimeFormat("en-US", ny).format(new Date(NOW)));
+});

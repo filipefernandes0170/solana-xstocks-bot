@@ -1,5 +1,6 @@
 import { botCard } from "../../lib/botText";
 import type { Quote } from "../../lib/types";
+import { dateFormat } from "../../lib/intl";
 
 function Bubble({ from, delay, children }: { from: "you" | "bot"; delay: number; children: React.ReactNode }) {
   return (
@@ -35,7 +36,7 @@ function Keys({ delay, rows }: { delay: number; rows: string[][] }) {
  */
 export function PhoneDemo({ quote, asOf }: { quote: Quote | undefined; asOf: number }) {
   const card = quote ? botCard(quote, asOf) : null;
-  const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" }).format(new Date(asOf));
+  const time = dateFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" }).format(new Date(asOf));
   return (
     <figure className="mx-auto w-full max-w-[22rem]">
       <div className="rounded-[2.6rem] bg-[#05090c] p-2.5 shadow-[0_40px_80px_#020608aa] ring-1 ring-white/10">
