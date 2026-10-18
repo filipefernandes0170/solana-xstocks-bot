@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronDown, Ruler, Star } from "lucide-react";
 import { THIN_POOL_USD, poolLabel } from "../../lib/brand";
 import { formatUsd } from "../../lib/format";
+import { sessionClosed } from "../../lib/session";
 import { ISSUER_LABEL, TOKENS, TOKEN_BY_SYMBOL } from "../../lib/tokens";
 import { cardShareText, stockUrl } from "../../lib/share";
 import { ShareButton } from "../ShareButton";
@@ -105,7 +106,7 @@ export function StockCard({
           </div>
 
           <div className="mt-3" data-verdict-slot>
-            <GapMeter gap={row.gap} waiting={waiting.text} loading={waiting.loading} />
+            <GapMeter gap={row.gap} waiting={waiting.text} loading={waiting.loading} closed={sessionClosed(row.marketState)} />
           </div>
 
           {sessionOpen ? (

@@ -1,6 +1,6 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { FAIR_BAND, GAP_SCALE, gapPosition, sectorColours } from "../../lib/brand";
-import { formatGap, formatImpact, formatPct, formatUsd, impactHint, jupiterBuyUrl, multiplierLabel } from "../../lib/format";
+import { formatGap, formatImpact, formatPct, formatUsd, gapNumber, impactHint, jupiterBuyUrl, multiplierLabel } from "../../lib/format";
 import type { Quote, VerdictId } from "../../lib/types";
 import { buyUsable, legs } from "../../lib/verdict";
 
@@ -66,9 +66,22 @@ export function ChangePill({ value }: { value: number | null }) {
   );
 }
 
-/** Gap pill: red when the buy is rich, green when cheap. */
-export function GapPill({ value }: { value: number | null }) {
+/**
+ * Gap pill: red when the buy is rich, green when cheap. While Nasdaq is closed (`closed`) it is the number alone, in
+ * grey: the print is the last one, and Par calls nothing cheap, rich or fair until the next open.
+ */
+export function GapPill({ value, closed = false }: { value: number | null; closed?: boolean }) {
   if (value == null) return <span className="text-muted">—</span>;
+  if (closed) {
+    return (
+      <span
+        className="inline-flex rounded-full bg-white px-2 py-0.5 text-sm font-medium text-muted ring-1 ring-line"
+        title="Nasdaq is closed: this is against the last Nasdaq print"
+      >
+        {gapNumber(value)}
+      </span>
+    );
+  }
   return (
     <span
       className={`inline-flex rounded-full px-2 py-0.5 text-sm font-medium ${value > 0.02 ? "bg-clay-soft text-clay" : value < -0.02 ? "bg-pine-soft text-pine" : "bg-foam text-ink"}`}
@@ -79,13 +92,14 @@ export function GapPill({ value }: { value: number | null }) {
 }
 
 /** Where the $1,000 buy sits against the Nasdaq print, on a -2% to +2% scale with the fair band shaded. */
-export function GapMeter({ gap, waiting, loading = false }: { gap: number | null; waiting: string; loading?: boolean }) {
+export function GapMeter({ gap, waiting, loading = false, closed = false }: { gap: number | null; waiting: string; loading?: boolean; closed?: boolean }) {
+  const title = closed ? "Buy versus last Nasdaq print" : "Buy versus Nasdaq";
   if (gap == null && loading) {
     // Same shape as the meter, shimmering, so the card does not jump when the buy arrives.
     return (
       <div className="rounded-2xl bg-foam px-4 pb-2.5 pt-3" aria-busy="true">
         <div className="flex items-center justify-between gap-2 text-sm">
-          <span className="text-muted">Buy versus Nasdaq</span>
+          <span className="text-muted">{title}</span>
           <span className="shimmer h-5 w-24 rounded-full" aria-hidden />
         </div>
         <div className="shimmer mt-3 h-2 rounded-full" aria-hidden />
@@ -101,14 +115,15 @@ export function GapMeter({ gap, waiting, loading = false }: { gap: number | null
     );
   }
   const { left, off } = gapPosition(gap);
-  const tone = Math.abs(gap) < FAIR_BAND ? "bg-pine" : Math.abs(gap) < 1 ? "bg-gold" : "bg-clay";
+  const tone = closed ? "bg-muted" : Math.abs(gap) < FAIR_BAND ? "bg-pine" : Math.abs(gap) < 1 ? "bg-gold" : "bg-clay";
+  const print = closed ? "the last Nasdaq print" : "the Nasdaq print";
   const label =
-    Math.abs(gap) < 0.005 ? "The $1,000 buy is at the Nasdaq print" : `The $1,000 buy is ${formatGap(Math.abs(gap))} ${gap > 0 ? "above" : "below"} Nasdaq`;
+    Math.abs(gap) < 0.005 ? `The $1,000 buy is at ${print}` : `The $1,000 buy is ${Math.abs(gap).toFixed(2)}% ${gap > 0 ? "above" : "below"} ${print}`;
   return (
     <div className="rounded-2xl bg-foam px-4 pb-2.5 pt-3">
       <div className="flex items-center justify-between gap-2 text-sm">
-        <span className="text-muted">Buy versus Nasdaq</span>
-        <GapPill value={gap} />
+        <span className="text-muted">{title}</span>
+        <GapPill value={gap} closed={closed} />
       </div>
       <div className="relative mt-3 h-2 rounded-full bg-white ring-1 ring-line" role="img" aria-label={label}>
         <span

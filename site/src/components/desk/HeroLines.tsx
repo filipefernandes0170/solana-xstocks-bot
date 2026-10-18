@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ageLabel, formatGap, formatUsd } from "../../lib/format";
+import { ageLabel, formatGap, formatUsd, gapNumber } from "../../lib/format";
+import { sessionClosed } from "../../lib/session";
 import { gapPct, verdictPillClass } from "../../lib/verdict";
 import type { DeskRow } from "./StockCard";
 
@@ -132,7 +133,7 @@ export function HeroLines({
               className="hero-label absolute text-center"
               style={{ left: pct(MEET.x, W), top: pct(MEET.y, H), transform: "translate(-50%, calc(-100% - 22px))" }}
             >
-              <span className="block whitespace-nowrap text-sm font-medium text-gold">{formatGap(current.gap)}</span>
+              <span className="block whitespace-nowrap text-sm font-medium text-gold">{sessionClosed(current.row.marketState) ? gapNumber(current.gap) : formatGap(current.gap)}</span>
             </div>
           </>
         ) : null}

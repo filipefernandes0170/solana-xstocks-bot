@@ -11,7 +11,8 @@
 // with what the others already have and every answer carries all of them.
 
 import { THIN_POOL_USD } from "../lib/brand";
-import { mergeBuyMaps, mergePrintRows, pickBuys, WANT_KEEP_MS, type Buy, type PrintRow } from "../lib/shared";
+import { quietSince } from "../lib/session";
+import { mergeBuyMaps, mergePrintRows, pickBuys, printsSettled, WANT_KEEP_MS, type Buy, type PrintRow } from "../lib/shared";
 import { ETF_UNDERLYINGS, TOKEN_BY_SYMBOL, TOKENS, USDC_MINT } from "../lib/tokens";
 import type { ExitCheck, Quote, QuotesResult, Rebase, SizeCheck } from "../lib/types";
 import { addWanted, readSharedBuys, readSharedPrints, readWanted, shareBuys, sharePrints } from "./deskShare";
@@ -43,6 +44,7 @@ let printsReadAt = 0;
 let printsInflight: Promise<void> | null = null;
 const PRINTS_TTL_MS = 180_000;
 const PRINT_KEEP_MS = 30 * 60_000;
+const UNDERLYINGS = [...new Set(TOKENS.map((token) => token.underlying))];
 let buys = new Map<string, Buy>();
 let rotating = false;
 const decimalsByMint = new Map<string, number>();
@@ -117,16 +119,30 @@ async function refreshPrints() {
 }
 
 /**
- * Nasdaq prints, refreshed every 3 minutes. A copy whose prints are older first looks at the shared round: if another
- * copy read Nasdaq less than 3 minutes ago it takes that (no Nasdaq wait), otherwise it reads Nasdaq and shares the result.
+ * True while Nasdaq has no session and every print was read, as "Closed", inside this quiet stretch: they cannot change
+ * before the next pre-market, so Nasdaq (about 3 s a round) is not asked again on nights, weekends and holidays.
+ */
+function settledNow(now: number) {
+  return printsSettled(prints, UNDERLYINGS, quietSince(now));
+}
+
+/** The prints to show: those read within PRINT_KEEP_MS, or all of them while they are settled. */
+function shownPrints(now: number) {
+  return freshPrints(prints, now, settledNow(now) ? Number.POSITIVE_INFINITY : PRINT_KEEP_MS);
+}
+
+/**
+ * Nasdaq prints, refreshed every 3 minutes while Nasdaq can move. A copy whose prints are older first looks at the
+ * shared round: if another copy read Nasdaq less than 3 minutes ago, or the shared prints are settled, it takes them
+ * (no Nasdaq wait); otherwise it reads Nasdaq and shares the result.
  */
 async function stockPrints() {
-  if (Date.now() - printsReadAt < PRINTS_TTL_MS) return freshPrints(prints, Date.now());
+  if (Date.now() - printsReadAt < PRINTS_TTL_MS || settledNow(Date.now())) return shownPrints(Date.now());
   printsInflight ??= loadPrints().finally(() => {
     printsInflight = null;
   });
   await printsInflight;
-  return freshPrints(prints, Date.now());
+  return shownPrints(Date.now());
 }
 
 async function loadPrints() {
@@ -137,6 +153,7 @@ async function loadPrints() {
     printsReadAt = Math.min(shared.readAt, Date.now());
     return;
   }
+  if (settledNow(Date.now())) return;
   printsReadAt = Date.now();
   const read = await refreshPrints();
   // A round where Nasdaq answered nothing is not shared, so the other copies still try for themselves.
@@ -252,7 +269,7 @@ async function loadQuotes(refreshBuys: boolean): Promise<Quote[]> {
       console.warn("[par] GeckoTerminal: no prices this round");
       return null;
     }),
-    stockPrints().catch(() => freshPrints(prints, Date.now())),
+    stockPrints().catch(() => shownPrints(Date.now())),
     readSharedBuys(),
   ]);
   buys = mergeBuyMaps(buys, sharedBuys, Date.now(), BUY_KEEP_MS);

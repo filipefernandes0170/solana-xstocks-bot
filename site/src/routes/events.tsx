@@ -34,7 +34,7 @@ import {
   type ParEvent,
   type Topic,
 } from "../lib/events";
-import { EVENTS_CACHE, SITE_URL } from "../lib/site";
+import { EVENTS_PAGE_CACHE, SITE_URL } from "../lib/site";
 import { TOKEN_BY_SYMBOL, TOKENS } from "../lib/tokens";
 import { useFavourites } from "../lib/useFavourites";
 import { getEvents, getFlags } from "../server/functions";
@@ -44,11 +44,13 @@ const DESCRIPTION =
   "Company filings, balance changes, transfer pauses and market days off for the tokenized stocks Par tracks on Solana. Each one links to its official source.";
 const BOT_EVENTS = "https://t.me/ONPAR_BOT?start=events";
 const SEC_TICKERS = Object.keys(SEC_CIK).length;
+/** A page copy older than this (served from the cache after a quiet spell) asks for the newest list when it opens. */
+const EVENTS_FRESH_MS = 3 * 60_000;
 
 export const Route = createFileRoute("/events")({
   validateSearch: (search: Record<string, unknown>): { name?: string } =>
     typeof search.name === "string" && TOKEN_BY_SYMBOL.has(search.name) ? { name: search.name } : {},
-  headers: () => ({ "Netlify-CDN-Cache-Control": EVENTS_CACHE }),
+  headers: () => ({ "Netlify-CDN-Cache-Control": EVENTS_PAGE_CACHE }),
   head: () => ({
     meta: [
       { title: "Events · Par" },
@@ -263,9 +265,11 @@ const LEGEND: { look: Look; title: string; line: string }[] = [
 type KindFilter = "all" | EventKind;
 
 function EventsPage() {
-  const data = Route.useLoaderData();
+  const loaded = Route.useLoaderData();
   const search = Route.useSearch();
-  const [now, setNow] = useState(data.asOf);
+  const [data, setData] = useState(loaded);
+  const [refreshing, setRefreshing] = useState(false);
+  const [now, setNow] = useState(loaded.asOf);
   const [kind, setKind] = useState<KindFilter>("all");
   const [keyOnly, setKeyOnly] = useState(false);
   const [mine, setMine] = useState(false);
@@ -277,6 +281,24 @@ function EventsPage() {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  // The page may be a cached copy: an old one swaps in the newest list as soon as it arrives.
+  useEffect(() => {
+    if (Date.now() - loaded.asOf < EVENTS_FRESH_MS) return;
+    let alive = true;
+    setRefreshing(true);
+    getEvents()
+      .then((result) => {
+        if (alive && result.ok && result.asOf > loaded.asOf) setData({ ...result, coinLive: loaded.coinLive });
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setRefreshing(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [loaded]);
 
   const today = nyDate(now);
   const companies = useMemo(() => {
@@ -333,6 +355,7 @@ function EventsPage() {
             <span>SEC filings read {ago(data.filingsAt, now)}</span>
             <span>Mints read {ago(data.chainAt, now)}</span>
             <span>Times in New York (ET)</span>
+            {refreshing ? <span>Checking for newer events…</span> : null}
           </p>
         </header>
 

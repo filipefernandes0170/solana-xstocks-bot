@@ -22,6 +22,7 @@ import { FILING_DAYS, SEC_CIK } from "../lib/events";
 import { formatUsd } from "../lib/format";
 import type { HistoryPoint } from "../lib/history";
 import type { IssuerResult } from "../lib/issuer";
+import { sessionClosed } from "../lib/session";
 import { cardShareText, stockUrl } from "../lib/share";
 import { LIVE_PAGE_CACHE, SITE_URL } from "../lib/site";
 import { ISSUER_LABEL, TOKENS } from "../lib/tokens";
@@ -186,7 +187,7 @@ function StockView({ data }: { data: StockData }) {
                   </div>
                 </div>
                 <div className="mt-5" data-verdict-slot>
-                  <GapMeter gap={row.gap} waiting={meterWaiting(row).text} loading={meterWaiting(row).loading} />
+                  <GapMeter gap={row.gap} waiting={meterWaiting(row).text} loading={meterWaiting(row).loading} closed={sessionClosed(row.marketState)} />
                 </div>
                 <p className="mt-5 text-lg leading-relaxed" data-verdict>
                   {row.verdict.line}

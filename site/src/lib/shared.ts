@@ -82,6 +82,22 @@ export function mergePrintRows(target: Map<string, PrintRow>, rows: Record<strin
   }
 }
 
+/** A print read this long after Nasdaq's last session ended is final: late reports have had time to land. */
+export const SETTLE_AFTER_MS = 15 * 60_000;
+
+/**
+ * Whether the prints can be shown without asking Nasdaq again. `quietFrom` is when the current stretch with no Nasdaq
+ * trading began (session.ts quietSince), or null while a session runs. Every symbol needs a print read at least
+ * SETTLE_AFTER_MS into that stretch with Nasdaq saying "Closed": nothing can change it before the next pre-market.
+ */
+export function printsSettled(rows: Map<string, PrintRow>, symbols: string[], quietFrom: number | null) {
+  if (quietFrom == null || symbols.length === 0) return false;
+  return symbols.every((symbol) => {
+    const row = rows.get(symbol);
+    return row != null && row.at >= quietFrom + SETTLE_AFTER_MS && row.state.trim().toLowerCase() === "closed";
+  });
+}
+
 /**
  * The mints whose buy quote is oldest (missing first), limited to `count`. Ties (above all, the names a fresh copy of
  * the function has never quoted) go in list order starting at `start`: Netlify runs several copies, and a clock-based
