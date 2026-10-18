@@ -24,6 +24,15 @@ export function formatGap(value: number | null | undefined) {
   return `${sign}${value.toFixed(2)}% ${word}`;
 }
 
+/**
+ * The gap as a number alone: "+0.12%", "-1.40%", or "—". Used while Nasdaq is closed: the print is then the last one,
+ * so Par does not call the buy cheap or rich against it.
+ */
+export function gapNumber(value: number | null | undefined) {
+  if (value == null) return "—";
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
 export function formatAmount(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
 }
@@ -50,12 +59,16 @@ export function formatRate(value: number | null | undefined) {
   return `${(value * 100).toFixed(2)}%`;
 }
 
-/** "$4.4M" */
+/**
+ * "$4.4M", "$51M". The minimum is set on purpose: without it Node writes "$51.0M" while browsers write "$51M", and a
+ * server-rendered page that differs from the browser's makes React redraw it (seen on /ranking, 18 Oct 2026).
+ */
 export function formatCompactUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     notation: "compact",
+    minimumFractionDigits: 0,
     maximumFractionDigits: 1,
   }).format(value);
 }

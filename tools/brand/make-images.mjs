@@ -1,5 +1,5 @@
 // Renders every Par image from tools/brand/mark.mjs:
-//   site/public/favicon.svg, favicon.ico (16, 32, 48), apple-touch-icon.png
+//   site/public/favicon.svg, favicon.ico (16, 32, 48), favicon.png (48), apple-touch-icon.png
 //   site/public/og.png, og/bot.png, og/s/<SYMBOL>.png   (1200 x 630 link previews, no prices on purpose:
 //                                                         chat apps cache previews for days)
 //   site/public/qr-bot.svg                              (QR code for t.me/ONPAR_BOT)
@@ -113,6 +113,8 @@ function previewSvg(body) {
 // ── Site icons ──────────────────────────────────────────────────────────────────────────────────────
 write(join(pub, "favicon.svg"), Buffer.from(tileSvg(64)));
 write(join(pub, "favicon.ico"), ico([16, 32, 48].map((size) => ({ size, data: png(tileSvg(size), size) }))));
+// Some apps and crawlers ask for /favicon.png whatever the page links to.
+write(join(pub, "favicon.png"), png(tileSvg(48), 48));
 write(join(pub, "apple-touch-icon.png"), png(squareSvg(180), 180));
 write(join(pub, "icon-512.png"), png(squareSvg(512), 512));
 // Telegram crops avatars to a circle, so the mark sits well inside it.

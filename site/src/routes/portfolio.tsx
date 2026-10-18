@@ -88,7 +88,7 @@ function usd(value: number) {
 /** Whole dollars from $1,000 and $1.2M style from a million, so the small boxes never overflow. */
 function usdShort(value: number) {
   if (value >= 1_000_000) {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(value);
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(value);
   }
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: value >= 1000 ? 0 : 2 }).format(value);
 }

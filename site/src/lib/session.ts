@@ -1,9 +1,41 @@
 // US market session helpers. All Nasdaq times are New York time. Holidays and early closes come from calendar.ts.
 
-import { EARLY_CLOSE_LABEL, OPEN_MINUTES, atNewYork, closeMinutes, isTradingDay, marketDay, newYorkParts, nextTradingDay, nyDate } from "./calendar";
+import { EARLY_CLOSE_LABEL, OPEN_MINUTES, addDays, atNewYork, closeMinutes, isTradingDay, marketDay, newYorkParts, nextTradingDay, nyDate } from "./calendar";
 
 export function isSessionOpen(state: string | null | undefined) {
   return (state ?? "").trim().toLowerCase() === "open";
+}
+
+/** True when the feed says the regular session is not open (closed, pre-market or after hours); false when open or not known yet. */
+export function sessionClosed(state: string | null | undefined) {
+  return (state ?? "").trim() !== "" && !isSessionOpen(state);
+}
+
+/** Nasdaq's pre-market starts at 4:00 ET; after hours ends four hours after the close (20:00, or 17:00 on an early close). */
+const PREMARKET_MINUTES = 4 * 60;
+const AFTER_HOURS_MINUTES = 4 * 60;
+
+function afterHoursEnd(date: string) {
+  return atNewYork(date, closeMinutes(date) + AFTER_HOURS_MINUTES);
+}
+
+/**
+ * When the current stretch with no Nasdaq trading at all began (the end of after hours on the last trading day), or
+ * null while pre-market, the regular session or after hours runs. No print can change inside such a stretch: weekday
+ * nights from 20:00 to 4:00 ET, whole weekends and market holidays. Nasdaq plans an overnight session (target
+ * December 2026, pending approval); once it runs, weekday nights are no longer quiet and this must change.
+ */
+export function quietSince(now: number): number | null {
+  const today = nyDate(now);
+  const p = newYorkParts(now);
+  if (isTradingDay(today)) {
+    const end = afterHoursEnd(today);
+    if (now >= end) return end;
+    if (p.hour * 60 + p.minute >= PREMARKET_MINUTES) return null;
+  }
+  let day = addDays(today, -1);
+  for (let i = 0; i < 14 && !isTradingDay(day); i++) day = addDays(day, -1);
+  return afterHoursEnd(day);
 }
 
 /** Next 09:30 New York on a trading day: weekends and market holidays are skipped. */

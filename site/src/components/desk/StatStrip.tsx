@@ -1,7 +1,7 @@
 import { CalendarClock, Clock3, Scale, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
-import { formatGap } from "../../lib/format";
-import { etClock, isSessionOpen, sessionLabel, timeToOpen, utcStamp } from "../../lib/session";
+import { formatGap, gapNumber } from "../../lib/format";
+import { etClock, isSessionOpen, sessionClosed, sessionLabel, timeToOpen, utcStamp } from "../../lib/session";
 import type { Quote } from "../../lib/types";
 
 /** `verdict`: the value comes from the verdicts, so a stale page hides it (see StaleMark). */
@@ -89,7 +89,9 @@ export function StatStrip({
         hint={
           widest?.gap == null
             ? "Waiting for the buy quotes"
-            : `${formatGap(widest.gap)} · ${widest.gap > 0 ? "paying over the stock" : "paying under the stock"}`
+            : sessionClosed(marketState)
+              ? `${gapNumber(widest.gap)} versus the last Nasdaq print`
+              : `${formatGap(widest.gap)} · ${widest.gap > 0 ? "paying over the stock" : "paying under the stock"}`
         }
         onClick={widest?.gap == null ? undefined : () => onPick(widest.symbol)}
       />

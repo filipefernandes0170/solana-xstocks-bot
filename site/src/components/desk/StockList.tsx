@@ -1,4 +1,5 @@
 import { formatUsd } from "../../lib/format";
+import { sessionClosed } from "../../lib/session";
 import { verdictPillClass } from "../../lib/verdict";
 import { BuyLink, ChangePill, GapPill, TickerBadge } from "./parts";
 import { FavouriteButton, type DeskRow } from "./StockCard";
@@ -53,11 +54,11 @@ export function StockList({
               <ChangePill value={row.change24h} />
             </span>
             <span className="hidden text-right sm:block" data-verdict>
-              <GapPill value={row.gap} />
+              <GapPill value={row.gap} closed={sessionClosed(row.marketState)} />
             </span>
             <span className="flex items-center justify-end gap-2">
               <span className="sm:hidden" data-verdict>
-                <GapPill value={row.gap} />
+                <GapPill value={row.gap} closed={sessionClosed(row.marketState)} />
               </span>
               <span
                 data-verdict

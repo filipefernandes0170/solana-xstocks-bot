@@ -18,10 +18,18 @@ export const SITE_DESCRIPTION = "Par says whether a tokenized stock on Solana is
 export const PUBLIC_DATA_CACHE = "public, durable, s-maxage=10, stale-while-revalidate=20";
 
 /**
- * /events and /api/events: shared for a minute, then served stale for up to two more while one call refreshes it.
- * @ONPAR_BOT reads /api/events every few minutes for new filings, so this keeps its texts within minutes of the SEC.
+ * Events and supply data (/api/events, /api/supply and their server functions): shared for a minute, then served stale
+ * for up to two more while one call refreshes it. @ONPAR_BOT reads /api/events every few minutes for new filings, so
+ * this keeps its texts within minutes of the SEC.
  */
 export const EVENTS_CACHE = "public, durable, s-maxage=60, stale-while-revalidate=120";
+
+/**
+ * The /events page: shared for a minute, then the last copy is served for up to a day while one call refreshes it, so a
+ * visitor never waits for the SEC and the chain to be read (about 5 s after a quiet spell, measured 18 Oct 2026). A copy
+ * older than a few minutes asks for the newest list as soon as it opens (routes/events.tsx).
+ */
+export const EVENTS_PAGE_CACHE = "public, durable, s-maxage=60, stale-while-revalidate=86400";
 
 /** "Where to buy": the exchanges' order books, shared for 30 s (each name's book is read at most twice a minute). */
 export const VENUES_CACHE = "public, durable, s-maxage=30, stale-while-revalidate=30";

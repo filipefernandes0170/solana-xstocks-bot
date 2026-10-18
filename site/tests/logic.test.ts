@@ -30,7 +30,9 @@ test("formatters match the published desk", () => {
     assert.equal(impactHint(c.v), c.hint, `impactHint(${c.v})`);
     assert.equal(perSharePrice(c.v, 1.0057), c.perShare, `perSharePrice(${c.v})`);
     if (c.impact != null) assert.equal(formatImpact(c.v), c.impact, `formatImpact(${c.v})`);
-    if (c.compact != null) assert.equal(formatCompactUsd(c.v), c.compact, `formatCompactUsd(${c.v})`);
+    // The golden answers come from running the published code in Node, which wrote "$5.0M" where browsers showed "$5M".
+    // Since 18 Oct 2026 the server writes what browsers do (format.ts), so only that trailing ".0" differs.
+    if (c.compact != null) assert.equal(formatCompactUsd(c.v), c.compact.replace(/\.0(?=[KMBT]?$)/, ""), `formatCompactUsd(${c.v})`);
   }
 });
 

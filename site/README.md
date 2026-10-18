@@ -20,6 +20,7 @@ The website at https://onpar.site (Netlify project `xstocks-tracker`; the old ht
 5. **No Grok preview bridge.** The original carried Grok's editor bridge (a `postMessage` listener plus the zod library) and a link to `/__grok/manifest.webmanifest`, which returned 404. Neither did anything for visitors, so neither is here.
 6. **GLDx counts as an ETF** on /portfolio. This is not verified against the original, which was never seen holding GLDx.
 7. **Holder check** ("Would this wallet get the text?") adds up every token account of `TOKEN_MINT`. The bot only reads the associated token account. Today `TOKEN_MINT` is empty, so both answer "not live yet".
+8. **Short dollar amounts ("$51M").** The published code wrote "$51.0M" when it ran in Node and "$51M" in a browser, so a page rendered on the server did not match the browser and React redrew it (an error on every /ranking load). Since 18 Oct 2026 both write "$51M"; the golden test drops that trailing ".0" from the recorded answers (`tests/logic.test.ts`).
 
 ## Changes after the rebuild (17 Oct 2026)
 
@@ -123,6 +124,16 @@ Reasons to hold $PAR are tools for traders; none is a return on the coin.
 - **Since you last looked** (`lib/lastLook.ts`, `components/portfolio/LastLook.tsx`): the wallet's change since this device last showed it, split into price moves (the earlier amounts at today's prices) and balance changes (tokens added or removed, and rebases), so a deposit never reads as a gain. The earlier view is kept only in this browser (`par-last-look`, at most 5 wallets), compared from 10 minutes on and replaced at most once an hour; reading the same wallet again on the same visit keeps the same comparison. Disconnect or Forget clears it. Price moves plus balance changes always equal the change in value (checked on 500 random bags in `tests/bagInsights.test.ts`).
 - **Watch this bag** now says the bot also texts when a large batch of a held name is created or burned.
 
+## Fixes and speed (18 Oct 2026)
+
+Found by reading Netlify's request logs for a day and loading every page in a browser.
+
+- **/ranking no longer errors** on load: see item 8 above (`formatCompactUsd` in `lib/format.ts`).
+- **/events opens at once** (`EVENTS_PAGE_CACHE` in `lib/site.ts`). After a few quiet minutes it used to take about 5 s while the SEC and the chain were read. Netlify now serves the last copy for up to a day while one call refreshes it, and a copy older than 3 minutes asks for the newest list as soon as it opens ("Checking for newer events…"). The data behind it, and `/api/events` for the bot, keep their 1-minute rule.
+- **No Nasdaq wait while Nasdaq has no session** (`quietSince` in `lib/session.ts`, `printsSettled` in `lib/shared.ts`, `server/quotes.ts`). A Nasdaq round takes about 3 s (measured 18 Oct 2026; Jupiter's price call about 0.1 s, GeckoTerminal about 0.3 s), and it was repeated every 3 minutes even on weekends. From the end of after hours (20:00 ET, 17:00 on an early close) to the next pre-market (4:00 ET on the next trading day), so weekday nights, weekends and holidays, the prints are now read once, at least 15 minutes into that stretch, and reused while every one of them still says "Closed". Nasdaq plans an overnight session (target December 2026, pending approval); once it runs, `quietSince` must change.
+- **The gap is a plain number while Nasdaq is closed** (`GapPill` and `GapMeter` in `components/desk/parts.tsx`, the hero and the "Widest gap" tile). It used to say "-1.40% cheap" in green next to a red "Wait". With Nasdaq closed the print is the last one, so the card now says "Buy versus last Nasdaq print" and shows "-1.40%" in grey; the verdicts are unchanged. The meter's description for screen readers also read "+0.60% rich above Nasdaq" for any gap; it now says "0.60% above the Nasdaq print".
+- **/favicon.png** exists (48 px, rendered by `tools/brand` with the other icons). Some apps and crawlers ask for it whatever the page links to; it used to be a 404 handled by the server function.
+
 ## Run it
 
 ```bash
@@ -180,5 +191,5 @@ src/
 netlify/functions/record-gaps.mts   the scheduled gap recorder
 tests/           logic.test.ts + golden.json (answers from the published desk), jupiter.test.ts, features.test.ts, brand.test.ts, portfolio.test.ts,
                  launch.test.ts, proof.test.ts, share.test.ts, events.test.ts, yield.test.ts, venues.test.ts, shared.test.ts, shareBuys.test.ts,
-                 bagInsights.test.ts
+                 bagInsights.test.ts, polish.test.ts
 ```
