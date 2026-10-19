@@ -553,7 +553,7 @@ export function Desk({
               A tokenized stock tracks the share. It is not the share, it does not vote, and a dividend shows up as more tokens, not cash.
             </p>
           </div>
-          <HeroLines rows={rows} age={age} feedError={feedError} onPick={jumpTo} />
+          <HeroLines rows={rows} age={age} asOf={asOf} feedError={feedError} onPick={jumpTo} />
         </header>
 
         <StatStrip
