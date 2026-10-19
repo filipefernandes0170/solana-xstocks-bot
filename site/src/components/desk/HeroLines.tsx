@@ -28,11 +28,14 @@ type Shown = { row: DeskRow; price: number; gap: number; source: "buy" | "last" 
 export function HeroLines({
   rows,
   age,
+  asOf,
   feedError,
   onPick,
 }: {
   rows: DeskRow[];
   age: number;
+  /** When the prices shown were read: the dot pulses once each time it changes. */
+  asOf: number;
   feedError: string | null;
   onPick: (symbol: string) => void;
 }) {
@@ -92,7 +95,8 @@ export function HeroLines({
               {current.row.verdict.title}
             </span>
           ) : null}
-          <span className="live-dot" aria-hidden />
+          {/* A new key each time prices land plays the pulse once (styles.css .live-once), instead of looping. */}
+          <span key={asOf} className="live-dot live-once" aria-hidden />
           <span aria-hidden>{feedError ? "Reconnecting" : age < 60 ? `${age}s` : ageLabel(age * 1000)}</span>
           {/* Screen readers hear only the change between live and reconnecting, not every second. */}
           <span className="sr-only" role="status">

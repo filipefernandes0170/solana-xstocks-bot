@@ -98,7 +98,11 @@
   background: radial-gradient(circle, #147a5824, transparent 65%);
 }
 
-/* The hero lines: they draw in once, a light runs along them toward the meeting point, the dot breathes. */
+/*
+ * The hero lines: they draw in once, a light runs along them toward the meeting point three times and fades, the dot
+ * breathes twice, then all of it rests. Looping for ever, the light and the breathing kept a phone's processor about 60%
+ * busy for as long as the desk or a name page was open (mobile test profile, measured 19 Oct 2026).
+ */
 .hero-line {
   transition: d 0.9s ease-out;
 }
@@ -112,14 +116,16 @@
 .hero-flow {
   stroke-dasharray: 2 26;
   opacity: 0.55;
-  animation: flow 2.6s linear infinite;
+  animation:
+    flow 2.6s linear 3,
+    flow-out 0.8s ease-out 7.8s forwards;
 }
 
 .hero-halo {
   opacity: 0.18;
   transform-box: fill-box;
   transform-origin: center;
-  animation: breathe 3.2s ease-in-out infinite;
+  animation: breathe 3.2s ease-in-out 2;
 }
 
 .hero-label {
@@ -146,17 +152,26 @@
 
 .ticker-track {
   animation: marquee 80s linear infinite;
+  /* Moved by the graphics chip, and stopped while the tape is scrolled out of view (Ticker.tsx). */
+  will-change: transform;
+}
+
+.ticker-track.ticker-offscreen {
+  animation-play-state: paused;
 }
 
 .ticker:hover .ticker-track {
   animation-play-state: paused;
 }
 
-/* Cards lift a little under the pointer. */
+/* Cards lift a little under the pointer. A card far below the screen is not laid out or drawn until it comes near
+   (content-visibility); its height is estimated until then, and remembered once it has been drawn. */
 .stock-card {
   transition:
     translate 0.2s ease-out,
     box-shadow 0.2s ease-out;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
 }
 
 @media (hover: hover) {
@@ -201,6 +216,12 @@ summary::-webkit-details-marker {
   animation: pulse 1.8s ease-out infinite;
 }
 
+/* The hero's dot pulses once when new prices land (HeroLines keys it on their time). Looping, it kept the browser
+   drawing frames all the time, about as costly on a phone as the whole price tape (measured 19 Oct 2026). */
+.live-dot.live-once {
+  animation: pulse 1.8s ease-out 1;
+}
+
 .tick-up {
   animation: tickUp 0.7s;
 }
@@ -240,6 +261,12 @@ summary::-webkit-details-marker {
 @keyframes flow {
   to {
     stroke-dashoffset: -28;
+  }
+}
+
+@keyframes flow-out {
+  to {
+    opacity: 0;
   }
 }
 
@@ -465,6 +492,7 @@ html[data-par-stale] .stale-note {
   .hero-halo,
   .rise,
   .live-dot,
+  .live-dot.live-once,
   .tick-up,
   .tick-down,
   .ticker-track,

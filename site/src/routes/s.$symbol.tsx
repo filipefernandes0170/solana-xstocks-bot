@@ -223,7 +223,7 @@ function StockView({ data }: { data: StockData }) {
               <p className="text-muted">The price feed for {token.symbol} is reconnecting.</p>
             )}
           </div>
-          {row ? <HeroLines rows={[row]} age={live.age} feedError={live.feedError} onPick={() => undefined} /> : null}
+          {row ? <HeroLines rows={[row]} age={live.age} asOf={live.asOf} feedError={live.feedError} onPick={() => undefined} /> : null}
         </section>
 
         <div data-live>
