@@ -17,7 +17,8 @@ export function Ticker({ rows, onPick }: { rows: TickerRow[]; onPick: (symbol: s
   useEffect(() => {
     const element = box.current;
     if (!element || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting));
+    // The latest entry: a quick scroll away and back can deliver both in one call.
+    const observer = new IntersectionObserver((entries) => setOnScreen(entries[entries.length - 1].isIntersecting));
     observer.observe(element);
     return () => observer.disconnect();
   }, [rows.length > 0]);

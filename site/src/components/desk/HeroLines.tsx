@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ageLabel, formatGap, formatUsd, gapNumber } from "../../lib/format";
 import { sessionClosed } from "../../lib/session";
 import { gapPct, verdictPillClass } from "../../lib/verdict";
@@ -61,6 +61,30 @@ export function HeroLines({
     return () => window.clearInterval(timer);
   }, [paused, shown.length]);
 
+  // The light and the breathing play once, the first time the hero is on screen (styles.css .in-view): on a phone the
+  // hero is below the first screen, and a light that ran before anyone scrolled to it would never be seen.
+  const figure = useRef<HTMLElement>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const element = figure.current;
+    if (!element) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.4 },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   const current = shown.length ? shown[index % shown.length] : null;
   const d = current ? spread(current.gap) : 70;
   const goldY = MEET.y - d;
@@ -69,8 +93,9 @@ export function HeroLines({
 
   return (
     <figure
+      ref={figure}
       data-live
-      className="hero-lines relative w-full select-none"
+      className={`hero-lines relative w-full select-none${inView ? " in-view" : ""}`}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}

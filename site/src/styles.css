@@ -99,9 +99,10 @@
 }
 
 /*
- * The hero lines: they draw in once, a light runs along them toward the meeting point three times and fades, the dot
- * breathes twice, then all of it rests. Looping for ever, the light and the breathing kept a phone's processor about 60%
- * busy for as long as the desk or a name page was open (mobile test profile, measured 19 Oct 2026).
+ * The hero lines: they draw in once. The first time the hero comes into view (HeroLines adds .in-view; on a phone it is
+ * below the first screen), a light runs along them toward the meeting point three times and fades out while still
+ * moving, and the dot breathes twice; then all of it rests. Looping for ever, the light and the breathing kept a phone's
+ * processor about 60% busy for as long as the desk or a name page was open (mobile test profile, measured 19 Oct 2026).
  */
 .hero-line {
   transition: d 0.9s ease-out;
@@ -115,16 +116,23 @@
 
 .hero-flow {
   stroke-dasharray: 2 26;
-  opacity: 0.55;
+  opacity: 0;
+}
+
+.hero-lines.in-view .hero-flow {
   animation:
+    flow-in 0.4s ease-out forwards,
     flow 2.6s linear 3,
-    flow-out 0.8s ease-out 7.8s forwards;
+    flow-out 0.8s ease-in 7s forwards;
 }
 
 .hero-halo {
   opacity: 0.18;
   transform-box: fill-box;
   transform-origin: center;
+}
+
+.hero-lines.in-view .hero-halo {
   animation: breathe 3.2s ease-in-out 2;
 }
 
@@ -164,14 +172,11 @@
   animation-play-state: paused;
 }
 
-/* Cards lift a little under the pointer. A card far below the screen is not laid out or drawn until it comes near
-   (content-visibility); its height is estimated until then, and remembered once it has been drawn. */
+/* Cards lift a little under the pointer. */
 .stock-card {
   transition:
     translate 0.2s ease-out,
     box-shadow 0.2s ease-out;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 480px;
 }
 
 @media (hover: hover) {
@@ -264,7 +269,17 @@ summary::-webkit-details-marker {
   }
 }
 
+@keyframes flow-in {
+  to {
+    opacity: 0.55;
+  }
+}
+
+/* Starts during the third run (flow-out comes later in the list, so it wins over flow-in's held 0.55). */
 @keyframes flow-out {
+  from {
+    opacity: 0.55;
+  }
   to {
     opacity: 0;
   }
@@ -490,6 +505,8 @@ html[data-par-stale] .stale-note {
   .shimmer,
   .hero-flow,
   .hero-halo,
+  .hero-lines.in-view .hero-flow,
+  .hero-lines.in-view .hero-halo,
   .rise,
   .live-dot,
   .live-dot.live-once,
