@@ -143,6 +143,18 @@ Measured on the live site with the usual mobile test profile (4x slower CPU, 150
 - **Formatters made once** (`lib/intl.ts`). A CPU profile of the desk on the same profile showed a new `Intl.NumberFormat` for every price (`formatUsd`, 0.84 s) and a new `Intl.DateTimeFormat` for every clock reading (`newYorkParts`, 0.43 s), during the start and again every second. Every formatter is now made once per set of options and reused; the text is the same (the golden tests are unchanged). The page code's own work in the first 13 s went from 2.85 s to 1.68 s.
 - **Measured on the Deploy Preview** (stale cached copy, same profile, two runs each): fresh prices at 11.2 s and 11.7 s with the early request, against 20.8 s and over 25 s with it blocked.
 
+## Calm animations (19 Oct 2026)
+
+A Chrome trace on the mobile test profile (4x CPU) showed the desk keeping the main thread about 99% busy, and a name page about 98%, for as long as they stayed open: mostly painting. Switching animations off one at a time showed the cause: the hero's endless light (`stroke-dashoffset` on SVG paths) and breathing halo, about 60% on their own, then the price tape and the hero's pulsing dot.
+
+- **Hero** (`styles.css`, `HeroLines.tsx`): the lines still draw in. The first time the hero is on screen (an IntersectionObserver adds `.in-view`; on a phone the hero is below the first screen), the light runs three times and fades out while still moving, and the halo breathes twice; then it rests. Name pages key the hero on the name, so it plays again when moving between names.
+- **Hero dot**: pulses once each time new prices land (keyed on their time) instead of looping.
+- **Price tape** (`Ticker.tsx`): moved with `will-change: transform`, and paused while scrolled out of view.
+- **Reduced motion** still stops everything (the `.in-view` rules are listed there too).
+- **Not kept: `content-visibility` on cards.** An independent review (three lenses, each finding checked by three skeptics) showed it made "back" from a name page land one to three cards too high, leaked onto /events (same class) and put the Share menu under the tab bar. `tests/calm.test.ts` guards all of this, including which animations may loop for ever.
+- **Measured** (same profile, 6 s windows, two runs each, live site vs Deploy Preview): desk at the top 99% busy, now 25-26%; desk at the hero after its opening 99%, now 35-42%; name page 98%, now under 2% at the hero (16% in one run at the top, during a price update); desk load, first 14 s, 13.7 s busy, now 7.2 to 8.4 s. First and largest content times are unchanged within noise.
+- **Seen in review, older than this change, left for later:** coming back from a name page while Nasdaq is closed lands about half a card low (the closed-session note and the longer header line appear one render after the router restores the scroll); a card's Share menu is cut off on the left at 375 px.
+
 ## Run it
 
 ```bash
