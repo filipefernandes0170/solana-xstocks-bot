@@ -3,5 +3,13 @@ dist/
 data/*.db
 data/*.db-*
 .env
+.env.*
+!.env.example
 *.log
 .DS_Store
+
+# Local keys and wallet files. Never commit these.
+*.pem
+*.key
+id.json
+*keypair*.json
