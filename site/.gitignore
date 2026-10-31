@@ -3,4 +3,12 @@ dist/
 .netlify/
 .tanstack/
 .env
+.env.*
+!.env.example
 *.log
+
+# Local keys and wallet files. Never commit these.
+*.pem
+*.key
+id.json
+*keypair*.json
