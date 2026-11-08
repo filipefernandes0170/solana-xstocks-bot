@@ -105,7 +105,7 @@ export function Venues({ token, quote, initial, now }: { token: StockToken; quot
       </p>
       <ul className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {rows.map((row) => (
-          <li key={row.key} className={`flex flex-col rounded-2xl p-4 ${row === lowest ? "bg-pine-soft ring-1 ring-pine/30" : "bg-foam"}`}>
+          <li key={row.key} className={`flex flex-col rounded-2xl p-4 ${row === lowest ? "bg-pine-soft ring-1 ring-pine/30" : "bg-field"}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-medium">{row.name}</p>

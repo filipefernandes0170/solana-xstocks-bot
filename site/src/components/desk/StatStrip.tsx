@@ -1,52 +1,15 @@
-import { CalendarClock, Clock3, Scale, ShieldCheck } from "lucide-react";
-import type { ReactNode } from "react";
+import { CalendarClock, Layers, Scale, ShieldCheck } from "lucide-react";
 import { formatGap, gapNumber } from "../../lib/format";
-import { etClock, isSessionOpen, sessionClosed, sessionLabel, timeToOpen, utcStamp } from "../../lib/session";
+import { isSessionOpen, sessionClosed, utcStamp } from "../../lib/session";
+import { TOKENS } from "../../lib/tokens";
 import type { Quote } from "../../lib/types";
+import { StatTile } from "../ui";
 
-/** `verdict`: the value comes from the verdicts, so a stale page hides it (see StaleMark). */
-function Tile({
-  icon,
-  label,
-  value,
-  hint,
-  onClick,
-  verdict = false,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  hint: string;
-  onClick?: () => void;
-  verdict?: boolean;
-}) {
-  const body = (
-    <>
-      <span className="flex items-center gap-2 text-sm text-mist">
-        {icon}
-        {label}
-      </span>
-      <span className="mt-2 block font-display text-2xl leading-tight text-foam sm:text-3xl" data-verdict={verdict || undefined}>
-        {value}
-      </span>
-      <span className="mt-1 block text-sm text-mist" data-verdict={verdict || undefined}>
-        {hint}
-      </span>
-    </>
-  );
-  const tile = "rounded-2xl bg-dusk/80 p-4 text-left ring-1 ring-white/10 backdrop-blur";
-  return onClick ? (
-    <button type="button" onClick={onClick} className={`${tile} transition-colors hover:bg-dusk`}>
-      {body}
-    </button>
-  ) : (
-    <div className={tile}>{body}</div>
-  );
-}
+const XSTOCKS = TOKENS.filter((t) => t.issuer === "xStocks").length;
+const BACKPACK = TOKENS.filter((t) => t.issuer === "Backpack").length;
 
-/** Four live numbers under the headline: the session, how many names are fair, the widest gap, the next rebase. */
+/** Four live numbers under the headline: the names followed, how many are fair, the widest gap, the next rebase. */
 export function StatStrip({
-  mounted,
   marketState,
   now,
   fairCount,
@@ -55,7 +18,6 @@ export function StatStrip({
   rebases,
   onPick,
 }: {
-  mounted: boolean;
   marketState: string | null;
   now: number;
   fairCount: number;
@@ -65,24 +27,20 @@ export function StatStrip({
   onPick: (symbol: string) => void;
 }) {
   const open = isSessionOpen(marketState);
-  const next = rebases[0];
+  const next = rebases.find((q) => q.rebase && q.rebase.at * 1000 > now);
   return (
-    <section aria-label="The desk right now" className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4" data-live>
-      <Tile
-        icon={<Clock3 className="size-4" aria-hidden />}
-        label="Nasdaq"
-        value={mounted ? sessionLabel(marketState, now) : "Checking"}
-        hint={mounted ? (open ? `Live print · ${etClock(now)}` : `Opens in ${timeToOpen(now)}`) : "Reading the session"}
-      />
-      <Tile
-        icon={<ShieldCheck className="size-4" aria-hidden />}
+    <section aria-label="The desk right now" className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4" data-live>
+      <StatTile icon={<Layers className="size-5" aria-hidden />} label="Tokenized stocks" value={String(total)} hint={`xStocks ${XSTOCKS} · Backpack ${BACKPACK}`} />
+      <StatTile
+        icon={<ShieldCheck className="size-5" aria-hidden />}
         label="Fair now"
         verdict
         value={`${fairCount} of ${total}`}
+        tone={fairCount > 0 ? "text-pine" : "text-ink"}
         hint={open ? "Within 0.4% of the print" : "Only while Nasdaq is open"}
       />
-      <Tile
-        icon={<Scale className="size-4" aria-hidden />}
+      <StatTile
+        icon={<Scale className="size-5" aria-hidden />}
         label="Widest gap"
         verdict
         value={widest?.gap == null ? "—" : widest.symbol}
@@ -95,8 +53,8 @@ export function StatStrip({
         }
         onClick={widest?.gap == null ? undefined : () => onPick(widest.symbol)}
       />
-      <Tile
-        icon={<CalendarClock className="size-4" aria-hidden />}
+      <StatTile
+        icon={<CalendarClock className="size-5" aria-hidden />}
         label="Next balance change"
         value={next ? next.symbol : "None"}
         hint={

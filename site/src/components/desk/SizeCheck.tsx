@@ -17,7 +17,7 @@ const TONE_CLASS = {
   fair: "bg-pine-soft text-pine",
   close: "bg-gold/25 text-ink",
   far: "bg-clay-soft text-clay",
-  none: "bg-foam text-ink",
+  none: "bg-field text-ink",
 } as const;
 
 const money = (value: number) =>
@@ -98,7 +98,7 @@ export function SizeCheck({
             <select
               value={symbol}
               onChange={(event) => onSymbol(event.target.value)}
-              className="mt-1 h-12 w-full rounded-2xl bg-foam px-3 text-base text-ink ring-1 ring-line"
+              className="mt-1 h-12 w-full rounded-2xl bg-field px-3 text-base text-ink ring-1 ring-line"
             >
               {TOKENS.map((t) => (
                 <option key={t.symbol} value={t.symbol}>
@@ -114,7 +114,7 @@ export function SizeCheck({
               onChange={(event) => setAmount(event.target.value)}
               inputMode="decimal"
               autoComplete="off"
-              className="mt-1 h-12 w-full rounded-2xl bg-foam px-3 text-base tabular-nums text-ink ring-1 ring-line"
+              className="mt-1 h-12 w-full rounded-2xl bg-field px-3 text-base tabular-nums text-ink ring-1 ring-line"
             />
           </label>
         </div>
@@ -129,7 +129,7 @@ export function SizeCheck({
                   setAmount(preset.toLocaleString("en-US"));
                   void run(String(preset));
                 }}
-                className="h-9 rounded-full bg-foam px-3 text-sm font-medium text-ink ring-1 ring-line"
+                className="h-9 rounded-full bg-field px-3 text-sm font-medium text-ink ring-1 ring-line"
               >
                 {label}
               </button>
@@ -139,7 +139,7 @@ export function SizeCheck({
         <button
           type="submit"
           disabled={busy}
-          className="mt-5 h-12 w-full rounded-full bg-ink px-6 text-sm font-medium text-foam disabled:opacity-60 sm:w-auto"
+          className="mt-5 h-12 w-full rounded-full bg-gold px-6 text-sm font-medium text-night disabled:opacity-60 sm:w-auto"
         >
           {busy ? "Asking Jupiter…" : `Check ${token?.symbol ?? "this name"}`}
         </button>
@@ -152,7 +152,7 @@ export function SizeCheck({
 
       <div aria-live="polite" className="min-w-0">
         {result && call ? (
-          <div className="h-full rounded-2xl bg-foam p-5">
+          <div className="h-full rounded-2xl bg-field p-5">
             <div className="flex items-center gap-3">
               {resultToken ? <TickerBadge underlying={resultToken.underlying} sector={resultToken.sector} /> : null}
               <div className="min-w-0">

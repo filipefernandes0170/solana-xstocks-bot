@@ -14,12 +14,12 @@ export function BagYield({ lines, offers, error }: { lines: PortfolioLine[]; off
   const largest = idea ? Math.max(0, ...idea.rows.map((row) => row.perYear)) : 0;
   const vaultNote = offers?.find((offer) => offer.kind === "Vault")?.note;
   return (
-    <section aria-labelledby="yield-title" className="panel rise p-5 text-ink ring-1 ring-line sm:p-6">
+    <section aria-labelledby="yield-title" className="panel rise p-4 text-ink sm:p-5">
       <p className="flex items-center gap-2 text-sm font-medium text-amber">
         <Sprout className="size-4" aria-hidden />
         Possible yield
       </p>
-      <h2 id="yield-title" className="mt-1 font-display text-3xl leading-tight">
+      <h2 id="yield-title" className="mt-1 font-display text-xl leading-tight">
         {idea && idea.perYear > 0 ? `About ${money(idea.perYear)} a year` : "Lending your bag"}
       </h2>
       {offers == null && !error ? <p className="mt-2 text-sm text-muted">Reading Kamino's live rates…</p> : null}
@@ -56,18 +56,18 @@ export function BagYield({ lines, offers, error }: { lines: PortfolioLine[]; off
                       {money(row.perYear)}
                       <span className="font-normal text-muted"> a year</span>
                     </p>
-                    <a href={row.offer.href} target="_blank" rel="noreferrer" className="text-xs underline decoration-line underline-offset-4">
+                    <a href={row.offer.href} target="_blank" rel="noreferrer" className="text-xs text-gold underline decoration-gold/40 underline-offset-4">
                       Open on Kamino
                     </a>
                   </div>
                 </div>
                 {/* Each name's share of the yearly sum, against the largest. */}
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-foam" aria-hidden>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-field" aria-hidden>
                   <div
                     className="bar-grow h-full rounded-full"
                     style={{
                       width: largest > 0 ? `${Math.max((row.perYear / largest) * 100, row.perYear > 0 ? 1.5 : 0)}%` : "0%",
-                      background: "linear-gradient(90deg, #e0a04ab3, #e0a04a)",
+                      background: "linear-gradient(90deg, #f2b84bb3, #f2b84b)",
                     }}
                   />
                 </div>

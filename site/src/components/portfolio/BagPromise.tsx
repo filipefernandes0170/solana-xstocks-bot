@@ -12,14 +12,16 @@ const PROMISES = [
 /** What the page shows once a wallet is read. */
 export function BagPromise() {
   return (
-    <section aria-label="What you will see" className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <section aria-label="What you will see" className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {PROMISES.map(({ icon: Icon, title, line }, index) => (
-        <div key={title} className="rise rounded-2xl bg-dusk/80 p-5 ring-1 ring-white/10" style={{ animationDelay: `${index * 60}ms` }}>
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
+        <div key={title} className="panel rise flex items-start gap-4 p-5" style={{ animationDelay: `${index * 60}ms` }}>
+          <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg bg-field text-gold ring-1 ring-line">
             <Icon className="size-5" aria-hidden />
           </span>
-          <p className="mt-4 font-display text-2xl text-foam">{title}</p>
-          <p className="mt-1 text-sm leading-relaxed text-mist">{line}</p>
+          <span className="min-w-0">
+            <span className="block text-base font-semibold text-ink">{title}</span>
+            <span className="mt-1 block text-sm leading-relaxed text-muted">{line}</span>
+          </span>
         </div>
       ))}
     </section>

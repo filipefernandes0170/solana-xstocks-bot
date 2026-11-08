@@ -66,7 +66,7 @@ export function BagMap({ lines, total }: { lines: PortfolioLine[]; total: number
   const shownKey = key.slice(0, 6);
   return (
     <div>
-      <ul aria-label="Positions by value" className="relative w-full overflow-hidden rounded-2xl bg-ink/5" style={{ aspectRatio: `${W} / ${H}` }}>
+      <ul aria-label="Positions by value" className="relative w-full overflow-hidden rounded-2xl bg-white/5" style={{ aspectRatio: `${W} / ${H}` }}>
         {tiles.map((tile, index) => {
           const line = tile.item;
           const weight = total > 0 ? (line.usdValue / total) * 100 : 0;

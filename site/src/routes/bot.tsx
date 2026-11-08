@@ -30,6 +30,7 @@ import { Backdrop } from "../components/Backdrop";
 import { PhoneDemo } from "../components/bot/PhoneDemo";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteNav } from "../components/SiteNav";
+import { GOLD_BUTTON, Panel } from "../components/ui";
 import { PUBLIC_DATA_CACHE, SITE_URL } from "../lib/site";
 import { TOKENS } from "../lib/tokens";
 import { verdictPillClass } from "../lib/verdict";
@@ -311,10 +312,52 @@ const questions = (coinLive: boolean): [string, string][] => [
   ["Is this financial advice?", "No. Par shows whether a price matches the stock and what official sources publish. Prices can be late or wrong, so check before you trade."],
 ];
 
+/** The bot's main features for the top panel: one free, three for holders, in the page's own words. */
+const TOP_FEATURES: { item: (typeof FREE)[number]; holders: boolean }[] = [
+  { item: FREE[0], holders: false },
+  { item: HOLDERS[0], holders: true },
+  { item: HOLDERS[6], holders: true },
+  { item: HOLDERS[1], holders: true },
+];
+
+/** The commands shown in the top panel; the full list is further down. */
+const TOP_COMMANDS = ["/prices", "/size NVDAx 5000", "/portfolio", "/events", "/watch NVDAx", "/alert NVDAx up 5", "/week", "/help"].map(
+  (command) => COMMANDS.find(([c]) => c === command) as [string, string],
+);
+
+function Tag({ holders }: { holders: boolean }) {
+  return (
+    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${holders ? "bg-gold/15 text-gold" : "bg-pine-soft text-pine"}`}>
+      {holders ? "$PAR holders" : "Free"}
+    </span>
+  );
+}
+
+function IconTile({ children, tone = "gold" }: { children: ReactNode; tone?: "gold" | "pine" }) {
+  return (
+    <span
+      className={`inline-flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-line ${tone === "gold" ? "bg-field text-gold" : "bg-pine-soft text-pine"}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function SectionTitle({ id, children, line }: { id: string; children: ReactNode; line?: ReactNode }) {
+  return (
+    <div className="mb-5">
+      <h2 id={id} className="font-display text-2xl text-foam sm:text-3xl">
+        {children}
+      </h2>
+      {line ? <p className="mt-2 max-w-2xl text-mist">{line}</p> : null}
+    </div>
+  );
+}
+
 function Feature({ icon, title, line }: { icon: ReactNode; title: string; line: string }) {
   return (
     <li className="flex gap-3">
-      <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">{icon}</span>
+      <IconTile>{icon}</IconTile>
       <span>
         <span className="block font-medium text-foam">{title}</span>
         <span className="block text-sm leading-relaxed text-mist">{line}</span>
@@ -325,17 +368,15 @@ function Feature({ icon, title, line }: { icon: ReactNode; title: string; line: 
 
 function DocCard({ doc, holders }: { doc: Doc; holders: boolean }) {
   return (
-    <li className="panel flex flex-col p-5 text-ink ring-1 ring-line sm:p-6">
+    <li className="panel flex flex-col p-5">
       <div className="flex items-start justify-between gap-3">
-        <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${holders ? "bg-gold/25 text-amber" : "bg-pine-soft text-pine"}`}>{doc.icon}</span>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${holders ? "bg-ink text-gold" : "bg-pine-soft text-pine"}`}>
-          {holders ? "$PAR holders" : "Free"}
-        </span>
+        <IconTile tone={holders ? "gold" : "pine"}>{doc.icon}</IconTile>
+        <Tag holders={holders} />
       </div>
-      <h4 className="mt-4 text-lg font-medium">{doc.title}</h4>
+      <h4 className="mt-4 text-lg font-semibold text-ink">{doc.title}</h4>
       <p className="mt-2 flex flex-wrap gap-1.5">
         {doc.commands.map((command) => (
-          <code key={command} className="rounded-lg bg-ink/5 px-2 py-1 font-mono text-xs text-ink ring-1 ring-line">
+          <code key={command} className="rounded-md bg-field px-2 py-1 font-mono text-xs text-gold ring-1 ring-line">
             {command}
           </code>
         ))}
@@ -353,58 +394,104 @@ function BotPage() {
     <div className="relative min-h-screen text-foam">
       <Backdrop />
       <SiteNav current="/bot" />
-      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-        <section className="rise grid items-center gap-12 pt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:pt-12">
-          <div className="max-w-2xl">
-            <p className="text-sm font-medium tracking-wide text-gold">Par on Telegram</p>
-            <h1 className="hero-title mt-4 font-display text-5xl leading-[0.98] sm:text-7xl">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6">
+        <div className="rise grid items-start gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <section aria-labelledby="bot-title" className="panel p-5 sm:p-6">
+            <div className="flex items-center gap-4">
+              <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-[#2aabee] text-white">
+                <Send className="size-7 -translate-x-0.5" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <h1 id="bot-title" className="font-display text-2xl leading-tight text-foam">
+                  {TITLE}
+                </h1>
+                <p className="text-sm text-mist">@ONPAR_BOT</p>
+              </div>
+            </div>
+            <p className="mt-4 text-lg font-semibold leading-snug text-foam">
               A text the moment the price is <span className="text-gold">real.</span>
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-mist">
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-mist">
               @ONPAR_BOT checks {TOKENS.length} tokenized stocks on Solana against Nasdaq every minute. Ask about any name, size your order, follow
               the filings, and get a text when a buy is back at the share price.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a href={BOT_URL} className="inline-flex h-12 items-center gap-2 rounded-full bg-gold px-6 text-sm font-medium text-ink shadow-[0_8px_24px_#e0a04a33]">
-                <Send className="size-4" aria-hidden />
-                Open @ONPAR_BOT
-              </a>
-              <a href="#features" className="inline-flex h-12 items-center rounded-full px-5 text-sm font-medium text-foam ring-1 ring-white/20">
-                Every feature, explained
-              </a>
-            </div>
-            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-mist">
+            <a href={BOT_URL} className={`${GOLD_BUTTON} mt-5 h-11 w-full`}>
+              <Send className="size-4" aria-hidden />
+              Open in Telegram
+            </a>
+            <ul className="mt-6 space-y-4">
+              {TOP_FEATURES.map(({ item, holders }) => (
+                <li key={item.title} className="flex gap-3">
+                  <IconTile>{item.icon}</IconTile>
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-foam">{item.title}</span>
+                      <Tag holders={holders} />
+                    </span>
+                    <span className="mt-0.5 block text-sm leading-relaxed text-mist">{item.line}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {coinLive ? null : (
+              <p className="mt-4 text-xs leading-relaxed text-mist">
+                Holder features: $PAR is not live yet, so these are off for now; a proven wallet is kept for when it is.
+              </p>
+            )}
+            <ul className="mt-5 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-line pt-4 text-xs text-mist">
               {["No fee", "Never asks for keys", "Never holds funds"].map((item) => (
                 <li key={item} className="inline-flex items-center gap-1.5">
-                  <Check className="size-4 text-[#3dbe8b]" aria-hidden />
+                  <Check className="size-3.5 text-pine" aria-hidden />
                   {item}
                 </li>
               ))}
             </ul>
-          </div>
-          <PhoneDemo quote={featured} asOf={asOf} />
-        </section>
+            <a href="#features" className="mt-4 inline-flex text-sm font-medium text-gold underline decoration-gold/50 underline-offset-4">
+              Every feature, explained
+            </a>
+          </section>
 
-        <section aria-labelledby="how-title" className="mt-24">
-          <h2 id="how-title" className="font-display text-4xl sm:text-5xl">
+          <Panel
+            title="Example commands"
+            action={
+              <a href="#commands" className="text-xs font-medium text-gold underline decoration-gold/50 underline-offset-4">
+                All {COMMANDS.length}
+              </a>
+            }
+          >
+            <ul className="space-y-2">
+              {TOP_COMMANDS.map(([command, line]) => (
+                <li key={command} className="flex items-center justify-between gap-3 rounded-lg bg-field px-3 py-2.5 ring-1 ring-line">
+                  <code className="font-mono text-sm text-gold">{command}</code>
+                  <span className="text-right text-xs text-mist">{line}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs leading-relaxed text-mist">Or skip the commands: send a name, or paste a Solana wallet.</p>
+          </Panel>
+
+          <Panel title="Example message">
+            <PhoneDemo quote={featured} asOf={asOf} />
+          </Panel>
+        </div>
+
+        <section aria-labelledby="how-title" className="mt-14">
+          <SectionTitle id="how-title" line="A tokenized stock is meant to track its share. The bot checks whether the price you would pay on Solana actually does.">
             How the bot works
-          </h2>
-          <p className="mt-3 max-w-2xl text-mist">
-            A tokenized stock is meant to track its share. The bot checks whether the price you would pay on Solana actually does.
-          </p>
-          <ol className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          </SectionTitle>
+          <ol className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {HOW.map((step, index) => (
-              <li key={step.title} className="relative rounded-2xl bg-dusk/80 p-6 ring-1 ring-white/10 backdrop-blur">
+              <li key={step.title} className="panel p-5">
                 <span className="flex items-center justify-between">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">{step.icon}</span>
+                  <IconTile>{step.icon}</IconTile>
                   <span className="font-display text-3xl text-white/15">{index + 1}</span>
                 </span>
-                <h3 className="mt-4 text-lg font-medium">{step.title}</h3>
+                <h3 className="mt-4 text-lg font-semibold text-foam">{step.title}</h3>
                 <p className="mt-1 text-sm leading-relaxed text-mist">{step.line}</p>
               </li>
             ))}
           </ol>
-          <ul className="mt-4 grid gap-2 rounded-2xl bg-dusk/60 p-4 text-sm text-mist ring-1 ring-white/10 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="panel mt-4 grid gap-3 p-4 text-sm text-mist sm:grid-cols-2 lg:grid-cols-4">
             {NEVER.map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <KeyRound className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
@@ -414,37 +501,39 @@ function BotPage() {
           </ul>
         </section>
 
-        <section aria-labelledby="steps-title" className="mt-24">
-          <h2 id="steps-title" className="font-display text-4xl sm:text-5xl">
-            Start in three steps
-          </h2>
-          <ol className="mt-8 grid gap-4 md:grid-cols-3">
+        <section aria-labelledby="steps-title" className="mt-14">
+          <SectionTitle id="steps-title">Start in three steps</SectionTitle>
+          <ol className="grid gap-4 md:grid-cols-3">
             {STEPS.map((step, index) => (
-              <li key={step.title} className="rounded-2xl bg-dusk/80 p-6 ring-1 ring-white/10 backdrop-blur">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gold font-display text-lg text-ink">{index + 1}</span>
-                <h3 className="mt-4 text-lg font-medium">{step.title}</h3>
+              <li key={step.title} className="panel p-5">
+                <span className="inline-flex size-9 items-center justify-center rounded-full bg-gold font-display text-lg text-night">{index + 1}</span>
+                <h3 className="mt-4 text-lg font-semibold text-foam">{step.title}</h3>
                 <p className="mt-1 text-sm leading-relaxed text-mist">{step.line}</p>
               </li>
             ))}
           </ol>
         </section>
 
-        <section aria-labelledby="plans-title" className="mt-24">
-          <h2 id="plans-title" className="font-display text-4xl sm:text-5xl">
-            Free to ask. Texts for holders.
-          </h2>
-          <div className="mt-8 grid gap-4 lg:grid-cols-2">
-            <div className="rounded-[1.75rem] bg-dusk/80 p-6 ring-1 ring-white/10 backdrop-blur sm:p-8">
-              <p className="text-sm font-medium tracking-wide text-mist">Everyone, free</p>
-              <ul className="mt-6 space-y-5">
+        <section aria-labelledby="plans-title" className="mt-14">
+          <SectionTitle id="plans-title">Free to ask. Texts for holders.</SectionTitle>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="panel p-5 sm:p-6">
+              <p className="flex items-center gap-2 text-sm font-medium text-pine">
+                <ShieldCheck className="size-4" aria-hidden />
+                Everyone, free
+              </p>
+              <ul className="mt-5 space-y-5">
                 {FREE.map((item) => (
                   <Feature key={item.title} {...item} />
                 ))}
               </ul>
             </div>
-            <div className="why-hold rounded-[1.75rem] p-6 ring-1 ring-gold/30 sm:p-8">
-              <p className="text-sm font-medium tracking-wide text-gold">With $PAR in a proven wallet</p>
-              <ul className="mt-6 space-y-5">
+            <div className="why-hold rounded-[var(--radius-card)] border border-gold/30 p-5 sm:p-6">
+              <p className="flex items-center gap-2 text-sm font-medium text-gold">
+                <FingerprintPattern className="size-4" aria-hidden />
+                With $PAR in a proven wallet
+              </p>
+              <ul className="mt-5 space-y-5">
                 {HOLDERS.map((item) => (
                   <Feature key={item.title} {...item} />
                 ))}
@@ -457,13 +546,12 @@ function BotPage() {
           </div>
         </section>
 
-        <section id="features" aria-labelledby="features-title" className="mt-24 scroll-mt-8">
-          <h2 id="features-title" className="font-display text-4xl sm:text-5xl">
+        <section id="features" aria-labelledby="features-title" className="mt-14 scroll-mt-8">
+          <SectionTitle id="features-title" line="What each one does, the command to use, and when it texts you. Send /help in the bot for the short version.">
             Every feature, explained
-          </h2>
-          <p className="mt-3 max-w-2xl text-mist">What each one does, the command to use, and when it texts you. Send /help in the bot for the short version.</p>
+          </SectionTitle>
 
-          <h3 className="mt-10 flex items-center gap-2 text-sm font-medium tracking-wide text-[#3dbe8b] uppercase">
+          <h3 className="mt-8 flex items-center gap-2 text-sm font-medium tracking-wide text-pine uppercase">
             <ShieldCheck className="size-4" aria-hidden />
             Free for everyone
           </h3>
@@ -473,7 +561,7 @@ function BotPage() {
             ))}
           </ul>
 
-          <h3 className="mt-12 flex items-center gap-2 text-sm font-medium tracking-wide text-gold uppercase">
+          <h3 className="mt-10 flex items-center gap-2 text-sm font-medium tracking-wide text-gold uppercase">
             <FingerprintPattern className="size-4" aria-hidden />
             For $PAR holders
           </h3>
@@ -499,28 +587,26 @@ function BotPage() {
           </p>
         </section>
 
-        <section id="commands" aria-labelledby="commands-title" className="mt-24 scroll-mt-8">
-          <h2 id="commands-title" className="font-display text-4xl sm:text-5xl">
-            Commands
-          </h2>
-          <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {COMMANDS.map(([command, line]) => (
-              <li key={command} className="flex items-center justify-between gap-3 rounded-2xl bg-dusk/80 px-4 py-3 ring-1 ring-white/10">
-                <code className="font-mono text-sm text-gold">{command}</code>
-                <span className="text-right text-sm text-mist">{line}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 text-sm text-mist">Or skip the commands: send a name, or paste a Solana wallet.</p>
+        <section id="commands" aria-labelledby="commands-title" className="mt-14 scroll-mt-8">
+          <SectionTitle id="commands-title">Commands</SectionTitle>
+          <div className="panel p-4 sm:p-5">
+            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {COMMANDS.map(([command, line]) => (
+                <li key={command} className="flex items-center justify-between gap-3 rounded-lg bg-field px-4 py-3 ring-1 ring-line">
+                  <code className="font-mono text-sm text-gold">{command}</code>
+                  <span className="text-right text-sm text-mist">{line}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-sm text-mist">Or skip the commands: send a name, or paste a Solana wallet.</p>
+          </div>
         </section>
 
-        <section aria-labelledby="verdicts-title" className="mt-24">
-          <h2 id="verdicts-title" className="font-display text-4xl sm:text-5xl">
-            What the colours mean
-          </h2>
-          <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <section aria-labelledby="verdicts-title" className="mt-14">
+          <SectionTitle id="verdicts-title">What the colours mean</SectionTitle>
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {VERDICTS.map((v) => (
-              <li key={v.id} className="panel p-5 text-ink ring-1 ring-line">
+              <li key={v.id} className="panel p-5">
                 <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${verdictPillClass(v.id)}`}>
                   <span aria-hidden className="mr-1.5">
                     {v.emoji}
@@ -533,17 +619,15 @@ function BotPage() {
           </ul>
         </section>
 
-        <section aria-labelledby="faq-title" className="mt-24 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <section aria-labelledby="faq-title" className="mt-14 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div>
-            <h2 id="faq-title" className="font-display text-4xl sm:text-5xl">
-              Questions
-            </h2>
-            <div className="mt-8 divide-y divide-white/10 rounded-[1.75rem] bg-dusk/80 ring-1 ring-white/10">
+            <SectionTitle id="faq-title">Questions</SectionTitle>
+            <div className="panel divide-y divide-line">
               {questions(coinLive).map(([question, answer]) => (
-                <details key={question} className="group px-6 py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-medium">
+                <details key={question} className="group px-5 py-4">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-foam">
                     {question}
-                    <span aria-hidden className="text-gold transition-transform group-open:rotate-45">
+                    <span aria-hidden className="text-xl leading-none text-gold transition-transform group-open:rotate-45">
                       +
                     </span>
                   </summary>
@@ -552,11 +636,11 @@ function BotPage() {
               ))}
             </div>
           </div>
-          <aside className="self-start rounded-[1.75rem] bg-dusk/80 p-6 text-center ring-1 ring-white/10 lg:mt-[4.5rem]">
+          <aside className="panel self-start p-6 text-center lg:mt-[3.5rem]">
             <ShieldCheck className="mx-auto size-6 text-gold" aria-hidden />
-            <p className="mt-3 font-display text-2xl">On a computer?</p>
+            <p className="mt-3 font-display text-xl text-foam">On a computer?</p>
             <p className="mt-1 text-sm text-mist">Scan to open the bot on your phone.</p>
-            <img src="/qr-bot.svg" alt="QR code that opens t.me/ONPAR_BOT" width={200} height={200} className="mx-auto mt-5 w-44 rounded-2xl" />
+            <img src="/qr-bot.svg" alt="QR code that opens t.me/ONPAR_BOT" width={200} height={200} className="mx-auto mt-5 w-44 rounded-xl" />
             <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-mist">
               <QrCode className="size-3.5" aria-hidden />
               t.me/ONPAR_BOT
@@ -564,10 +648,10 @@ function BotPage() {
           </aside>
         </section>
 
-        <section className="why-hold mt-24 overflow-hidden rounded-[1.75rem] p-8 text-center ring-1 ring-white/10 sm:p-12">
-          <h2 className="font-display text-4xl sm:text-5xl">Ask your first name.</h2>
+        <section className="why-hold mt-14 overflow-hidden rounded-[var(--radius-card)] p-8 text-center sm:p-12">
+          <h2 className="font-display text-3xl text-foam sm:text-4xl">Ask your first name.</h2>
           <p className="mx-auto mt-3 max-w-xl text-mist">Open the bot, send nvda, and see whether the price is real.</p>
-          <a href={BOT_URL} className="mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-gold px-6 text-sm font-medium text-ink">
+          <a href={BOT_URL} className={`${GOLD_BUTTON} mt-8 h-11 px-6`}>
             <Send className="size-4" aria-hidden />
             Open @ONPAR_BOT
           </a>

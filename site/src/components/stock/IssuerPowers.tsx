@@ -42,7 +42,7 @@ export function IssuerPowers({ result }: { result: IssuerResult }) {
               const serious = power.on && SERIOUS.includes(power.id);
               const Icon = serious ? ShieldAlert : power.on ? Info : ShieldCheck;
               return (
-                <li key={power.id} className="flex gap-3 rounded-2xl bg-foam p-4">
+                <li key={power.id} className="flex gap-3 rounded-2xl bg-field p-4">
                   <Icon className={`mt-0.5 size-5 shrink-0 ${serious ? "text-clay" : power.on ? "text-amber" : "text-pine"}`} aria-hidden />
                   <div className="min-w-0">
                     <p className="font-medium">{power.title}</p>

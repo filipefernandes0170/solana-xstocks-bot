@@ -11,12 +11,12 @@ function count(value: number) {
 /** Rebases ahead for the names held, and where the US session stands. */
 export function BagEvents({ events, marketState, now }: { events: BagEvent[]; marketState: string | null; now: number }) {
   return (
-    <section aria-labelledby="events-title" className="panel rise p-5 text-ink ring-1 ring-line sm:p-6">
+    <section aria-labelledby="events-title" className="panel rise p-4 text-ink sm:p-5">
       <p className="flex items-center gap-2 text-sm font-medium text-amber">
         <CalendarClock className="size-4" aria-hidden />
         Coming up
       </p>
-      <h2 id="events-title" className="mt-1 font-display text-3xl leading-tight">
+      <h2 id="events-title" className="mt-1 font-display text-xl leading-tight">
         {events.length === 0 ? "No rebase scheduled" : events.length === 1 ? "One rebase ahead" : `${events.length} rebases ahead`}
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -50,7 +50,7 @@ export function BagEvents({ events, marketState, now }: { events: BagEvent[]; ma
       ) : (
         <p className="mt-4 text-sm leading-relaxed">Jupiter lists no multiplier change for the names you hold. The bot texts holders the evening before one.</p>
       )}
-      <div className="mt-4 rounded-2xl bg-foam px-4 py-3 text-sm">
+      <div className="mt-4 rounded-xl bg-field px-4 py-3 text-sm ring-1 ring-line">
         <p className="font-medium">
           {"Nasdaq: "}
           {sessionLabel(marketState, now)}

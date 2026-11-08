@@ -31,6 +31,7 @@ export function HeroLines({
   asOf,
   feedError,
   onPick,
+  compact = false,
 }: {
   rows: DeskRow[];
   age: number;
@@ -38,6 +39,8 @@ export function HeroLines({
   asOf: number;
   feedError: string | null;
   onPick: (symbol: string) => void;
+  /** Inside the desk's featured panel, which shows the name, verdict and age itself: the drawing only. */
+  compact?: boolean;
 }) {
   const shown: Shown[] = useMemo(() => {
     const out: Shown[] = [];
@@ -101,7 +104,11 @@ export function HeroLines({
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      <div className="mb-3 flex items-center justify-between gap-3">
+      {/* Screen readers hear only the change between live and reconnecting, not every second. */}
+      <span className="sr-only" role="status">
+        {feedError ? "Prices reconnecting" : "Prices live"}
+      </span>
+      <div className={`mb-3 flex items-center justify-between gap-3${compact ? " hidden" : ""}`}>
         {current ? (
           <button type="button" onClick={() => onPick(current.row.symbol)} className="min-w-0 text-left">
             <span className="block truncate font-display text-2xl text-foam">{current.row.name}</span>
@@ -123,16 +130,12 @@ export function HeroLines({
           {/* A new key each time prices land plays the pulse once (styles.css .live-once), instead of looping. */}
           <span key={asOf} className="live-dot live-once" aria-hidden />
           <span aria-hidden>{feedError ? "Reconnecting" : age < 60 ? `${age}s` : ageLabel(age * 1000)}</span>
-          {/* Screen readers hear only the change between live and reconnecting, not every second. */}
-          <span className="sr-only" role="status">
-            {feedError ? "Prices reconnecting" : "Prices live"}
-          </span>
         </span>
       </div>
 
       <div className="relative" style={{ aspectRatio: `${W} / ${H}` }}>
         <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full" aria-hidden>
-          <g stroke="#143240" strokeWidth="1">
+          <g stroke="#1d222a" strokeWidth="1">
             {Array.from({ length: 13 }, (_, i) => (
               <line key={`v${i}`} x1={40 + i * 40} y1="10" x2={40 + i * 40} y2={H - 10} />
             ))}
@@ -167,7 +170,7 @@ export function HeroLines({
           </>
         ) : null}
       </div>
-      <figcaption className="mt-2 text-xs leading-relaxed text-mist">
+      <figcaption className="mt-2 text-xs leading-relaxed text-muted">
         Gold is the token on Solana, pale is the share on Nasdaq. The closer they start, the closer the price is to real.
       </figcaption>
     </figure>

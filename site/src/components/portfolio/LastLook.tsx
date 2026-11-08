@@ -13,11 +13,11 @@ function signed(value: number) {
 export function LastLook({ change }: { change: LookChange }) {
   const balance = Math.abs(change.balanceMove) >= 0.01;
   return (
-    <section aria-label="Since you last looked" className="rise mt-3 flex gap-3 rounded-2xl bg-dusk/80 px-4 py-3 text-sm text-mist ring-1 ring-white/10 sm:px-5">
+    <section aria-label="Since you last looked" className="flex gap-3 rounded-xl bg-field px-4 py-3 text-sm text-mist ring-1 ring-line">
       <History className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
       <p className="leading-relaxed">
         <span className="font-medium text-foam">{`Since you last looked, ${agoWords(change.ageMs)}: `}</span>
-        <span className={change.priceMove >= 0 ? "text-[#3dbe8b]" : "text-clay-bright"}>
+        <span className={change.priceMove >= 0 ? "text-pine" : "text-clay-bright"}>
           {signed(change.priceMove)}
           {change.pricePct != null ? ` (${change.pricePct >= 0 ? "+" : "−"}${Math.abs(change.pricePct).toFixed(2)}%)` : ""}
         </span>

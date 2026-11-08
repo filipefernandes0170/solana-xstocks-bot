@@ -155,6 +155,20 @@ A Chrome trace on the mobile test profile (4x CPU) showed the desk keeping the m
 - **Measured** (same profile, 6 s windows, two runs each, live site vs Deploy Preview): desk at the top 99% busy, now 25-26%; desk at the hero after its opening 99%, now 35-42%; name page 98%, now under 2% at the hero (16% in one run at the top, during a price update); desk load, first 14 s, 13.7 s busy, now 7.2 to 8.4 s. First and largest content times are unchanged within noise.
 - **Seen in review, older than this change, left for later:** coming back from a name page while Nasdaq is closed lands about half a card low (the closed-session note and the longer header line appear one render after the router restores the scroll); a card's Share menu is cut off on the left at 375 px.
 
+## Dark dashboard look (8 Nov 2026)
+
+Filipe asked for the look of a dashboard picture he sent, keeping only the data Par already has and Par's own logo.
+
+- **Theme** (`styles.css`): near-black page, dark panels with a hairline border, gold actions, Inter for text and headings. The colour names were kept so every page switched at once: `card` is now the dark panel, `ink` its light text, `field` the raised surface for inputs and meters. Light-surface classes were moved to `field`, and dark buttons to gold with dark text.
+- **Shared pieces** (`components/ui.tsx`): page title, panel, number tile, underline tabs, chips and button styles.
+- **Top bar** (`SiteNav.tsx`): the Par mark, the four pages with a gold underline, a search that opens a name's page (only the names Par follows), and "Connect wallet" (opens /portfolio).
+- **Desk**: title with the Nasdaq session box and "View events"; four tiles (names followed, fair now, widest gap, next balance change); a featured name (`DeskTop.tsx`: token price, Nasdaq print, $1,000 buy versus Nasdaq, and the hero lines drawn for that name) next to its gap analysis (verdict, pool, what a $1,000 buy moves, how fresh the prices are); the table is now the default view (cards one click away). Clicking a name in the table, the ticker or a tile features it.
+- **Events**: two columns, days on the left with time, event, type and names, the chosen event's details on the right (inline on phones).
+- **Bot**: the bot, real example commands and live example messages side by side, the rest below.
+- **Portfolio**: wallet panel and tiles (value, versus Nasdaq, positions, possible yield), holdings table with allocation bars (drawn against the largest holding, labelled with the true share) and "Since you last looked", yield and rebases on the right.
+- **Not taken from the picture**, because Par has no such data or would break its rules: total volume, a 3M/1Y price chart, impact ratings and future earnings dates, average price and P/L, a "Claim" button, invented commands.
+- Checked: types, 122 tests, production build, a readability scan of every page and desk view (no text under 4.5:1, 3:1 for large text), desktop and 390 px phone screenshots.
+
 ## Run it
 
 ```bash

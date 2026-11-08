@@ -68,7 +68,7 @@ export function OtherTokens({ symbol, quotes, now }: { symbol: string; quotes: Q
       </p>
       <ul className="mt-5 grid gap-3 md:grid-cols-2">
         {rows.map((row) => (
-          <li key={row.symbol} className={`rounded-2xl p-4 ${row === highlight ? "bg-pine-soft ring-1 ring-pine/30" : "bg-foam"}`}>
+          <li key={row.symbol} className={`rounded-2xl p-4 ${row === highlight ? "bg-pine-soft ring-1 ring-pine/30" : "bg-field"}`}>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <Link to="/s/$symbol" params={{ symbol: row.symbol }} className="font-medium hover:underline hover:underline-offset-4">

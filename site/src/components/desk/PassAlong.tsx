@@ -41,14 +41,14 @@ export function PassAlong({
   return (
     <section className="panel p-5 ring-1 ring-line sm:p-7">
       <p className="text-sm text-amber">Pass this along</p>
-      <h2 className="mt-2 max-w-3xl font-display text-2xl leading-snug text-ink sm:text-3xl">{text}</h2>
+      <h2 className="mt-2 max-w-3xl font-display text-xl leading-snug text-ink sm:text-2xl">{text}</h2>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
         <label className="text-sm text-muted">
           Name
           <select
             value={symbol}
             onChange={(event) => onSymbol(event.target.value)}
-            className="mt-1 h-11 w-full rounded-full bg-foam px-3 text-sm text-ink ring-1 ring-line sm:w-52"
+            className="mt-1 h-11 w-full rounded-full bg-field px-3 text-sm text-ink ring-1 ring-line sm:w-52"
           >
             {TOKENS.map((t) => (
               <option key={t.symbol} value={t.symbol}>
@@ -57,7 +57,7 @@ export function PassAlong({
             ))}
           </select>
         </label>
-        <button type="button" onClick={() => onCopy(text)} className="h-11 rounded-full bg-ink px-4 text-sm font-medium text-foam">
+        <button type="button" onClick={() => onCopy(text)} className="h-11 rounded-full bg-gold px-4 text-sm font-medium text-night">
           {copied ? "Copied" : "Copy the line"}
         </button>
         {token ? <BuyLink mint={token.mint} symbol={token.symbol} /> : null}

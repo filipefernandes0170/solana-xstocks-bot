@@ -32,7 +32,7 @@ export function YieldPanel({
               type="button"
               onClick={() => onSymbol(token.symbol)}
               aria-pressed={symbol === token.symbol}
-              className={`h-11 shrink-0 rounded-full px-4 text-sm font-medium ${symbol === token.symbol ? "bg-gold text-ink" : "bg-foam text-ink ring-1 ring-line"}`}
+              className={`h-11 shrink-0 rounded-full px-4 text-sm font-medium ${symbol === token.symbol ? "bg-gold text-night" : "bg-field text-ink ring-1 ring-line"}`}
             >
               {token.name}
             </button>
@@ -50,7 +50,7 @@ export function YieldPanel({
             <li key={`${offer.venue}-${offer.kind}`} className="panel p-5 ring-1 ring-line">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="font-display text-2xl text-ink">{offer.venue}</h3>
-                <span className="rounded-full bg-foam px-3 py-1 text-sm text-ink ring-1 ring-line">{offer.kind}</span>
+                <span className="rounded-full bg-field px-3 py-1 text-sm text-ink ring-1 ring-line">{offer.kind}</span>
               </div>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">{offer.note}</p>
               {offer.kind === "Collateral" ? (

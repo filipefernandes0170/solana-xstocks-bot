@@ -12,7 +12,7 @@ function Row({ label, value, total, tone }: { label: string; value: number; tota
           <span className="text-muted"> · {usd(value)}</span>
         </span>
       </div>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-foam" aria-hidden>
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-field" aria-hidden>
         <div className={`bar-grow h-full rounded-full ${tone}`} style={{ width: total > 0 ? `${(value / total) * 100}%` : "0%" }} />
       </div>
     </li>
@@ -25,12 +25,12 @@ function Row({ label, value, total, tone }: { label: string; value: number; tota
  */
 export function BagPowers({ summary, error }: { summary: BagPowerSummary | null; error: string | null }) {
   return (
-    <section aria-labelledby="powers-title" className="panel rise p-5 text-ink ring-1 ring-line sm:p-6">
+    <section aria-labelledby="powers-title" className="panel rise p-4 text-ink sm:p-5">
       <p className="flex items-center gap-2 text-sm font-medium text-amber">
         <ShieldAlert className="size-4" aria-hidden />
         Read from the chain
       </p>
-      <h2 id="powers-title" className="mt-1 font-display text-3xl leading-tight">
+      <h2 id="powers-title" className="mt-1 font-display text-xl leading-tight">
         Who can freeze your bag
       </h2>
       {error ? <p className="mt-2 text-sm text-clay">{error}</p> : null}
@@ -42,7 +42,7 @@ export function BagPowers({ summary, error }: { summary: BagPowerSummary | null;
             sanctions. They are powers, not events: this does not say they will be used.
           </p>
           {summary.pausedNow.length > 0 ? (
-            <p role="status" className="mt-4 rounded-2xl bg-clay-soft px-4 py-3 text-sm font-medium text-clay">
+            <p role="status" className="mt-4 rounded-xl bg-clay-soft px-4 py-3 text-sm font-medium text-clay">
               {`Transfers are paused right now: ${summary.pausedNow.join(", ")}.`}
             </p>
           ) : null}
