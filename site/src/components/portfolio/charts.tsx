@@ -62,10 +62,10 @@ export function Donut({ slices, total, label, value }: { slices: Slice[]; total:
         </g>
       </g>
       <circle cx="60" cy="60" r="38" fill="none" stroke="#ffffff0d" strokeWidth="1" />
-      <text x="60" y="55" textAnchor="middle" fill="#a9c4bc" fontSize="6.5" letterSpacing="1.4">
+      <text x="60" y="55" textAnchor="middle" fill="#969da7" fontSize="6.5" letterSpacing="1.4">
         {label.toUpperCase()}
       </text>
-      <text x="60" y="73" textAnchor="middle" fill="#e7f3ee" fontSize="17" fontFamily="Fraunces, Georgia, serif">
+      <text x="60" y="73" textAnchor="middle" fill="#eceef1" fontSize="16" fontWeight="600" fontFamily="Inter, ui-sans-serif, system-ui, sans-serif">
         {value}
       </text>
     </svg>
@@ -233,16 +233,16 @@ export function MarkMeter({ pct }: { pct: number | null }) {
   const tone = Math.abs(pct) < FAIR_BAND ? "bg-pine" : Math.abs(pct) < 1 ? "bg-gold" : "bg-clay";
   const band = 50 - (FAIR_BAND / (2 * GAP_SCALE)) * 100;
   return (
-    <div className="mt-3 rounded-2xl bg-foam px-4 pb-2.5 pt-3">
+    <div className="mt-3 rounded-xl bg-field px-4 pb-2.5 pt-3 ring-1 ring-line">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-sm">
         <span className="text-muted">Your stock tokens versus Nasdaq</span>
         <span className="font-medium tabular-nums">{versusNasdaq(pct)}</span>
       </div>
-      <div className="relative mt-3 h-2 rounded-full bg-white ring-1 ring-line" role="img" aria-label={`Your stock tokens are marked ${versusNasdaq(pct)}`}>
+      <div className="relative mt-3 h-2 rounded-full bg-night ring-1 ring-line" role="img" aria-label={`Your stock tokens are marked ${versusNasdaq(pct)}`}>
         <span className="absolute inset-y-0 rounded-full bg-pine-soft" style={{ left: `${band}%`, right: `${band}%` }} />
         <span className="absolute inset-y-[-3px] left-1/2 w-px bg-muted/50" />
         <span
-          className={`gap-dot absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white ${tone}`}
+          className={`gap-dot absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card ${tone}`}
           style={{ left: `${left}%` }}
         />
       </div>
@@ -286,7 +286,7 @@ export function ChangeChip({ value }: { value: number | null }) {
   const up = value >= 0;
   return (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${up ? "bg-[#3dbe8b]/15 text-[#3dbe8b]" : "bg-clay-bright/15 text-clay-bright"}`}
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${up ? "bg-pine-soft text-pine" : "bg-clay-soft text-clay"}`}
     >
       {`${up ? "+" : "−"}${Math.abs(value).toFixed(2)}%`}
     </span>

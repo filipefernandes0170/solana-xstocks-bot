@@ -90,8 +90,8 @@ export function ShareButton({
     }
   }
 
-  const base = tone === "dark" ? "bg-dusk text-foam ring-1 ring-white/15" : "bg-foam text-ink ring-1 ring-line";
-  const item = "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-ink hover:bg-foam";
+  const base = tone === "dark" ? "bg-dusk text-foam ring-1 ring-white/15" : "bg-field text-ink ring-1 ring-line";
+  const item = "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-ink hover:bg-field";
   return (
     <div ref={box} className="relative inline-flex">
       <button

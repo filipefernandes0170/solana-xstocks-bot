@@ -149,9 +149,9 @@ export function RealPrice({
           : `Your tokens are marked ${money(Math.abs(totals.diffUsd))} under the shares they track.`;
 
   return (
-    <section aria-labelledby="real-title" className="panel rise mt-6 p-5 text-ink ring-1 ring-line sm:p-7">
+    <section aria-labelledby="real-title" className="panel rise mt-6 p-4 text-ink sm:p-6">
       <p className="text-sm font-medium text-amber">At the real price</p>
-      <h2 id="real-title" className="mt-1 font-display text-3xl leading-tight sm:text-4xl">
+      <h2 id="real-title" className="mt-1 font-display text-2xl leading-tight">
         Your tokens, next to the shares they track
       </h2>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
@@ -160,17 +160,17 @@ export function RealPrice({
       </p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl bg-foam px-4 py-3">
+        <div className="rounded-xl bg-field px-4 py-3 ring-1 ring-line">
           <p className="text-sm text-muted">Marked on Solana</p>
-          <p className="mt-1 font-display text-3xl tabular-nums">{money(totals.marked)}</p>
+          <p className="mt-1 font-display text-2xl tabular-nums">{money(totals.marked)}</p>
         </div>
-        <div className="rounded-2xl bg-foam px-4 py-3">
+        <div className="rounded-xl bg-field px-4 py-3 ring-1 ring-line">
           <p className="text-sm text-muted">Same shares at Nasdaq</p>
-          <p className="mt-1 font-display text-3xl tabular-nums">{totals.diffPct == null ? "—" : money(totals.atNasdaq)}</p>
+          <p className="mt-1 font-display text-2xl tabular-nums">{totals.diffPct == null ? "—" : money(totals.atNasdaq)}</p>
         </div>
-        <div className="rounded-2xl bg-foam px-4 py-3">
+        <div className="rounded-xl bg-field px-4 py-3 ring-1 ring-line">
           <p className="text-sm text-muted">Difference</p>
-          <p className="mt-1 font-display text-3xl tabular-nums">{totals.diffPct == null ? "—" : signed(totals.diffUsd)}</p>
+          <p className="mt-1 font-display text-2xl tabular-nums">{totals.diffPct == null ? "—" : signed(totals.diffUsd)}</p>
           <p className="text-sm text-muted">{signedPct(totals.diffPct)}</p>
         </div>
       </div>
@@ -180,7 +180,7 @@ export function RealPrice({
         {totals.unprinted > 0 ? " Names whose Nasdaq print has not come in are left out of these sums." : ""}
       </p>
 
-      <div className="mt-6 rounded-2xl bg-foam p-4 sm:p-5">
+      <div className="mt-6 rounded-xl bg-field p-4 ring-1 ring-line sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-2xl">
             <p className="flex items-center gap-2 font-medium">
@@ -196,7 +196,7 @@ export function RealPrice({
             type="button"
             onClick={() => void runExits()}
             disabled={running || targets.length === 0}
-            className="h-11 shrink-0 rounded-full bg-ink px-5 text-sm font-medium text-foam disabled:opacity-60"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-gold px-4 text-sm font-semibold text-night hover:brightness-105 disabled:opacity-60"
           >
             {running ? `Checking ${Math.min(done + 1, targets.length)} of ${targets.length}…` : sale ? "Check again" : "Check exit prices"}
           </button>
@@ -226,7 +226,7 @@ export function RealPrice({
 
       <div className="mt-6 hidden overflow-x-auto md:block">
         <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="text-xs tracking-wide text-muted uppercase">
+          <thead className="text-xs text-muted">
             <tr className="border-b border-line">
               <th className="py-3 pr-3 font-medium">Name</th>
               <th className="px-3 py-3 font-medium">Marked</th>
@@ -268,7 +268,7 @@ export function RealPrice({
 
       <ul className="mt-6 grid gap-3 md:hidden">
         {rows.map((row) => (
-          <li key={row.line.symbol} className="rounded-2xl bg-foam p-4">
+          <li key={row.line.symbol} className="rounded-xl bg-field p-4 ring-1 ring-line">
             <div className="flex items-start justify-between gap-3">
               <NameCell row={row} />
               <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm font-medium ${verdictPillClass(row.verdict.id)}`}>{row.verdict.title}</span>

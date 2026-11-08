@@ -27,12 +27,12 @@ export function BagSupply({
   });
   const startsAt = supply?.firstReading != null ? supply.firstReading + SUPPLY_MIN_AGE_MS : null;
   return (
-    <section aria-labelledby="bag-supply-title" className="panel rise p-5 text-ink ring-1 ring-line sm:p-6">
+    <section aria-labelledby="bag-supply-title" className="panel rise p-4 text-ink sm:p-5">
       <p className="flex items-center gap-2 text-sm font-medium text-amber">
         <Factory className="size-4" aria-hidden />
         Supply on Solana
       </p>
-      <h2 id="bag-supply-title" className="mt-1 font-display text-3xl leading-tight">
+      <h2 id="bag-supply-title" className="mt-1 font-display text-xl leading-tight">
         Your bag&apos;s flows
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -77,7 +77,7 @@ export function BagSupply({
       ) : supply && !error ? (
         <p className="mt-3 text-sm text-muted">No stock tokens in this wallet.</p>
       ) : null}
-      <p className="mt-4 rounded-2xl bg-foam px-4 py-3 text-sm leading-relaxed">
+      <p className="mt-4 rounded-xl bg-field px-4 py-3 text-sm leading-relaxed text-ink ring-1 ring-line">
         Large batches, $500,000 and 1% of a token&apos;s supply within an hour, show in @ONPAR_BOT with /flows. $PAR holders who watch this bag get a
         text when one hits a name in it.
       </p>

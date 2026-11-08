@@ -22,14 +22,14 @@ export function WatchBag({ address, symbols }: { address: string; symbols: strin
   const link = bagWatchLink(address);
   if (!link) return null;
   return (
-    <section aria-labelledby="watch-title" className="rise mt-6 rounded-[var(--radius-card)] bg-dusk p-5 ring-1 ring-gold/40 sm:p-7">
+    <section aria-labelledby="watch-title" className="rise mt-6 rounded-[var(--radius-card)] border border-gold/40 bg-card bg-[radial-gradient(36rem_18rem_at_100%_0%,#f2b84b14,transparent_70%)] p-5 sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-2xl">
           <p className="flex items-center gap-2 text-sm font-medium text-gold">
             <Bell className="size-4" aria-hidden />
             Watch this bag in Telegram
           </p>
-          <h2 id="watch-title" className="mt-1 font-display text-3xl leading-tight text-foam sm:text-4xl">
+          <h2 id="watch-title" className="mt-1 font-display text-2xl leading-tight text-foam">
             A text when your bag needs a look
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-mist">
@@ -46,7 +46,7 @@ export function WatchBag({ address, symbols }: { address: string; symbols: strin
         <div className="flex shrink-0 flex-col gap-3">
           <a
             href={link}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-gold px-6 text-sm font-medium text-ink shadow-[0_8px_24px_#e0a04a33]"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gold px-5 text-sm font-semibold text-night hover:brightness-105"
           >
             <Send className="size-4" aria-hidden />
             Watch this bag

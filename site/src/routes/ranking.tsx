@@ -72,7 +72,7 @@ function Podium({ title, rows, tone }: { title: string; rows: RankRow[]; tone: "
                 <NameCell row={row} />
                 <span className="shrink-0 text-sm font-medium tabular-nums">{nearLabel(row.near)}</span>
               </div>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-foam" aria-hidden>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-field" aria-hidden>
                 <div className={`h-full rounded-full ${tone === "near" ? "bg-pine" : "bg-clay"}`} style={{ width: `${Math.max(2, row.near * 100)}%` }} />
               </div>
             </div>
@@ -97,10 +97,10 @@ function RankingPage() {
     <div className="relative min-h-screen text-foam">
       <Backdrop />
       <SiteNav current={null} />
-      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6">
         <header className="rise pt-4">
           <p className="text-sm font-medium text-gold">Ranking · last 7 days</p>
-          <h1 className="hero-title mt-2 max-w-3xl font-display text-4xl leading-[1.05] sm:text-6xl">Which tokens stayed at the real price?</h1>
+          <h1 className="hero-title mt-2 max-w-3xl font-display text-3xl leading-tight sm:text-5xl">Which tokens stayed at the real price?</h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-mist">
             Every 15 minutes while Nasdaq is open, Par records each name's last trade on Solana and its Nasdaq print. This ranks the names by how
             often they sat within 0.4% of the print. The more often, the more you could trust the price you saw.
@@ -137,7 +137,7 @@ function RankingPage() {
               </button>
               <a
                 href="https://t.me/ONPAR_BOT"
-                className="inline-flex h-11 items-center gap-1.5 rounded-full bg-gold px-4 text-sm font-medium text-ink"
+                className="inline-flex h-11 items-center gap-1.5 rounded-full bg-gold px-4 text-sm font-medium text-night"
               >
                 <Send className="size-4" aria-hidden />
                 /week in the bot

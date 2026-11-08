@@ -1,27 +1,30 @@
 @import "tailwindcss";
 
+/*
+ * The dark desk (8 Nov 2026): a near-black page, dark panels with a hairline border, gold for actions.
+ * The colour names are kept from the light-card design so every page switches at once: "card" is now a dark panel
+ * and "ink" its light text; "field" is the raised surface for inputs, meters and secondary buttons.
+ */
 @theme {
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
-  --color-night: #0b1c26;
-  --color-dusk: #143240;
-  --color-foam: #e7f3ee;
-  --color-mist: #a9c4bc;
-  --color-card: #f6f1e6;
-  --color-ink: #142229;
-  --color-muted: #5d6e74;
-  --color-line: #e2d6c4;
-  --color-pine: #147a58;
-  --color-pine-soft: #dff3ea;
-  /* clay darkened from #c24b38 so red text reaches 4.5:1 on the light cards and pills */
-  --color-clay: #b03f2c;
-  --color-clay-soft: #f8e6e1;
-  /* red text on the dark backgrounds (5.3:1 on dusk) */
-  --color-clay-bright: #ef8571;
-  --color-gold: #e0a04a;
-  /* gold text on the light cards (5.2:1); plain gold stays for text on the dark sky */
-  --color-amber: #8d5b17;
-  --radius-card: 1.25rem;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-night: #0a0c0f;
+  --color-dusk: #111419;
+  --color-foam: #eceef1;
+  --color-mist: #9aa1ab;
+  --color-card: #14171c;
+  --color-field: #1c2027;
+  --color-ink: #eceef1;
+  --color-muted: #969da7;
+  --color-line: #272c34;
+  --color-pine: #2bb36a;
+  --color-pine-soft: #13291d;
+  --color-clay: #ef6650;
+  --color-clay-soft: #2c1714;
+  --color-clay-bright: #f07a68;
+  --color-gold: #f2b84b;
+  --color-amber: #f2b84b;
+  --radius-card: 0.875rem;
 }
 
 @layer base {
@@ -46,8 +49,13 @@
     scale: 0.96;
   }
   ::selection {
-    color: var(--color-foam);
-    background: #2a6a58;
+    color: var(--color-night);
+    background: var(--color-gold);
+  }
+  /* Headings and big numbers: the same sans, heavier and a little tighter. */
+  .font-display {
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
   /* A visible keyboard focus ring everywhere: this blue keeps at least 3:1 on both the dark sky and the light cards. */
   :focus-visible {
@@ -70,11 +78,11 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(to right, #143240 1px, transparent 1px),
-    linear-gradient(to bottom, #143240 1px, transparent 1px);
+    linear-gradient(to right, #ffffff 1px, transparent 1px),
+    linear-gradient(to bottom, #ffffff 1px, transparent 1px);
   background-size: 72px 72px;
-  opacity: 0.55;
-  mask-image: radial-gradient(ellipse 80% 70% at 60% 20%, #000 20%, transparent 75%);
+  opacity: 0.025;
+  mask-image: radial-gradient(ellipse 80% 60% at 60% 10%, #000 20%, transparent 70%);
 }
 
 .backdrop-glow {
@@ -87,7 +95,7 @@
   right: -8rem;
   width: 42rem;
   height: 42rem;
-  background: radial-gradient(circle, #e0a04a1f, transparent 65%);
+  background: radial-gradient(circle, #f2b84b12, transparent 65%);
 }
 
 .backdrop-glow-pine {
@@ -95,7 +103,7 @@
   left: -12rem;
   width: 48rem;
   height: 48rem;
-  background: radial-gradient(circle, #147a5824, transparent 65%);
+  background: radial-gradient(circle, #2bb36a0a, transparent 65%);
 }
 
 /*
@@ -144,8 +152,10 @@
 
 .panel {
   border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--color-card) 94%, white);
-  box-shadow: 0 18px 44px #07141c38;
+  background: var(--color-card);
+  box-shadow:
+    inset 0 0 0 1px var(--color-line),
+    0 12px 32px #00000040;
 }
 
 .rise {
@@ -182,7 +192,9 @@
 @media (hover: hover) {
   .stock-card:hover {
     translate: 0 -2px;
-    box-shadow: 0 24px 54px #07141c55;
+    box-shadow:
+      inset 0 0 0 1px #f2b84b55,
+      0 16px 40px #00000066;
   }
 }
 
@@ -207,9 +219,9 @@ summary::-webkit-details-marker {
 /* The holder section: a warm glow on the night sky. */
 .why-hold {
   background:
-    radial-gradient(40rem 22rem at 100% 0%, #e0a04a26, transparent 70%),
-    radial-gradient(30rem 20rem at 0% 100%, #147a5833, transparent 70%),
-    var(--color-dusk);
+    radial-gradient(40rem 22rem at 100% 0%, #f2b84b14, transparent 70%),
+    var(--color-card);
+  box-shadow: inset 0 0 0 1px var(--color-line);
 }
 
 .live-dot {
@@ -217,7 +229,7 @@ summary::-webkit-details-marker {
   height: 0.5rem;
   border-radius: 999px;
   background: var(--color-pine);
-  box-shadow: 0 0 #147a58b3;
+  box-shadow: 0 0 #2bb36ab3;
   animation: pulse 1.8s ease-out infinite;
 }
 
@@ -358,7 +370,7 @@ html[data-par-stale] [data-verdict-slot]::after {
   position: absolute;
   inset: 0.5rem 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--color-line) 0%, #fffaf0 50%, var(--color-line) 100%);
+  background: linear-gradient(90deg, var(--color-field) 0%, #2d333c 50%, var(--color-field) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
@@ -373,7 +385,7 @@ html[data-par-stale] .stale-note {
 
 /* A placeholder that shimmers while a live number is on its way (the $1,000 buy on a card). */
 .shimmer {
-  background: linear-gradient(90deg, var(--color-line) 0%, #fffaf0 50%, var(--color-line) 100%);
+  background: linear-gradient(90deg, var(--color-field) 0%, #2d333c 50%, var(--color-field) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
@@ -465,14 +477,12 @@ html[data-par-stale] .stale-note {
 
 /* The dark panels on the portfolio: a faint gold glow in one corner over the dusk blue. */
 .chart-panel {
-  border-radius: 1rem;
-  border: 1px solid #ffffff14;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-line);
   background:
-    radial-gradient(28rem 14rem at 100% 0%, #e0a04a10, transparent 70%),
-    linear-gradient(180deg, #173a4b, #12303e);
-  box-shadow:
-    inset 0 1px 0 #ffffff0d,
-    0 18px 40px #07141c40;
+    radial-gradient(28rem 14rem at 100% 0%, #f2b84b0a, transparent 70%),
+    var(--color-card);
+  box-shadow: 0 12px 32px #00000040;
 }
 
 @keyframes tileIn {

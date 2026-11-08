@@ -195,10 +195,10 @@ export function verdictPillClass(id: VerdictId) {
     : id === "split"
       ? "bg-clay-soft text-clay"
       : id === "overnight"
-        ? "bg-gold text-ink"
+        ? "bg-gold text-night"
         : id === "wait"
           ? "bg-clay-soft text-clay"
-          : "bg-foam text-ink";
+          : "bg-field text-ink";
 }
 
 /** Colour of the bar on the left of each card. */
@@ -212,6 +212,6 @@ export function verdictBarClass(id: VerdictId) {
         : id === "wait"
           ? "bg-clay"
           : id === "near"
-            ? "bg-ink"
+            ? "bg-mist"
             : "bg-line";
 }

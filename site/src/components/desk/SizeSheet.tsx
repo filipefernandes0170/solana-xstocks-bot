@@ -42,7 +42,7 @@ export function SizeSheet({
           type="button"
           onClick={onClose}
           aria-label="Close the size check"
-          className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-foam hover:text-ink"
+          className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-field hover:text-ink"
         >
           <X className="size-5" aria-hidden />
         </button>

@@ -59,7 +59,7 @@ export function Glossary() {
   return (
     <section className="mt-16" aria-label="Terms">
       <p className="text-sm font-medium tracking-wide text-gold">Terms</p>
-      <h2 className="mt-2 font-display text-4xl text-foam">What the words mean</h2>
+      <h2 className="mt-2 font-display text-3xl text-foam">What the words mean</h2>
       <dl className="mt-6 grid gap-6 sm:grid-cols-2">
         {TERMS.map((term) => (
           <div key={term.word}>

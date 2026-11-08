@@ -65,7 +65,7 @@ export function WhyHold({
   return (
     <section className="why-hold mt-16 overflow-hidden rounded-[1.75rem] p-6 ring-1 ring-white/10 sm:p-10" aria-labelledby="why-hold-title">
       <p className="text-sm font-medium tracking-wide text-gold">Why hold $PAR</p>
-      <h2 id="why-hold-title" className="mt-2 max-w-2xl font-display text-4xl leading-none text-foam sm:text-6xl">
+      <h2 id="why-hold-title" className="mt-2 max-w-2xl font-display text-3xl leading-tight text-foam sm:text-4xl">
         The desk is free. The texts are for holders.
       </h2>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-mist">
@@ -77,9 +77,9 @@ export function WhyHold({
           <li key={perk.title} className="rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/10">
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">{perk.icon}</span>
-              {perk.tag ? <span className="rounded-full bg-gold px-2.5 py-0.5 text-xs font-semibold text-ink">{perk.tag}</span> : null}
+              {perk.tag ? <span className="rounded-full bg-gold px-2.5 py-0.5 text-xs font-semibold text-night">{perk.tag}</span> : null}
             </div>
-            <h3 className="mt-4 font-display text-2xl text-foam">{perk.title}</h3>
+            <h3 className="mt-4 font-display text-xl text-foam">{perk.title}</h3>
             <p className="mt-1 text-sm leading-relaxed text-mist">{perk.line}</p>
           </li>
         ))}
@@ -87,7 +87,7 @@ export function WhyHold({
       <div className="mt-8 grid gap-6 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-end">
         <a
           href="https://t.me/ONPAR_BOT?start=brief"
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-gold px-6 text-sm font-medium text-ink"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-gold px-6 text-sm font-medium text-night"
         >
           <Send className="size-4" aria-hidden />
           Get the morning brief
@@ -110,12 +110,12 @@ export function WhyHold({
               placeholder="Solana address"
               autoComplete="off"
               spellCheck={false}
-              className="h-12 w-full rounded-full bg-foam px-4 text-sm text-ink ring-1 ring-line placeholder:text-muted"
+              className="h-12 w-full rounded-full bg-field px-4 text-sm text-ink ring-1 ring-line placeholder:text-muted"
             />
             <button
               type="submit"
               disabled={busy}
-              className="h-12 shrink-0 rounded-full bg-pine px-6 text-sm font-medium text-foam disabled:opacity-60"
+              className="h-12 shrink-0 rounded-full bg-gold px-6 text-sm font-medium text-night disabled:opacity-60"
             >
               {busy ? "Checking…" : "Check"}
             </button>

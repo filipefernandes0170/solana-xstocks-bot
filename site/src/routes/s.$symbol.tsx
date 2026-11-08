@@ -134,7 +134,7 @@ function StockView({ data }: { data: StockData }) {
       <StaleMark asOf={data.asOf} stale={live.stale} ready={live.ready} prefetch={EARLY_QUOTES_URL} />
       <Backdrop />
       <SiteNav current={null} />
-      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6">
         <nav aria-label="Breadcrumb" className="pt-2 text-sm text-mist">
           <Link to="/" className="hover:text-foam">
             Desk
@@ -147,7 +147,7 @@ function StockView({ data }: { data: StockData }) {
           <div className="flex min-w-0 items-center gap-4">
             <TickerBadge underlying={token.underlying} sector={token.sector} />
             <div className="min-w-0">
-              <h1 className="font-display text-4xl leading-tight sm:text-6xl">{token.name}</h1>
+              <h1 className="font-display text-3xl leading-tight sm:text-5xl">{token.name}</h1>
               <p className="text-sm text-mist">
                 {token.symbol}
                 {" · "}
@@ -213,7 +213,7 @@ function StockView({ data }: { data: StockData }) {
                     url={stockUrl(token.symbol)}
                     image={{ name: `par-${token.symbol}.png`, make: () => drawCardImage(row, Date.now(), stockUrl(token.symbol)) }}
                   />
-                  <a href={watchLink([token.symbol])} className="inline-flex h-11 items-center gap-1.5 rounded-full bg-foam px-4 text-sm font-medium text-ink ring-1 ring-line">
+                  <a href={watchLink([token.symbol])} className="inline-flex h-11 items-center gap-1.5 rounded-full bg-field px-4 text-sm font-medium text-ink ring-1 ring-line">
                     <Send className="size-4" aria-hidden />
                     Watch in Telegram
                   </a>

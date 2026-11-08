@@ -37,13 +37,13 @@ export function TickerBadge({ underlying, sector, size = "md" }: { underlying: s
 }
 
 /** Opens Jupiter to buy the token with USDC. Par takes no fee. */
-export function BuyLink({ mint, symbol, tone = "dark" }: { mint: string; symbol: string; tone?: "dark" | "gold" }) {
+export function BuyLink({ mint, symbol, compact = false }: { mint: string; symbol: string; compact?: boolean }) {
   return (
     <a
       href={jupiterBuyUrl(mint)}
       target="_blank"
       rel="noreferrer"
-      className={`inline-flex h-11 shrink-0 items-center rounded-full px-4 text-sm font-medium ${tone === "gold" ? "bg-gold text-ink" : "bg-ink text-foam"}`}
+      className={`inline-flex shrink-0 items-center rounded-lg bg-gold text-sm font-semibold text-night hover:brightness-105 ${compact ? "h-8 px-3" : "h-10 px-4"}`}
       aria-label={`Buy ${symbol} with USDC on Jupiter`}
     >
       Buy
@@ -76,7 +76,7 @@ export function GapPill({ value, closed = false, older = false }: { value: numbe
   if (closed || older) {
     return (
       <span
-        className="inline-flex rounded-full bg-white px-2 py-0.5 text-sm font-medium text-muted ring-1 ring-line"
+        className="inline-flex rounded-full bg-field px-2 py-0.5 text-sm font-medium text-muted ring-1 ring-line"
         title={older ? "An older $1,000 quote: a newer one is on its way" : "Nasdaq is closed: this is against the last Nasdaq print"}
       >
         {gapNumber(value)}
@@ -85,7 +85,7 @@ export function GapPill({ value, closed = false, older = false }: { value: numbe
   }
   return (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-sm font-medium ${value > 0.02 ? "bg-clay-soft text-clay" : value < -0.02 ? "bg-pine-soft text-pine" : "bg-foam text-ink"}`}
+      className={`inline-flex rounded-full px-2 py-0.5 text-sm font-medium ${value > 0.02 ? "bg-clay-soft text-clay" : value < -0.02 ? "bg-pine-soft text-pine" : "bg-field text-ink"}`}
     >
       {formatGap(value)}
     </span>
@@ -116,7 +116,7 @@ export function GapMeter({
   if (value == null && loading) {
     // Same shape as the meter, shimmering, so the card does not jump when the buy arrives.
     return (
-      <div className="rounded-2xl bg-foam px-4 pb-2.5 pt-3" aria-busy="true">
+      <div className="rounded-2xl bg-field px-4 pb-2.5 pt-3" aria-busy="true">
         <div className="flex items-center justify-between gap-2 text-sm">
           <span className="text-muted">{title}</span>
           <span className="shimmer h-5 w-24 rounded-full" aria-hidden />
@@ -128,7 +128,7 @@ export function GapMeter({
   }
   if (value == null) {
     return (
-      <div className="rounded-2xl bg-foam px-4 py-3">
+      <div className="rounded-2xl bg-field px-4 py-3">
         <p className="text-sm text-muted">{waiting}</p>
       </div>
     );
@@ -139,19 +139,19 @@ export function GapMeter({
   const where = Math.abs(value) < 0.005 ? `at ${print}` : `${Math.abs(value).toFixed(2)}% ${value > 0 ? "above" : "below"} ${print}`;
   const label = olderAge ? `The last $1,000 quote, ${olderAge} old, was ${where}` : `The $1,000 buy is ${where}`;
   return (
-    <div className="rounded-2xl bg-foam px-4 pb-2.5 pt-3">
+    <div className="rounded-2xl bg-field px-4 pb-2.5 pt-3">
       <div className="flex items-center justify-between gap-2 text-sm">
         <span className="text-muted">{title}</span>
         <GapPill value={value} closed={closed} older={olderAge != null} />
       </div>
-      <div className="relative mt-3 h-2 rounded-full bg-white ring-1 ring-line" role="img" aria-label={label}>
+      <div className="relative mt-3 h-2 rounded-full bg-field ring-1 ring-line" role="img" aria-label={label}>
         <span
           className="absolute inset-y-0 rounded-full bg-pine-soft"
           style={{ left: `${50 - (FAIR_BAND / (2 * GAP_SCALE)) * 100}%`, right: `${50 - (FAIR_BAND / (2 * GAP_SCALE)) * 100}%` }}
         />
         <span className="absolute inset-y-[-3px] left-1/2 w-px bg-muted/50" />
         <span
-          className={`gap-dot absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white ${tone}`}
+          className={`gap-dot absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card ${tone}`}
           style={{ left: `${left}%` }}
         />
       </div>

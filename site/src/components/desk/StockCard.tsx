@@ -22,7 +22,7 @@ export function FavouriteButton({ symbol, on, onToggle }: { symbol: string; on: 
       onClick={() => onToggle(symbol)}
       aria-pressed={on}
       aria-label={on ? `Remove ${symbol} from favourites` : `Add ${symbol} to favourites`}
-      className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${on ? "text-amber" : "text-muted hover:text-ink"}`}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${on ? "text-amber" : "text-muted hover:text-ink"}`}
     >
       <Star className="size-5" fill={on ? "currentColor" : "none"} aria-hidden />
     </button>
@@ -154,7 +154,7 @@ export function StockCard({
               <button
                 type="button"
                 onClick={() => onSize(row.symbol)}
-                className="inline-flex h-11 items-center gap-1.5 rounded-full bg-foam px-4 text-sm font-medium text-ink ring-1 ring-line"
+                className="inline-flex h-11 items-center gap-1.5 rounded-full bg-field px-4 text-sm font-medium text-ink ring-1 ring-line"
                 aria-label={`Size check ${row.symbol}`}
               >
                 <Ruler className="size-4" aria-hidden />

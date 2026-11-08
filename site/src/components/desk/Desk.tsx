@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Bell, LayoutGrid, List, Ruler, Search, Send, Star, Trophy, Wallet } from "lucide-react";
+import { Chip, FIELD_BUTTON, GOLD_BUTTON, OUTLINE_BUTTON, UnderlineTabs } from "../ui";
+import { FeaturedPanel, GapAnalysis, MarketBox } from "./DeskTop";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { formatGap, formatPct, formatUsd } from "../../lib/format";
 import { nearLabel } from "../../lib/ranking";
@@ -21,7 +23,6 @@ import { StaleMark, StaleNote } from "../StaleMark";
 import { CryptoPanel } from "./CryptoPanel";
 import type { GapRow } from "./GapView";
 import { Glossary } from "./Glossary";
-import { HeroLines } from "./HeroLines";
 import { PassAlong } from "./PassAlong";
 import { BuyLink, ChangePill, TickerBadge } from "./parts";
 import { SizeSheet } from "./SizeSheet";
@@ -186,7 +187,9 @@ export function Desk({
   const [filter, setFilter] = useState<Filter>("all");
   const [favourites, toggleFavourite] = useFavourites();
   const [sort, setSort] = useState<Sort>("desk");
-  const [view, setView] = useState<View>("cards");
+  const [view, setView] = useState<View>("list");
+  // The name in the featured panel: chosen by the visitor, else the closest fair name, else the first priced one.
+  const [featured, setFeatured] = useState<string | null>(null);
   const [holderWallet, setHolderWallet] = useState("");
   const [holderBusy, setHolderBusy] = useState(false);
   const [holderError, setHolderError] = useState<string | null>(null);
@@ -391,13 +394,12 @@ export function Desk({
     .sort((a, b) => (a.rebase as NonNullable<Quote["rebase"]>).at - (b.rebase as NonNullable<Quote["rebase"]>).at);
 
   function jumpTo(symbol: string) {
-    setFilter("all");
-    setSearch(symbol);
-    setTab("markets");
+    setFeatured(symbol);
     window.setTimeout(() => {
-      const target = document.getElementById(`stock-${symbol}`) ?? document.getElementById("markets");
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 60);
+      const target = document.getElementById("featured");
+      if (target && target.getBoundingClientRect().top < 0) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      else if (target && target.getBoundingClientRect().top > window.innerHeight * 0.6) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 30);
   }
 
   function openSize(symbol: string) {
@@ -476,6 +478,11 @@ export function Desk({
   }, [hits, quotes]);
 
   const age = Math.max(0, Math.round((now - asOf) / 1000));
+  const featuredRow =
+    rows.find((row) => row.symbol === featured) ??
+    rows.find((row) => row.symbol === closestFair?.symbol) ??
+    rows.find((row) => row.usdPrice != null && row.stockPrice != null) ??
+    rows[0];
   const stale = mounted && now - asOf > STALE_PAGE_MS;
 
   // The $1,000 buys to quote first: this visitor's favourites, then the names on screen, in the order the desk shows them.
@@ -488,91 +495,75 @@ export function Desk({
       <Backdrop />
       <Ticker rows={rows} onPick={jumpTo} />
       <SiteNav current="/" />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-4 sm:px-6 sm:pt-6">
-        <header className="rise grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
-          <div className="min-w-0 max-w-2xl">
-            <p className="text-sm font-medium tracking-wide text-gold">Par · stocks on Solana</p>
-            <h1 className="hero-title mt-4 font-display text-5xl leading-[0.95] text-foam sm:text-7xl">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6">
+        <header className="rise flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 max-w-3xl">
+            <h1 className="hero-title font-display text-4xl leading-tight text-foam sm:text-5xl">
               Is the price <span className="text-gold">real?</span>
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-mist">
+            <p className="mt-2 max-w-2xl text-base leading-relaxed text-mist sm:text-lg">
               Par checks {TOKENS.length} tokenized stocks on Solana against Nasdaq, live, and says when a buy is fair.
-            </p>
-            <p className="mt-4 text-sm font-medium tracking-wide text-gold">
-              {mounted ? `${sessionLabel(marketState, now)} · ${etClock(now)}` : "Checking the session"}
             </p>
             {closestFair ? (
               <button
                 type="button"
                 data-verdict
                 onClick={() => jumpTo(closestFair.symbol)}
-                className="mt-2 block text-left text-lg text-foam underline decoration-gold/70 underline-offset-4"
+                className="mt-2 block text-left text-base font-medium text-foam underline decoration-gold/70 underline-offset-4"
               >
                 {fairNames.length === 1 ? `${closestFair.symbol} is the fair one.` : `${closestFair.symbol} is the closest fair name.`}
               </button>
             ) : !sessionKnown ? (
-              <p className="mt-2 text-lg text-foam">Loading the live prices…</p>
+              <p className="mt-2 text-base font-medium text-foam">Loading the live prices…</p>
             ) : !sessionOpen ? (
-              <p className="mt-2 max-w-xl text-lg leading-snug text-foam">{closedLine(marketState, now)}</p>
+              <p className="mt-2 max-w-2xl text-base font-medium leading-snug text-foam">{closedLine(marketState, now)}</p>
             ) : (
               <button
                 type="button"
                 data-verdict
                 onClick={() => widest && jumpTo(widest.symbol)}
                 disabled={!widest}
-                className="mt-2 block text-left text-lg text-foam underline decoration-gold/70 underline-offset-4 disabled:no-underline"
+                className="mt-2 block text-left text-base font-medium text-foam underline decoration-gold/70 underline-offset-4 disabled:no-underline"
               >
                 {widest ? `Nothing is fair right now. The widest gap is ${widest.symbol}.` : "Waiting for the $1,000 buys."}
               </button>
             )}
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <a
-                href="https://t.me/ONPAR_BOT"
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-gold px-5 text-sm font-medium text-ink shadow-[0_8px_24px_#e0a04a33]"
-              >
+            <div className="mt-4 flex flex-wrap items-center gap-2.5">
+              <a href="https://t.me/ONPAR_BOT" className={`${GOLD_BUTTON} h-11`}>
                 <Send className="size-4" aria-hidden />
                 Open @ONPAR_BOT
               </a>
-              <a href="/portfolio" className="inline-flex h-12 items-center gap-2 rounded-full bg-foam px-5 text-sm font-medium text-ink">
-                <Wallet className="size-4" aria-hidden />
-                Your portfolio
-              </a>
-              <button
-                type="button"
-                onClick={() => openSize(sizeSymbol)}
-                className="inline-flex h-12 items-center gap-2 rounded-full px-4 text-sm font-medium text-foam ring-1 ring-white/20"
-              >
+              <button type="button" onClick={() => openSize(featuredRow?.symbol ?? sizeSymbol)} className={`${FIELD_BUTTON} h-11`}>
                 <Ruler className="size-4" aria-hidden />
                 Size check
               </button>
+              <a href="/bot" className="px-1 text-sm font-medium text-foam underline decoration-gold/70 underline-offset-4">
+                How the bot works
+              </a>
             </div>
-            <a href="/bot" className="mt-4 inline-flex text-sm font-medium text-foam underline decoration-gold/70 underline-offset-4">
-              How the bot works
-            </a>
-            <p className="mt-5 max-w-xl text-sm leading-relaxed text-mist">
-              A tokenized stock tracks the share. It is not the share, it does not vote, and a dividend shows up as more tokens, not cash.
-            </p>
           </div>
-          <HeroLines rows={rows} age={age} asOf={asOf} feedError={feedError} onPick={jumpTo} />
+          <div className="flex flex-wrap items-center gap-3">
+            <MarketBox mounted={mounted} marketState={marketState} now={now} />
+            <Link to="/events" className={`${OUTLINE_BUTTON} h-12`}>
+              View events
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
+          </div>
         </header>
 
-        <StatStrip
-          mounted={mounted}
-          marketState={marketState}
-          now={now}
-          fairCount={fairCount}
-          total={rows.length}
-          widest={widest}
-          rebases={rebases}
-          onPick={jumpTo}
-        />
+        <StatStrip marketState={marketState} now={now} fairCount={fairCount} total={rows.length} widest={widest} rebases={rebases} onPick={jumpTo} />
 
-        <StaleNote age={now - asOf} ready={mounted} className="mt-4 rounded-2xl bg-dusk/80 px-4 py-3 text-mist ring-1 ring-white/10" />
+        <div id="featured" className="mt-4 grid scroll-mt-4 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <FeaturedPanel row={featuredRow} age={age} asOf={asOf} feedError={feedError} />
+          <GapAnalysis row={featuredRow} age={age} asOf={asOf} feedError={feedError} onSize={openSize} />
+        </div>
+
+        <StaleNote age={now - asOf} ready={mounted} className="mt-4 rounded-xl bg-card px-4 py-3 text-mist ring-1 ring-line" />
 
         {ranking && ranking.rows.length > 0 ? (
           <Link
             to="/ranking"
-            className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-dusk/80 px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-dusk"
+            className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-card px-4 py-3 text-sm ring-1 ring-line hover:bg-field"
           >
             <span className="flex min-w-0 items-center gap-2 text-mist">
               <Trophy className="size-4 shrink-0 text-gold" aria-hidden />
@@ -603,33 +594,21 @@ export function Desk({
 
         {/* The tab bar sticks to the top only while the tab content is on screen. */}
         <div id="sections" className="mt-10 scroll-mt-0">
-          <div className="sticky top-0 z-30 -mx-4 bg-night/75 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6">
-            <nav className="flex gap-0.5 overflow-x-auto rounded-full bg-dusk p-1 ring-1 ring-white/10 sm:gap-1" aria-label="Sections">
-              {TABS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => chooseTab(t.id)}
-                  aria-pressed={tab === t.id}
-                  className={`h-11 shrink-0 rounded-full px-2.5 text-sm font-medium transition-colors sm:px-5 ${tab === t.id ? "bg-gold text-ink" : "text-foam hover:bg-white/5"}`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </nav>
+          <div className="sticky top-0 z-30 -mx-4 bg-night/90 px-4 pt-1 backdrop-blur-md sm:-mx-6 sm:px-6">
+            <UnderlineTabs tabs={TABS} value={tab} onChange={chooseTab} label="Sections" />
           </div>
 
           {tab === "markets" ? (
             <section id="markets" className="mt-4 scroll-mt-24">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="panel flex flex-1 items-center gap-2 px-4 ring-1 ring-line">
+                <div className="flex flex-1 items-center gap-2 rounded-lg bg-field px-3 ring-1 ring-line">
                   <Search className="size-4 text-muted" aria-hidden />
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="Search a company"
                     aria-label="Search a company"
-                    className="h-12 w-full bg-transparent text-base text-ink placeholder:text-muted"
+                    className="h-10 w-full bg-transparent text-sm text-ink placeholder:text-muted"
                   />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -640,16 +619,10 @@ export function Desk({
                       ["favourites", `Favourites${favourites.length ? ` ${favourites.length}` : ""}`],
                     ] as [Filter, string][]
                   ).map(([id, label]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setFilter(id)}
-                      aria-pressed={filter === id}
-                      className={`inline-flex h-12 items-center gap-1.5 rounded-full px-4 text-sm font-medium ${filter === id ? "bg-gold text-ink" : "bg-dusk text-foam ring-1 ring-white/10"}`}
-                    >
+                    <Chip key={id} on={filter === id} onClick={() => setFilter(id)}>
                       {id === "favourites" ? <Star className="size-4" aria-hidden /> : null}
                       {label}
-                    </button>
+                    </Chip>
                   ))}
                   <label className="sr-only" htmlFor="markets-sort">
                     Sort
@@ -658,7 +631,7 @@ export function Desk({
                     id="markets-sort"
                     value={sort}
                     onChange={(event) => chooseSort(event.target.value as Sort)}
-                    className="h-12 rounded-full bg-dusk px-4 text-sm font-medium text-foam ring-1 ring-white/10"
+                    className="h-9 rounded-lg bg-field px-3 text-sm font-medium text-foam ring-1 ring-line"
                   >
                     {SORTS.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -666,13 +639,13 @@ export function Desk({
                       </option>
                     ))}
                   </select>
-                  <div className="flex rounded-full bg-dusk p-1 ring-1 ring-white/10" role="group" aria-label="View">
+                  <div className="flex rounded-lg bg-field p-0.5 ring-1 ring-line" role="group" aria-label="View">
                     <button
                       type="button"
                       onClick={() => chooseView("cards")}
                       aria-pressed={view === "cards"}
                       aria-label="Cards"
-                      className={`inline-flex h-10 w-10 items-center justify-center rounded-full ${view === "cards" ? "bg-gold text-ink" : "text-foam"}`}
+                      className={`inline-flex h-8 w-9 items-center justify-center rounded-md ${view === "cards" ? "bg-gold text-night" : "text-foam"}`}
                     >
                       <LayoutGrid className="size-4" aria-hidden />
                     </button>
@@ -681,7 +654,7 @@ export function Desk({
                       onClick={() => chooseView("list")}
                       aria-pressed={view === "list"}
                       aria-label="List"
-                      className={`inline-flex h-10 w-10 items-center justify-center rounded-full ${view === "list" ? "bg-gold text-ink" : "text-foam"}`}
+                      className={`inline-flex h-8 w-9 items-center justify-center rounded-md ${view === "list" ? "bg-gold text-night" : "text-foam"}`}
                     >
                       <List className="size-4" aria-hidden />
                     </button>
@@ -689,14 +662,14 @@ export function Desk({
                 </div>
               </div>
               {filter === "favourites" && favourites.length > 0 ? (
-                <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-dusk/80 px-4 py-3 ring-1 ring-white/10 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-4 flex flex-col gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-line sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-mist">
                     Get a text when {favourites.length === 1 ? "this name turns" : "these turn"} Fair.
                     {favourites.length > 8 ? " The link carries the first 8." : ""}
                   </p>
                   <a
                     href={watchLink(favourites)}
-                    className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-gold px-4 text-sm font-medium text-ink"
+                    className={`${GOLD_BUTTON} shrink-0`}
                   >
                     <Send className="size-4" aria-hidden />
                     Watch in Telegram
@@ -704,7 +677,7 @@ export function Desk({
                 </div>
               ) : null}
               {sessionKnown && !sessionOpen ? (
-                <p className="mt-4 rounded-2xl bg-dusk/80 px-4 py-3 text-sm leading-relaxed text-mist ring-1 ring-white/10">
+                <p className="mt-4 rounded-xl bg-card px-4 py-3 text-sm leading-relaxed text-mist ring-1 ring-line">
                   <span className="font-medium text-foam">{closedLine(marketState, now)}</span>
                   {" Tokens keep trading on Solana, so gaps drift. Overnight means Kraken quotes that name around the clock, which is still not the Nasdaq print. Each card's own line is under Details."}
                 </p>
@@ -722,10 +695,7 @@ export function Desk({
                   rows={visible}
                   favourites={favourites}
                   onFavourite={toggleFavourite}
-                  onOpen={(symbol) => {
-                    setSearch(symbol);
-                    chooseView("cards");
-                  }}
+                  onOpen={jumpTo}
                 />
               ) : (
                 <ul className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -751,6 +721,9 @@ export function Desk({
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-mist">
                 Buy opens Jupiter, selling USDC for that token. You pay the pool, not Par. Each card names its issuer, xStocks or Backpack
                 Securities: the same company can have two tokens, each with its own pool and its own price.
+              </p>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-mist">
+                A tokenized stock tracks the share. It is not the share, it does not vote, and a dividend shows up as more tokens, not cash.
               </p>
             </section>
           ) : null}
@@ -781,12 +754,12 @@ export function Desk({
                   rows={3}
                   placeholder="Solana address"
                   aria-label="Solana address"
-                  className="mt-3 w-full resize-none rounded-2xl bg-foam px-3 py-3 text-sm text-ink ring-1 ring-line"
+                  className="mt-3 w-full resize-none rounded-2xl bg-field px-3 py-3 text-sm text-ink ring-1 ring-line"
                 />
                 <button
                   type="submit"
                   disabled={holdingsBusy}
-                  className="mt-3 h-11 w-full rounded-full bg-pine text-sm font-medium text-foam disabled:opacity-60"
+                  className="mt-3 h-11 w-full rounded-full bg-gold text-sm font-medium text-night disabled:opacity-60"
                 >
                   {holdingsBusy ? "Reading chain…" : "Show holdings"}
                 </button>
@@ -796,7 +769,7 @@ export function Desk({
                     {savedWallet}
                   </p>
                 ) : null}
-                <a href="/portfolio" className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-ink px-4 py-3 text-foam">
+                <a href="/portfolio" className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-gold px-4 py-3 text-night">
                   <span>
                     <span className="block text-sm font-medium">Open the full portfolio</span>
                     <span className="block text-xs leading-relaxed text-mist">Next to Nasdaq, the exit price, yield, rebases, a map, and a Telegram watch</span>
@@ -884,7 +857,7 @@ export function Desk({
                   <select
                     value={alertSymbol}
                     onChange={(event) => setAlertSymbol(event.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
+                    className="mt-1 h-11 w-full rounded-2xl bg-field px-3 text-sm text-ink ring-1 ring-line"
                   >
                     {TOKENS.map((t) => (
                       <option key={t.symbol}>{t.symbol}</option>
@@ -896,7 +869,7 @@ export function Desk({
                   <select
                     value={alertKind}
                     onChange={(event) => setAlertKind(event.target.value as "move" | "gap")}
-                    className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
+                    className="mt-1 h-11 w-full rounded-2xl bg-field px-3 text-sm text-ink ring-1 ring-line"
                   >
                     <option value="move">The day's move</option>
                     <option value="gap">The gap versus Nasdaq</option>
@@ -908,7 +881,7 @@ export function Desk({
                     <select
                       value={alertDirection}
                       onChange={(event) => setAlertDirection(event.target.value as "up" | "down")}
-                      className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
+                      className="mt-1 h-11 w-full rounded-2xl bg-field px-3 text-sm text-ink ring-1 ring-line"
                     >
                       <option value="up">{alertKind === "gap" ? "Rich" : "Up"}</option>
                       <option value="down">{alertKind === "gap" ? "Cheap" : "Down"}</option>
@@ -920,11 +893,11 @@ export function Desk({
                       value={alertPct}
                       onChange={(event) => setAlertPct(event.target.value)}
                       inputMode="decimal"
-                      className="mt-1 h-11 w-full rounded-2xl bg-foam px-3 text-sm text-ink ring-1 ring-line"
+                      className="mt-1 h-11 w-full rounded-2xl bg-field px-3 text-sm text-ink ring-1 ring-line"
                     />
                   </label>
                 </div>
-                <button type="submit" className="mt-4 h-11 w-full rounded-full bg-ink text-sm font-medium text-foam">
+                <button type="submit" className="mt-4 h-11 w-full rounded-full bg-gold text-sm font-medium text-night">
                   Save alert
                 </button>
                 <button
@@ -932,7 +905,7 @@ export function Desk({
                   onClick={() => {
                     if (typeof Notification !== "undefined") void Notification.requestPermission();
                   }}
-                  className="mt-2 h-11 w-full rounded-full bg-foam text-sm font-medium text-ink ring-1 ring-line"
+                  className="mt-2 h-11 w-full rounded-full bg-field text-sm font-medium text-ink ring-1 ring-line"
                 >
                   Ping this browser
                 </button>

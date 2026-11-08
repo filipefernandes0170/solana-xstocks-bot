@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Download } from "lucide-react";
+import { Download, Layers, Scale, Sprout, Wallet } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Backdrop } from "../components/Backdrop";
+import { FIELD_BUTTON, GOLD_BUTTON, PageTitle, Panel, StatTile, UnderlineTabs } from "../components/ui";
 import { BagEvents } from "../components/portfolio/BagEvents";
 import { BagMap } from "../components/portfolio/BagMap";
 import { BagPowers } from "../components/portfolio/BagPowers";
@@ -27,7 +28,19 @@ import { RealPrice } from "../components/portfolio/RealPrice";
 import { WatchBag } from "../components/portfolio/WatchBag";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteNav } from "../components/SiteNav";
-import { bagEvents, forgetWallet, isXStock, liveLines, readSavedWallet, realPriceRows, saveWallet, withoutDust } from "../lib/bag";
+import {
+  bagEvents,
+  forgetWallet,
+  isXStock,
+  liveLines,
+  readSavedWallet,
+  realPriceRows,
+  realPriceTotals,
+  saveWallet,
+  withoutDust,
+  yieldIdeas,
+} from "../lib/bag";
+import { FAIR_BAND } from "../lib/brand";
 import { HOLDINGS_AS_OF, exposures, holdingsMayBeStale, overlap } from "../lib/etf-holdings";
 import { SHELL_PAGE_CACHE, SITE_URL } from "../lib/site";
 import type { Offer, PortfolioLine, PortfolioResult } from "../lib/types";
@@ -122,12 +135,117 @@ function shortAddress(address: string) {
 
 function Fact({ label, value, hint, children }: { label: string; value: string; hint?: string; children?: ReactNode }) {
   return (
-    <div className="rounded-2xl bg-foam px-3 py-3">
+    <div className="rounded-xl bg-field px-3 py-3 ring-1 ring-line">
       <dt className="text-xs text-muted">{label}</dt>
-      <dd className="mt-0.5 font-display text-lg tabular-nums sm:text-xl">{value}</dd>
+      <dd className="mt-0.5 font-display text-lg tabular-nums text-ink">{value}</dd>
       {children ? <dd>{children}</dd> : null}
       {hint ? <dd className="mt-1 text-xs text-muted">{hint}</dd> : null}
     </div>
+  );
+}
+
+function shareCount(value: number) {
+  return numberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
+}
+
+/**
+ * Every line in the wallet, largest first: a table on wider screens, a list on a phone. Allocation is its share of the
+ * total; the bars are drawn against the largest line, so the biggest holding fills its track and the rest compare to it.
+ */
+function HoldingsTable({ lines, total }: { lines: PortfolioLine[]; total: number }) {
+  const largest = lines.reduce((max, line) => Math.max(max, line.usdValue), 0);
+  return (
+    <>
+      <ul className="divide-y divide-line sm:hidden">
+        {lines.length === 0 ? <li className="py-6 text-sm text-muted">Nothing priced in this wallet.</li> : null}
+        {lines.map((line) => (
+          <li key={`${line.kind}-${line.symbol}-${line.underlying}`} className="py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <LineBadge line={line} />
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-ink">{line.symbol}</p>
+                  <p className="truncate text-xs text-muted">
+                    {shareCount(line.amount)}
+                    {" · "}
+                    {line.name}
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="tabular-nums text-ink">{usd(line.usdValue)}</p>
+                <ChangeChip value={line.change24h} />
+              </div>
+            </div>
+            <div className="mt-2 flex items-center gap-3">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-field" aria-hidden>
+                <div
+                  className="bar-grow h-full rounded-full bg-gold"
+                  style={{ width: largest > 0 ? `${Math.max((line.usdValue / largest) * 100, line.usdValue > 0 ? 2 : 0)}%` : "0%" }}
+                />
+              </div>
+              <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted">{shareLabel(line.usdValue, total)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="-mx-4 hidden overflow-x-auto sm:-mx-5 sm:block">
+        <table className="w-full min-w-[620px] text-left text-sm">
+          <thead className="text-xs text-muted">
+            <tr className="border-b border-line">
+              <th className="px-4 py-2.5 font-medium sm:px-5">Asset</th>
+              <th className="px-3 py-2.5 text-right font-medium">Amount</th>
+              <th className="px-3 py-2.5 text-right font-medium">Price</th>
+              <th className="px-3 py-2.5 text-right font-medium">Today</th>
+              <th className="px-3 py-2.5 text-right font-medium">Value</th>
+              <th className="px-4 py-2.5 font-medium sm:px-5">Allocation</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-muted">
+                  Nothing priced in this wallet.
+                </td>
+              </tr>
+            ) : null}
+            {lines.map((line) => {
+              const price = line.amount > 0 ? line.usdValue / line.amount : null;
+              return (
+                <tr key={`${line.kind}-${line.symbol}-${line.underlying}`} className="border-b border-line/60 transition-colors last:border-b-0 hover:bg-white/[0.03]">
+                  <td className="px-4 py-3 sm:px-5">
+                    <div className="flex items-center gap-3">
+                      <LineBadge line={line} />
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink">{line.symbol}</p>
+                        <p className="max-w-[12rem] truncate text-xs text-muted">{line.name}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums text-ink">{shareCount(line.amount)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-ink">{price == null ? "—" : usd(price)}</td>
+                  <td className="px-3 py-3 text-right">
+                    <ChangeChip value={line.change24h} />
+                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums font-medium text-ink">{usd(line.usdValue)}</td>
+                  <td className="px-4 py-3 sm:px-5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-field lg:w-28" aria-hidden>
+                        <div
+                          className="bar-grow h-full rounded-full bg-gold"
+                          style={{ width: largest > 0 ? `${Math.max((line.usdValue / largest) * 100, line.usdValue > 0 ? 2 : 0)}%` : "0%" }}
+                        />
+                      </div>
+                      <span className="w-12 text-right tabular-nums text-muted">{shareLabel(line.usdValue, total)}</span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -156,6 +274,7 @@ function PortfolioPage() {
   const [lookBase, setLookBase] = useState<Snapshot | null>(null);
   const lookDone = useRef<PortfolioResult | null>(null);
   const lookBases = useRef(new Map<string, Snapshot | null>());
+  const [tab, setTab] = useState<"holdings" | "look">("holdings");
 
   // Live prices only once a wallet is read; paused while the exit checks use Jupiter's rate limit.
   const live = useLiveQuotes([], 0, { enabled: book != null, paused: exitRunning });
@@ -372,6 +491,16 @@ function PortfolioPage() {
   const equities = byKind.filter(([kind]) => kind === "Stock" || kind === "ETF").reduce((sum, [, value]) => sum + value, 0);
   const plainRows = (rows: [string, number][]): Slice[] =>
     rows.map(([label, value], index) => ({ key: label, label, value, colour: PLAIN_COLOURS[index % PLAIN_COLOURS.length] }));
+  // The tiles at the top: the same sums the sections below show in full.
+  const markTotals = realPriceTotals(rows);
+  const yieldIdea = offers ? yieldIdeas(lines, offers) : null;
+  const markTone =
+    markTotals.diffPct == null ? "text-ink" : Math.abs(markTotals.diffPct) < FAIR_BAND ? "text-pine" : Math.abs(markTotals.diffPct) < 1 ? "text-gold" : "text-clay";
+  const liveNote = live.feedError
+    ? "Live prices paused; values are from the wallet read."
+    : live.quotes.length > 0
+      ? `Stock tokens marked live, ${live.age}s ago`
+      : "Loading live prices…";
 
   function exportCsv() {
     const body = lines
@@ -399,208 +528,259 @@ function PortfolioPage() {
     URL.revokeObjectURL(url);
   }
 
+  const connectButtons = (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => {
+          setPicking(true);
+          setAccounts(null);
+        }}
+        className={GOLD_BUTTON}
+      >
+        <Wallet className="size-4" aria-hidden />
+        Connect wallet
+      </button>
+      <button type="button" onClick={() => setPasting((open) => !open)} className={FIELD_BUTTON}>
+        {pasting ? "Hide address" : "Paste an address"}
+      </button>
+      {savedWallet && !book ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setAddress(savedWallet);
+            void readAddress(savedWallet);
+          }}
+          className={FIELD_BUTTON}
+        >
+          {busy ? "Reading…" : `Use ${shortAddress(savedWallet)}, saved on this device`}
+        </button>
+      ) : null}
+    </div>
+  );
+
+  const disconnectButton = (
+    <button type="button" onClick={() => void disconnect()} className={FIELD_BUTTON}>
+      Disconnect
+    </button>
+  );
+
+  // The wallet list and the address field open under the wallet row, across the page.
+  const chooser =
+    !walletName && (picking || pasting) ? (
+      <section aria-label="Choose a wallet" className="panel rise mt-3 p-4 sm:p-5">
+        {picking ? (
+          <div>
+            <p className="max-w-2xl text-sm leading-relaxed text-muted">
+              Pick a wallet you installed yourself. Par only reads the public address. It will not ask you to sign or send a transaction. If a popup asks
+              you to approve a transaction, refuse it.
+            </p>
+            {accounts ? (
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                {accounts.map((account) => (
+                  <li key={account}>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void pickAccount(account)}
+                      className="h-11 w-full rounded-lg bg-field px-3 text-left text-sm text-foam ring-1 ring-line hover:bg-white/10 disabled:opacity-60"
+                    >
+                      {shortAddress(account)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : wallets.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">No Solana wallet responded. Install one, or paste an address.</p>
+            ) : (
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {wallets.map((wallet, index) => {
+                  const icon = safeIcon(wallet.icon);
+                  const name = cleanName(wallet.name) ?? "Wallet";
+                  return (
+                    <li key={`${name}-${index}`}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void pickWallet(wallet)}
+                        className="flex h-12 w-full items-center gap-3 rounded-lg bg-field px-3 text-left text-sm text-foam ring-1 ring-line hover:bg-white/10 disabled:opacity-60"
+                      >
+                        {icon ? (
+                          <img src={icon} alt="" width={24} height={24} className="h-6 w-6 rounded-md" />
+                        ) : (
+                          <span className="h-6 w-6 rounded-md bg-white/10" />
+                        )}
+                        {name}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ) : null}
+        {pasting ? (
+          <form
+            className={`flex flex-col gap-3 sm:flex-row sm:items-end ${picking ? "mt-5 border-t border-line pt-5" : ""}`}
+            onSubmit={(event) => {
+              event.preventDefault();
+              setConnected(null);
+              setWalletName(null);
+              void readAddress();
+            }}
+          >
+            <label className="block flex-1 text-sm text-muted">
+              Any Solana address
+              <input
+                id="book-wallet"
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                placeholder="Paste a wallet"
+                autoComplete="off"
+                spellCheck={false}
+                className="mt-2 h-11 w-full rounded-lg bg-night px-3 text-sm text-foam ring-1 ring-line placeholder:text-mist"
+              />
+            </label>
+            <button type="submit" disabled={busy} className={`${GOLD_BUTTON} h-11`}>
+              {busy ? "Reading…" : "Read wallet"}
+            </button>
+          </form>
+        ) : null}
+      </section>
+    ) : null;
+
   return (
     <div className="relative min-h-screen text-foam">
       <Backdrop />
       <SiteNav current="/portfolio" />
-      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-        <header className="rise pt-4">
-          <p className="text-sm font-medium text-gold">Portfolio</p>
-          <h1 className="hero-title mt-2 max-w-3xl font-display text-4xl leading-[1.05] sm:text-6xl">Your bag, at the real price.</h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-mist">
-            Connect or paste a Solana wallet. Par reads the public balances, sets each stock token next to the shares it tracks, and shows what a sale would really
-            return. It never asks you to sign anything.
-          </p>
-        </header>
-
-        {walletName ? (
-          <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-dusk/80 p-4 ring-1 ring-white/10 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-foam">
-              {walletName}
-              {" · "}
-              {shortAddress(loadedAddress || address)}
-            </p>
-            <button type="button" onClick={() => void disconnect()} className="h-11 rounded-full px-5 text-sm text-foam ring-1 ring-white/20">
-              Disconnect
-            </button>
-          </div>
-        ) : (
-          <div className="mt-6 rounded-2xl bg-dusk/80 p-4 ring-1 ring-white/10 sm:p-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setPicking(true);
-                  setAccounts(null);
-                }}
-                className="h-11 rounded-full bg-gold px-5 text-sm font-medium text-ink"
-              >
-                Connect wallet
-              </button>
-              <button
-                type="button"
-                onClick={() => setPasting((open) => !open)}
-                className="h-11 rounded-full px-5 text-sm text-foam ring-1 ring-white/20"
-              >
-                {pasting ? "Hide address" : "Paste an address"}
-              </button>
-              {savedWallet && !book ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    setAddress(savedWallet);
-                    void readAddress(savedWallet);
-                  }}
-                  className="h-11 rounded-full px-5 text-sm text-foam ring-1 ring-white/20 disabled:opacity-60"
-                >
-                  {busy ? "Reading…" : `Use ${shortAddress(savedWallet)}, saved on this device`}
-                </button>
-              ) : null}
-            </div>
-            {picking ? (
-              <div className="mt-4">
-                <p className="max-w-xl text-sm leading-relaxed text-mist">
-                  Pick a wallet you installed yourself. Par only reads the public address. It will not ask you to sign or send a transaction. If a popup
-                  asks you to approve a transaction, refuse it.
-                </p>
-                {accounts ? (
-                  <ul className="mt-3 grid gap-2">
-                    {accounts.map((account) => (
-                      <li key={account}>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void pickAccount(account)}
-                          className="h-11 w-full rounded-xl px-3 text-left text-sm text-foam ring-1 ring-white/10 disabled:opacity-60"
-                        >
-                          {shortAddress(account)}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : wallets.length === 0 ? (
-                  <p className="mt-3 text-sm text-mist">No Solana wallet responded. Install one, or paste an address.</p>
-                ) : (
-                  <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-                    {wallets.map((wallet, index) => {
-                      const icon = safeIcon(wallet.icon);
-                      const name = cleanName(wallet.name) ?? "Wallet";
-                      return (
-                        <li key={`${name}-${index}`}>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void pickWallet(wallet)}
-                            className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm text-foam ring-1 ring-white/10 disabled:opacity-60"
-                          >
-                            {icon ? (
-                              <img src={icon} alt="" width={24} height={24} className="h-6 w-6 rounded-md" />
-                            ) : (
-                              <span className="h-6 w-6 rounded-md bg-white/10" />
-                            )}
-                            {name}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-            {pasting ? (
-              <form
-                className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  setConnected(null);
-                  setWalletName(null);
-                  void readAddress();
-                }}
-              >
-                <label className="block flex-1 text-sm text-mist">
-                  Any Solana address
-                  <input
-                    id="book-wallet"
-                    value={address}
-                    onChange={(event) => setAddress(event.target.value)}
-                    placeholder="Paste a wallet"
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="mt-2 h-11 w-full rounded-xl bg-night px-3 text-sm text-foam ring-1 ring-white/10"
-                  />
-                </label>
-                <button type="submit" disabled={busy} className="h-11 rounded-full bg-foam px-5 text-sm font-medium text-ink disabled:opacity-60">
-                  {busy ? "Reading…" : "Read wallet"}
-                </button>
-              </form>
-            ) : null}
-          </div>
-        )}
-
-        {error ? <p className="mt-3 text-sm text-clay-bright">{error}</p> : null}
+      <main className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6">
+        <div className="rise">
+          <PageTitle
+            title={
+              <>
+                Your bag, at the <span className="text-gold">real price.</span>
+              </>
+            }
+            line="Connect or paste a Solana wallet. Par reads the public balances, sets each stock token next to the shares it tracks, and shows what a sale would really return. It never asks you to sign anything."
+          />
+        </div>
 
         {book ? (
-          <section aria-labelledby="total-title" className="panel rise mt-6 p-5 text-ink ring-1 ring-line sm:p-7">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center">
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p id="total-title" className="text-sm font-medium text-amber">
-                    Total value · marked now
+          <section aria-label="Your bag right now" className="rise mt-6 grid gap-3 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+            <div className="panel flex flex-col justify-between gap-4 p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-field text-gold ring-1 ring-line">
+                  <Wallet className="size-5" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm text-muted">{walletName ? `Connected · ${walletName}` : "Wallet · read-only"}</p>
+                  <p className="truncate font-display text-xl text-ink" title={loadedAddress}>
+                    {shortAddress(loadedAddress)}
                   </p>
-                  <div className="flex gap-2">
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted">{liveNote}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {walletName ? (
+                  disconnectButton
+                ) : (
+                  <>
                     <button
                       type="button"
-                      onClick={exportCsv}
-                      disabled={lines.length === 0}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-medium text-foam disabled:opacity-40"
+                      onClick={() => {
+                        setPicking(true);
+                        setAccounts(null);
+                      }}
+                      className={GOLD_BUTTON}
                     >
-                      <Download className="size-4" aria-hidden />
-                      CSV
+                      <Wallet className="size-4" aria-hidden />
+                      Connect wallet
                     </button>
-                    {walletName ? null : (
-                      <button type="button" onClick={() => void disconnect()} className="h-9 rounded-full px-3.5 text-sm ring-1 ring-line">
-                        Forget
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <p className="mt-2 font-display text-5xl tabular-nums sm:text-6xl">{usd(total)}</p>
-                <p className="mt-3 flex flex-wrap items-center gap-2 text-base">
-                  {"Today "}
-                  <TodayPill usdMove={todayUsd} pct={dayMove == null ? null : dayMove * 100} />
-                </p>
-                <dl className="mt-5 grid grid-cols-3 gap-2">
-                  <Fact label="Positions" value={String(lines.length)} hint={`${stockCount} stock token${stockCount === 1 ? "" : "s"}`} />
-                  <Fact label="Cash" value={usdShort(cash)} hint={`USDC and USDT · ${shareLabel(cash, total)}`}>
-                    <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
-                      <span className="bar-grow block h-full rounded-full bg-[#cdb88e]" style={{ width: total > 0 ? `${(cash / total) * 100}%` : "0%" }} />
-                    </span>
-                  </Fact>
-                  <Fact label="Spread" value={spread == null ? "—" : `${spread.toFixed(1)}/10`} hint="10 is even">
-                    <SpreadMeter score={spread} />
-                  </Fact>
-                </dl>
-                <p className="mt-4 text-sm text-muted">
-                  {shortAddress(loadedAddress)}
-                  {" · "}
-                  {live.feedError
-                    ? "Live prices paused; values are from the wallet read."
-                    : live.quotes.length > 0
-                      ? `Stock tokens marked live, ${live.age}s ago`
-                      : "Loading live prices…"}
-                </p>
+                    <button type="button" onClick={() => setPasting((open) => !open)} className={FIELD_BUTTON}>
+                      {pasting ? "Hide address" : "Paste an address"}
+                    </button>
+                    <button type="button" onClick={() => void disconnect()} className={FIELD_BUTTON}>
+                      Forget
+                    </button>
+                  </>
+                )}
+                <button type="button" onClick={exportCsv} disabled={lines.length === 0} className={FIELD_BUTTON} aria-label="Download the holdings as CSV">
+                  <Download className="size-4" aria-hidden />
+                  CSV
+                </button>
               </div>
-              <BagMap lines={lines} total={total} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <StatTile
+                icon={<Wallet className="size-5" aria-hidden />}
+                label="Total value · marked now"
+                value={usd(total)}
+                hint={
+                  <span className="mt-1 inline-flex flex-wrap items-center gap-1.5">
+                    Today <TodayPill usdMove={todayUsd} pct={dayMove == null ? null : dayMove * 100} />
+                  </span>
+                }
+              />
+              <StatTile
+                icon={<Scale className="size-5" aria-hidden />}
+                label="Stock tokens versus Nasdaq"
+                value={markTotals.diffPct == null ? "—" : `${markTotals.diffPct >= 0 ? "+" : "−"}${Math.abs(markTotals.diffPct).toFixed(2)}%`}
+                tone={markTone}
+                hint={
+                  markTotals.diffPct == null
+                    ? rows.length > 0
+                      ? "Nasdaq prints are loading"
+                      : "No stock tokens to compare"
+                    : `${markTotals.diffUsd >= 0 ? "+" : "−"}${usd(Math.abs(markTotals.diffUsd))} against the same shares at Nasdaq`
+                }
+              />
+              <StatTile
+                icon={<Layers className="size-5" aria-hidden />}
+                label="Positions"
+                value={String(lines.length)}
+                hint={`${stockCount} stock token${stockCount === 1 ? "" : "s"} · cash ${shareLabel(cash, total)}`}
+              />
+              <StatTile
+                icon={<Sprout className="size-5" aria-hidden />}
+                label="Possible yield a year"
+                value={yieldIdea && yieldIdea.perYear > 0 ? usdShort(yieldIdea.perYear) : offers == null && !offersError ? "…" : "—"}
+                hint={
+                  offersError
+                    ? "Kamino's rates are unavailable"
+                    : offers == null
+                      ? "Reading Kamino's live rates"
+                      : "Lending on Kamino at today's rates, which change"
+                }
+              />
             </div>
           </section>
         ) : (
-          <BagPromise />
+          <section aria-label="Your wallet" className="panel rise mt-6 flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-field text-gold ring-1 ring-line">
+                <Wallet className="size-6" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-ink">{walletName ?? "Connect your wallet"}</h2>
+                <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">
+                  {walletName
+                    ? shortAddress(loadedAddress || address)
+                    : "See your stock tokens, ETFs and cash next to the shares they track. Read-only: Par sees the public balances and nothing else."}
+                </p>
+              </div>
+            </div>
+            {walletName ? disconnectButton : connectButtons}
+          </section>
         )}
-        {book && sinceLastLook ? <LastLook change={sinceLastLook} /> : null}
+
+        {chooser}
+        {error ? <p className="mt-3 text-sm text-clay-bright">{error}</p> : null}
+
+        {book ? null : <BagPromise />}
 
         {book && sleeveMove != null && book.spyChange != null ? (
-          <p className="mt-3 text-sm text-mist">
+          <p className="mt-4 text-sm text-mist">
             {"The stock and ETF sleeve moved "}
             {pct(sleeveMove * 100)}
             {" today. SPYx moved "}
@@ -626,25 +806,88 @@ function PortfolioPage() {
           </p>
         ) : null}
 
-        {book && rows.length > 0 ? (
-          <>
-            <RealPrice key={loadedAddress} rows={rows} now={live.now} marketState={marketState} onRunning={setExitRunning} />
-            <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
-              <BagYield lines={lines} offers={offers} error={offersError} />
-              <BagEvents events={events} marketState={marketState} now={live.now} />
-            </div>
-          </>
+        {book ? (
+          <div className={`mt-6 grid items-start gap-6 ${rows.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]" : ""}`}>
+            <section aria-label="Holdings" className="panel rise p-4 sm:p-5">
+              <UnderlineTabs
+                label="Holdings views"
+                value={tab}
+                onChange={setTab}
+                tabs={[
+                  { id: "holdings", label: "Holdings" },
+                  { id: "look", label: "Since you last looked" },
+                ]}
+              />
+              <div className="mt-4">
+                {tab === "holdings" ? (
+                  <>
+                    <HoldingsTable lines={lines} total={total} />
+                    <p className="mt-3 text-xs text-muted">
+                      {lines.length === 1 ? "1 line" : `${lines.length} lines`}
+                      {", largest first. Today is each price's move over 24 hours."}
+                    </p>
+                  </>
+                ) : sinceLastLook ? (
+                  <LastLook change={sinceLastLook} />
+                ) : (
+                  <p className="text-sm leading-relaxed text-muted">
+                    This device keeps a view of this wallet, at most once an hour. Come back after 10 minutes or more to see what changed since, split into
+                    price moves and balance changes. Nothing leaves the device.
+                  </p>
+                )}
+              </div>
+            </section>
+            {rows.length > 0 ? (
+              <div className="grid gap-6">
+                <BagYield lines={lines} offers={offers} error={offersError} />
+                <BagEvents events={events} marketState={marketState} now={live.now} />
+              </div>
+            ) : null}
+          </div>
         ) : null}
+
+        {book && rows.length > 0 ? <RealPrice key={loadedAddress} rows={rows} now={live.now} marketState={marketState} onRunning={setExitRunning} /> : null}
         {book && rows.length === 0 && lines.some(isXStock) ? (
-          <p className="panel mt-6 p-5 text-sm leading-relaxed text-muted ring-1 ring-line">
+          <p className="panel mt-6 p-5 text-sm leading-relaxed text-muted">
             {live.feedError ? "Live prices are paused, so the Nasdaq comparison waits. Try again in a minute." : "Loading live prices for your stock tokens…"}
           </p>
         ) : null}
         {book && rows.length === 0 && !lines.some(isXStock) ? (
-          <p className="panel mt-6 p-5 text-sm leading-relaxed text-ink ring-1 ring-line">
+          <p className="panel mt-6 p-5 text-sm leading-relaxed text-ink">
             No tracked stock tokens in this wallet, so there is no Nasdaq comparison, exit price or rebase to show. The desk lists every name Par tracks.
           </p>
         ) : null}
+
+        {book && lines.length > 0 ? (
+          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+            <Panel title="Your bag as a map">
+              <BagMap lines={lines} total={total} />
+              <dl className="mt-4 grid grid-cols-2 gap-2">
+                <Fact label="Cash" value={usdShort(cash)} hint={`USDC and USDT · ${shareLabel(cash, total)}`}>
+                  <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-night" aria-hidden>
+                    <span className="bar-grow block h-full rounded-full bg-[#cdb88e]" style={{ width: total > 0 ? `${(cash / total) * 100}%` : "0%" }} />
+                  </span>
+                </Fact>
+                <Fact label="Spread" value={spread == null ? "—" : `${spread.toFixed(1)}/10`} hint="10 is even, 0 is one bet">
+                  <SpreadMeter score={spread} />
+                </Fact>
+              </dl>
+            </Panel>
+            <div className="grid gap-6">
+              <Panel title="Asset allocation">
+                <div className="flex flex-col items-center gap-6 sm:flex-row lg:flex-col">
+                  <Donut slices={kindSlices} total={total} label="Equities" value={shareLabel(equities, total)} />
+                  {kindSlices.length === 0 ? <p className="text-sm text-muted">Nothing priced yet.</p> : <SliceKey slices={kindSlices} total={total} />}
+                </div>
+              </Panel>
+              <Panel title="Sector exposure">
+                <ShareBars rows={sectorRows} total={total} empty="Nothing priced yet." />
+                <p className="mt-4 text-xs leading-relaxed text-muted">An ETF stays one sector here. The companies inside it are in the exposure list.</p>
+              </Panel>
+            </div>
+          </div>
+        ) : null}
+
         {book && lines.length > 0 ? (
           <div className={`mt-6 grid items-start gap-6 ${lines.some(isXStock) ? "lg:grid-cols-2" : ""}`}>
             <BagPowers summary={powerSummary} error={powersError} />
@@ -655,163 +898,52 @@ function PortfolioPage() {
 
         {book ? (
           <>
-            <h2 className="mt-12 font-display text-3xl">The mix</h2>
-            <p className="mt-1 text-sm text-mist">Every line in the wallet, by what it is, by sector, and by the companies behind it.</p>
-            <section className="mt-4 grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-              <div className="chart-panel p-5">
-                <p className="text-sm font-medium text-foam">Asset allocation</p>
-                <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row">
-                  <Donut slices={kindSlices} total={total} label="Equities" value={shareLabel(equities, total)} />
-                  {kindSlices.length === 0 ? <p className="text-sm text-mist">Nothing priced yet.</p> : <SliceKey slices={kindSlices} total={total} />}
-                </div>
-              </div>
-              <div className="chart-panel p-5">
-                <p className="text-sm font-medium text-foam">Sector exposure</p>
-                <div className="mt-4">
-                  <ShareBars rows={sectorRows} total={total} empty="Nothing priced yet." />
-                </div>
-                <p className="mt-4 text-xs leading-relaxed text-mist">An ETF stays one sector here. The companies inside it are in the exposure list.</p>
-              </div>
-            </section>
-
-            <section className="chart-panel mt-3 overflow-hidden">
-              <div className="flex items-baseline justify-between gap-3 px-5 py-4">
-                <p className="text-sm font-medium text-foam">Holdings</p>
-                <p className="text-xs text-mist">{lines.length === 1 ? "1 line" : `${lines.length} lines`}, largest first</p>
-              </div>
-              <ul className="divide-y divide-white/5 border-t border-white/10 sm:hidden">
-                {lines.length === 0 ? <li className="px-5 py-6 text-sm text-mist">Nothing priced in this wallet.</li> : null}
-                {lines.map((line) => (
-                  <li key={`${line.kind}-${line.symbol}-${line.underlying}`} className="flex items-center justify-between gap-3 px-5 py-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <LineBadge line={line} />
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-foam">{line.name}</p>
-                        <p className="text-xs text-mist">
-                          {line.symbol}
-                          {" · "}
-                          {shareLabel(line.usdValue, total)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="tabular-nums text-foam">{usd(line.usdValue)}</p>
-                      <ChangeChip value={line.change24h} />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead className="text-xs tracking-wide text-mist uppercase">
-                    <tr className="border-y border-white/10">
-                      <th className="px-5 py-3 font-medium">Asset</th>
-                      <th className="px-3 py-3 font-medium">Allocation</th>
-                      <th className="px-3 py-3 font-medium">Price</th>
-                      <th className="px-3 py-3 font-medium">Today</th>
-                      <th className="px-5 py-3 text-right font-medium">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-5 py-8 text-mist">
-                          Nothing priced in this wallet.
-                        </td>
-                      </tr>
-                    ) : null}
-                    {lines.map((line) => {
-                      const price = line.amount > 0 ? line.usdValue / line.amount : null;
-                      return (
-                        <tr key={`${line.kind}-${line.symbol}-${line.underlying}`} className="border-b border-white/5 transition-colors hover:bg-white/[0.03]">
-                          <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <LineBadge line={line} />
-                              <div className="min-w-0">
-                                <p className="font-medium text-foam">{line.name}</p>
-                                <p className="text-xs text-mist">
-                                  {line.symbol}
-                                  {" · "}
-                                  {line.kind}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-3.5">
-                            <p className="tabular-nums text-foam">{shareLabel(line.usdValue, total)}</p>
-                            <div className="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-white/10">
-                              <div
-                                className="bar-grow h-full rounded-full"
-                                style={{ width: total > 0 ? `${Math.max((line.usdValue / total) * 100, line.usdValue > 0 ? 2 : 0)}%` : "0%", background: lineColour(line) }}
-                              />
-                            </div>
-                          </td>
-                          <td className="px-3 py-3.5 tabular-nums text-foam">{price == null ? "—" : usd(price)}</td>
-                          <td className="px-3 py-3.5">
-                            <ChangeChip value={line.change24h} />
-                          </td>
-                          <td className="px-5 py-3.5 text-right tabular-nums text-foam">{usd(line.usdValue)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="chart-panel mt-3 p-5">
-              <p className="text-sm font-medium text-foam">Effective exposure</p>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-mist">
-                {"A direct stock counts in full. SPYx and QQQx are opened with published top holdings as of "}
-                {HOLDINGS_AS_OF}
-                {". Those lists are the top of each fund, not every company, so this sum is a floor."}
-                {holdingsMayBeStale() ? " These weights may have changed since." : ""}
-              </p>
-              {apple && apple.usd > 0 ? (
-                <p className="mt-4 text-sm leading-relaxed text-foam">
-                  {"Apple is "}
-                  {usd(apple.usd)}
-                  {". "}
-                  {usd(apple.direct)}
-                  {" is the Apple token"}
-                  {apple.through.length > 0 ? `, and ${apple.through.map((t) => `${usd(t.usd)} sits inside ${t.fund}`).join(", ")}` : ""}
-                  {"."}
+            <h2 className="mt-12 font-display text-2xl text-foam">The mix</h2>
+            <p className="mt-1 text-sm text-mist">The companies behind every line, and where the money sits.</p>
+            <div className="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+              <Panel title="Effective exposure">
+                <p className="max-w-2xl text-sm leading-relaxed text-muted">
+                  {"A direct stock counts in full. SPYx and QQQx are opened with published top holdings as of "}
+                  {HOLDINGS_AS_OF}
+                  {". Those lists are the top of each fund, not every company, so this sum is a floor."}
+                  {holdingsMayBeStale() ? " These weights may have changed since." : ""}
                 </p>
-              ) : (
-                <p className="mt-4 text-sm text-mist">No Apple exposure in the published top holdings or as a direct token.</p>
-              )}
-              {companies.length > 0 ? <ExposureBars rows={companies.slice(0, 12)} /> : null}
-            </section>
+                {apple && apple.usd > 0 ? (
+                  <p className="mt-4 text-sm leading-relaxed text-ink">
+                    {"Apple is "}
+                    {usd(apple.usd)}
+                    {". "}
+                    {usd(apple.direct)}
+                    {" is the Apple token"}
+                    {apple.through.length > 0 ? `, and ${apple.through.map((t) => `${usd(t.usd)} sits inside ${t.fund}`).join(", ")}` : ""}
+                    {"."}
+                  </p>
+                ) : (
+                  <p className="mt-4 text-sm text-muted">No Apple exposure in the published top holdings or as a direct token.</p>
+                )}
+                {companies.length > 0 ? <ExposureBars rows={companies.slice(0, 12)} /> : null}
+              </Panel>
+              <div className="grid gap-6">
+                <Panel title="Country">
+                  <ShareBars rows={plainRows(groupBy(lines, "country"))} total={total} empty="Nothing priced." />
+                </Panel>
+                <Panel title="Currency">
+                  <ShareBars rows={plainRows(groupBy(lines, "currency"))} total={total} empty="Nothing priced." />
+                </Panel>
+              </div>
+            </div>
           </>
         ) : null}
 
-        <section className="chart-panel mt-3 p-5">
-          <p className="text-sm font-medium text-foam">SPYx and QQQx are not the same bet</p>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-mist">
+        <Panel title="SPYx and QQQx are not the same bet" className="mt-6">
+          <p className="max-w-2xl text-sm leading-relaxed text-muted">
             {"Published top holdings as of "}
             {HOLDINGS_AS_OF}
             {". Owning both is the same company twice. QQQx is the heavier chip bet."}
             {holdingsMayBeStale() ? " These weights may have changed since." : ""}
           </p>
           <OverlapChart rows={overlapRows} />
-        </section>
-
-        {book ? (
-          <section className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="chart-panel p-5">
-              <p className="text-sm font-medium text-foam">Country</p>
-              <div className="mt-4">
-                <ShareBars rows={plainRows(groupBy(lines, "country"))} total={total} empty="Nothing priced." />
-              </div>
-            </div>
-            <div className="chart-panel p-5">
-              <p className="text-sm font-medium text-foam">Currency</p>
-              <div className="mt-4">
-                <ShareBars rows={plainRows(groupBy(lines, "currency"))} total={total} empty="Nothing priced." />
-              </div>
-            </div>
-          </section>
-        ) : null}
+        </Panel>
 
         <section className="mt-8 max-w-2xl text-sm leading-relaxed text-mist">
           <p className="font-medium text-foam">What this page will not invent</p>

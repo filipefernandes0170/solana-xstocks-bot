@@ -109,7 +109,7 @@ function VerifyPage() {
             <ShieldCheck className="size-4" aria-hidden />
             For @ONPAR_BOT
           </p>
-          <h1 className="hero-title mt-2 font-display text-4xl leading-[1.05] sm:text-5xl">Prove your wallet</h1>
+          <h1 className="hero-title mt-2 font-display text-3xl leading-tight sm:text-4xl">Prove your wallet</h1>
           <p className="mt-4 text-base leading-relaxed text-mist">
             Holder texts go only to a wallet its owner proved. Connect the wallet that holds $PAR and sign the message below. A message is not a
             transaction: it cannot move funds. Par never asks for a seed phrase. If your wallet shows a transaction or a spending approval, refuse it.
@@ -123,13 +123,13 @@ function VerifyPage() {
         ) : (
           <section className="panel mt-8 p-5 text-ink ring-1 ring-line sm:p-7" aria-live="polite">
             <p className="text-sm font-medium text-amber">The message you will sign</p>
-            <pre className="mt-2 whitespace-pre-wrap break-words rounded-2xl bg-foam p-4 font-sans text-sm leading-relaxed">{message}</pre>
+            <pre className="mt-2 whitespace-pre-wrap break-words rounded-2xl bg-field p-4 font-sans text-sm leading-relaxed">{message}</pre>
 
             {step === "pick" ? (
               <div className="mt-6">
                 <p className="font-medium">1. Choose the wallet that holds $PAR</p>
                 {wallets.length === 0 ? (
-                  <div className="mt-3 rounded-2xl bg-foam p-4 text-sm leading-relaxed">
+                  <div className="mt-3 rounded-2xl bg-field p-4 text-sm leading-relaxed">
                     <p className="flex items-center gap-2 font-medium">
                       <Smartphone className="size-4" aria-hidden />
                       No wallet found in this browser
@@ -137,7 +137,7 @@ function VerifyPage() {
                     <p className="mt-1 text-muted">On a phone, open this page inside your wallet app. On a computer, install a wallet extension and reload.</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {walletBrowseLinks(pageUrl).map((link) => (
-                        <a key={link.name} href={link.href} className="inline-flex h-11 items-center rounded-full bg-ink px-4 text-sm font-medium text-foam">
+                        <a key={link.name} href={link.href} className="inline-flex h-11 items-center rounded-full bg-gold px-4 text-sm font-medium text-night">
                           Open in {link.name}
                         </a>
                       ))}
@@ -154,7 +154,7 @@ function VerifyPage() {
                             type="button"
                             disabled={busy}
                             onClick={() => void pickWallet(item)}
-                            className="flex h-12 w-full items-center gap-3 rounded-xl bg-foam px-3 text-left text-sm font-medium ring-1 ring-line disabled:opacity-60"
+                            className="flex h-12 w-full items-center gap-3 rounded-xl bg-field px-3 text-left text-sm font-medium ring-1 ring-line disabled:opacity-60"
                           >
                             {icon ? <img src={icon} alt="" width={24} height={24} className="h-6 w-6 rounded-md" /> : <span className="h-6 w-6 rounded-md bg-line" />}
                             {name}
@@ -179,7 +179,7 @@ function VerifyPage() {
                           setAccount(item);
                           setStep("sign");
                         }}
-                        className="h-11 w-full rounded-xl bg-foam px-3 text-left text-sm font-medium ring-1 ring-line"
+                        className="h-11 w-full rounded-xl bg-field px-3 text-left text-sm font-medium ring-1 ring-line"
                       >
                         {shortAddress(item.address)}
                       </button>
@@ -201,7 +201,7 @@ function VerifyPage() {
                     type="button"
                     disabled={busy}
                     onClick={() => void sign()}
-                    className="h-12 rounded-full bg-ink px-6 text-sm font-medium text-foam disabled:opacity-60"
+                    className="h-12 rounded-full bg-gold px-6 text-sm font-medium text-night disabled:opacity-60"
                   >
                     {busy ? "Waiting for the wallet…" : "Sign the message"}
                   </button>
@@ -231,7 +231,7 @@ function VerifyPage() {
                 <p className="mt-1 text-sm leading-relaxed">Go back to Telegram to finish. The bot checks the signature itself before it saves the wallet.</p>
                 <a
                   href={telegramReturnLink(nonce)}
-                  className="mt-3 inline-flex h-12 items-center rounded-full bg-gold px-6 text-sm font-medium text-ink shadow-[0_8px_24px_#e0a04a33]"
+                  className="mt-3 inline-flex h-12 items-center rounded-full bg-gold px-6 text-sm font-medium text-night shadow-[0_8px_24px_#e0a04a33]"
                 >
                   Back to Telegram
                 </a>

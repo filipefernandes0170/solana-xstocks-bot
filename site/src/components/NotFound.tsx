@@ -9,7 +9,7 @@ export function NotFound() {
         <p className="mt-6 text-sm font-medium tracking-wide text-gold">Par · stocks on Solana</p>
         <h1 className="mt-3 font-display text-5xl text-foam">Page not found</h1>
         <p className="mt-4 text-base leading-relaxed text-mist">There is no Par page at this address.</p>
-        <a href="/" className="mt-8 inline-flex h-12 items-center rounded-full bg-gold px-5 text-sm font-medium text-ink">
+        <a href="/" className="mt-8 inline-flex h-12 items-center rounded-full bg-gold px-5 text-sm font-medium text-night">
           Back to the desk
         </a>
       </main>

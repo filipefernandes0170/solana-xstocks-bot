@@ -39,25 +39,25 @@ export function GapHistory({ symbol, points }: { symbol: string; points: History
   return (
     <figure>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${symbol} last trade versus Nasdaq over the last week. Latest ${formatGap(last.gap)}.`}>
-        <rect x={PAD.left} y={y(FAIR_BAND)} width={innerW} height={y(-FAIR_BAND) - y(FAIR_BAND)} fill="#dff3ea" />
+        <rect x={PAD.left} y={y(FAIR_BAND)} width={innerW} height={y(-FAIR_BAND) - y(FAIR_BAND)} fill="#13291d" />
         {[2, 1, 0, -1, -2].map((g) => (
           <g key={g}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y(g)} y2={y(g)} stroke={g === 0 ? "#5d6e74" : "#e2d6c4"} strokeWidth={g === 0 ? 1 : 0.75} />
-            <text x={PAD.left - 8} y={y(g) + 4} textAnchor="end" fontSize="11" fill="#5d6e74">
+            <line x1={PAD.left} x2={W - PAD.right} y1={y(g)} y2={y(g)} stroke={g === 0 ? "#6b727c" : "#272c34"} strokeWidth={g === 0 ? 1 : 0.75} />
+            <text x={PAD.left - 8} y={y(g) + 4} textAnchor="end" fontSize="11" fill="#969da7">
               {g > 0 ? `+${g}%` : `${g}%`}
             </text>
           </g>
         ))}
         {days.map((d) => (
           <g key={d.i}>
-            <line x1={x(d.i)} x2={x(d.i)} y1={PAD.top} y2={H - PAD.bottom} stroke="#e2d6c4" strokeDasharray="3 3" />
-            <text x={x(d.i) + 4} y={H - 10} fontSize="11" fill="#5d6e74">
+            <line x1={x(d.i)} x2={x(d.i)} y1={PAD.top} y2={H - PAD.bottom} stroke="#272c34" strokeDasharray="3 3" />
+            <text x={x(d.i) + 4} y={H - 10} fontSize="11" fill="#969da7">
               {d.label}
             </text>
           </g>
         ))}
-        <path d={path} fill="none" stroke="#8d5b17" strokeWidth="2" strokeLinejoin="round" />
-        <circle cx={x(points.length - 1)} cy={y(last.gap)} r="4.5" fill="#e0a04a" stroke="#ffffff" strokeWidth="2" />
+        <path d={path} fill="none" stroke="#f2b84b" strokeWidth="2" strokeLinejoin="round" />
+        <circle cx={x(points.length - 1)} cy={y(last.gap)} r="4.5" fill="#f2b84b" stroke="#14171c" strokeWidth="2" />
       </svg>
       <figcaption className="mt-3 text-sm leading-relaxed text-muted">
         {band.open > 0
