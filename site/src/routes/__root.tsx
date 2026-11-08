@@ -14,6 +14,7 @@ export const Route = createRootRoute({
       { title: "Par" },
       { name: "description", content: SITE_DESCRIPTION },
       { name: "theme-color", content: "#0a0c0f" },
+      { name: "apple-mobile-web-app-title", content: "Par" },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "Par" },
       { property: "og:title", content: SITE_TITLE },
@@ -32,6 +33,7 @@ export const Route = createRootRoute({
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "stylesheet", href: appCss },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
+import { PAR_HOLDER_MIN, PAR_MINT } from "./par.js";
 
 const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().min(10),
@@ -39,8 +40,10 @@ export const config = {
   deskCron: env.DESK_CHECK_CRON,
   eventsCron: env.EVENTS_CHECK_CRON,
   alertChatId: env.ALERT_CHAT_ID ?? "",
-  tokenMint: env.TOKEN_MINT ?? "",
-  holderMin: env.HOLDER_MIN_TOKENS,
+  // The official address in config/par.ts, unless TOKEN_MINT is set (emergency only).
+  tokenMint: env.TOKEN_MINT ?? PAR_MINT,
+  // 250,000 $PAR (config/par.ts), unless HOLDER_MIN_TOKENS is set to a positive number.
+  holderMin: env.HOLDER_MIN_TOKENS > 0 ? env.HOLDER_MIN_TOKENS : PAR_HOLDER_MIN,
   briefChannelId: env.BRIEF_CHANNEL_ID ?? "",
   shareBuysSecret: (env.SHARE_BUYS_SECRET ?? "").trim(),
 };

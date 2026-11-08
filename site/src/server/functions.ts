@@ -14,6 +14,7 @@ import { bagPowersResult, cleanMints } from "./powers";
 import { exitCheck, quotesResult, sizeCheck, wantNames } from "./quotes";
 import { supplyResult } from "./supply";
 import { venuesResult } from "./venues";
+import { holderMinimum, parMint } from "../lib/holder";
 import { env } from "./http";
 import { walletInput } from "./solana";
 import { holderStatus, lookupHoldings, readPortfolio } from "./wallet";
@@ -107,10 +108,13 @@ export const getSupply = createServerFn({ method: "GET" }).handler(async () => {
   return supplyResult();
 });
 
-/** Whether $PAR is live: the holder texts only work once TOKEN_MINT is set. Public, so shared like the prices. */
+/**
+ * Whether $PAR is live (the holder texts only work once TOKEN_MINT is set) and how much $PAR a holder needs
+ * (HOLDER_MIN_TOKENS, 0 = any amount). Public, so shared like the prices.
+ */
 export const getFlags = createServerFn({ method: "GET" }).handler(async () => {
   sharePublicData();
-  return { coinLive: env("TOKEN_MINT") !== "" };
+  return { coinLive: parMint(env("TOKEN_MINT")) !== "", holderMin: holderMinimum(env("HOLDER_MIN_TOKENS")) };
 });
 
 export const getCryptos = createServerFn({ method: "GET" }).handler(async () => {
@@ -121,7 +125,7 @@ export const getCryptos = createServerFn({ method: "GET" }).handler(async () => 
 /** "Would this wallet get the text?" POST, never cached. */
 export const checkHolder = createServerFn({ method: "POST" })
   .validator(walletInput)
-  .handler(async ({ data }) => ({ status: await holderStatus(data.wallet) }));
+  .handler(async ({ data }) => ({ status: await holderStatus(data.wallet), minimum: holderMinimum(env("HOLDER_MIN_TOKENS")) }));
 
 /** xStock holdings for the Portfolio tab on the desk. POST, never cached. */
 export const getHoldings = createServerFn({ method: "POST" })

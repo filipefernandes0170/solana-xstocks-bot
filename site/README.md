@@ -19,7 +19,7 @@ The website at https://onpar.site (Netlify project `xstocks-tracker`; the old ht
 4. **More tokens priced on /portfolio.** The original's rule for which other tokens get priced is unknown. Here it prices up to 150 tokens, 50 per Jupiter request, one request at a time. Anything left without a price is counted in "N tokens had no price".
 5. **No Grok preview bridge.** The original carried Grok's editor bridge (a `postMessage` listener plus the zod library) and a link to `/__grok/manifest.webmanifest`, which returned 404. Neither did anything for visitors, so neither is here.
 6. **GLDx counts as an ETF** on /portfolio. This is not verified against the original, which was never seen holding GLDx.
-7. **Holder check** ("Would this wallet get the text?") adds up every token account of `TOKEN_MINT`. The bot only reads the associated token account. Today `TOKEN_MINT` is empty, so both answer "not live yet".
+7. **Holder check** ("Would this wallet get the text?") adds up every token account of `TOKEN_MINT`. The bot only reads the associated token account. Until the official address is filled in (`PAR_MINT`, launch day), both answer "not live yet".
 8. **Short dollar amounts ("$51M").** The published code wrote "$51.0M" when it ran in Node and "$51M" in a browser, so a page rendered on the server did not match the browser and React redrew it (an error on every /ranking load). Since 18 Oct 2026 both write "$51M"; the golden test drops that trailing ".0" from the recorded answers (`tests/logic.test.ts`).
 
 ## Changes after the rebuild (17 Oct 2026)
@@ -189,8 +189,8 @@ Node 22.12 or newer.
 |---|---|
 | `SOLANA_RPC_URL` | RPC for wallet reads (default: the public mainnet RPC, which is rate-limited) |
 | `JUPITER_API_KEY` | A free key from developers.jup.ag (set, secret, Functions scope). Same pace as keyless (1 request every 2 s), but counted for our organisation instead of the function's shared Netlify IP. Do not give the bot this key: they would share one limit |
-| `TOKEN_MINT` | The project coin for the holder check. Empty means "the coin is not live yet" |
-| `HOLDER_MIN_TOKENS` | Minimum whole tokens to count as a holder (0 or empty means any amount) |
+| `TOKEN_MINT` | Emergency override only. The official $PAR address lives in `src/lib/holder.ts` (`PAR_MINT`, same as the bot's `src/config/par.ts`, checked by a test); empty there and here means "the coin is not live yet" |
+| `HOLDER_MIN_TOKENS` | Emergency override only. Empty or 0 means the launch minimum, 250,000 $PAR (`PAR_HOLDER_MIN` in `src/lib/holder.ts`) |
 | `SHARE_BUYS_SECRET` | 64 hex characters (`openssl rand -hex 32`), secret, Functions scope. The same value goes in the bot's `.env`; the bot then posts its $1,000 buys to `/api/share-buys`. Empty means off. Changing it needs a new deploy |
 
 Set them in Netlify (Project configuration → Environment variables) and redeploy. Never commit values.

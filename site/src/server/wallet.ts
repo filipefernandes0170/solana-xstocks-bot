@@ -9,6 +9,7 @@
 
 import { ETF_UNDERLYINGS, TOKEN_BY_MINT, USDC_MINT, USDT_MINT } from "../lib/tokens";
 import type { HolderStatus, Holding, HoldingsResult, PortfolioLine, PortfolioResult, Quote } from "../lib/types";
+import { holderMinimum, parMint } from "../lib/holder";
 import { env } from "./http";
 import { deskQuotes, jupiterPrices } from "./quotes";
 import { logMessage, rpc, solBalance, tokenBalances } from "./solana";
@@ -172,12 +173,12 @@ export async function readPortfolio(wallet: string): Promise<PortfolioResult> {
 }
 
 /**
- * Would this wallet get the bot's texts? Same rule as the bot: it must hold TOKEN_MINT
- * (any amount, or at least HOLDER_MIN_TOKENS when that is set). No TOKEN_MINT yet = "unminted".
+ * Would this wallet get the bot's texts? Same rule as the bot: it must hold the $PAR mint (lib/holder.ts, or
+ * TOKEN_MINT) with at least the holder minimum (250,000 $PAR, or HOLDER_MIN_TOKENS). No mint yet = "unminted".
  * Note: this sums every account of that mint; the bot reads only the associated token account.
  */
 export async function holderStatus(wallet: string): Promise<HolderStatus> {
-  const mint = env("TOKEN_MINT");
+  const mint = parMint(env("TOKEN_MINT"));
   if (!mint) return "unminted";
   try {
     const result = await rpc<{
@@ -187,8 +188,8 @@ export async function holderStatus(wallet: string): Promise<HolderStatus> {
       (sum, entry) => sum + Number(entry.account?.data?.parsed?.info?.tokenAmount?.uiAmountString ?? 0),
       0,
     );
-    const minimum = Number(env("HOLDER_MIN_TOKENS") || "0");
-    const holds = Number.isFinite(minimum) && minimum > 0 ? total >= minimum : total > 0;
+    const minimum = holderMinimum(env("HOLDER_MIN_TOKENS"));
+    const holds = minimum > 0 ? total >= minimum : total > 0;
     return holds ? "holds" : "absent";
   } catch (error) {
     console.warn(`[par] Holder check: ${logMessage(error)}`);

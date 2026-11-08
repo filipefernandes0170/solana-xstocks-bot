@@ -1,7 +1,10 @@
-/** Footer on every page: what Par is not, and where each number comes from. */
+import { OfficialAddress } from "./OfficialAddress";
+
+/** Footer on every page: the official $PAR address, what Par is not, and where each number comes from. */
 export function SiteFooter() {
   return (
     <footer className="mt-16 border-t border-white/10 pt-6 text-sm leading-relaxed text-mist">
+      <OfficialAddress className="mb-5 max-w-3xl" />
       <p className="max-w-3xl">
         Par is not financial advice. Prices can be late or wrong, so check before you trade. Par takes no fee, never holds your funds, and
         never asks you to sign a transaction.

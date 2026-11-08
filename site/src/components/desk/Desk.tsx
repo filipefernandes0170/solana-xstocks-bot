@@ -143,6 +143,7 @@ export function Desk({
   initialOffers = [],
   offersError = null,
   initialCryptos = [],
+  holderMin = 0,
 }: {
   initial: Quote[];
   /** When the server read these prices. The page may be a cached copy, so this can be well in the past. */
@@ -151,6 +152,8 @@ export function Desk({
   initialOffers?: Offer[];
   offersError?: string | null;
   initialCryptos?: CryptoRow[];
+  /** How much $PAR a holder needs (HOLDER_MIN_TOKENS); 0 means any amount. */
+  holderMin?: number;
 }) {
   const [tab, setTab] = useState<Tab>("markets");
   const [quotes, setQuotes] = useState(initial);
@@ -194,6 +197,7 @@ export function Desk({
   const [holderBusy, setHolderBusy] = useState(false);
   const [holderError, setHolderError] = useState<string | null>(null);
   const [holder, setHolder] = useState<HolderStatus | null>(null);
+  const [holderNeed, setHolderNeed] = useState(holderMin);
 
   useEffect(() => {
     setNow(Date.now());
@@ -978,6 +982,7 @@ export function Desk({
           busy={holderBusy}
           error={holderError}
           status={holder}
+          minimum={holderNeed}
           onCheck={async () => {
             setHolderBusy(true);
             setHolderError(null);
@@ -985,6 +990,7 @@ export function Desk({
             try {
               const result = await checkHolder({ data: { wallet: holderWallet } });
               setHolder(result.status);
+              setHolderNeed(result.minimum);
             } catch (error) {
               setHolder(null);
               setHolderError(error instanceof Error ? error.message : "Lookup failed.");

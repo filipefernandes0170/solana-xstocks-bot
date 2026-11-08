@@ -34,6 +34,7 @@ import { GOLD_BUTTON, Panel } from "../components/ui";
 import { PUBLIC_DATA_CACHE, SITE_URL } from "../lib/site";
 import { TOKENS } from "../lib/tokens";
 import { verdictPillClass } from "../lib/verdict";
+import { holderCount, holderRule } from "../lib/holder";
 import { getFlags, getQuotes } from "../server/functions";
 
 const BOT_URL = "https://t.me/ONPAR_BOT";
@@ -59,7 +60,7 @@ export const Route = createFileRoute("/bot")({
   }),
   loader: async () => {
     const [quotes, flags] = await Promise.all([getQuotes(), getFlags()]);
-    return { quotes: quotes.quotes, asOf: quotes.asOf, coinLive: flags.coinLive };
+    return { quotes: quotes.quotes, asOf: quotes.asOf, coinLive: flags.coinLive, holderMin: flags.holderMin };
   },
   component: BotPage,
 });
@@ -191,7 +192,7 @@ const HOLDER_DOCS: Doc[] = [
     title: "Prove your $PAR wallet",
     commands: ["/hold", "/hold check", "/hold off"],
     what: "Holder texts go only to a wallet you prove is yours. Tap 🔐 Prove my $PAR wallet, connect that wallet on the Par site (Phantom, Solflare and other Solana wallets) and sign one message. The code works once, for 15 minutes.",
-    when: "A message is not a transaction and cannot move funds. The bot then reads that wallet's $PAR on chain, and the texts stop if it no longer holds any.",
+    when: "A message is not a transaction and cannot move funds. The bot then reads that wallet's $PAR on chain, and the texts stop if it no longer holds enough.",
   },
   {
     icon: <Zap className="size-5" aria-hidden />,
@@ -268,6 +269,7 @@ const COMMANDS: [string, string][] = [
   ["/events off", "Filing texts off"],
   ["/flows off", "Flow texts off"],
   ["/hold", "Prove the wallet that holds $PAR"],
+  ["/ca", "The official $PAR address"],
   ["/help", "How Par works"],
 ];
 
@@ -279,14 +281,14 @@ const VERDICTS: { id: "fair" | "near" | "overnight" | "wait" | "split"; emoji: s
   { id: "split", emoji: "⚖️", title: "Split", line: "The pool and the issuer mark disagree." },
 ];
 
-const questions = (coinLive: boolean): [string, string][] => [
+const questions = (coinLive: boolean, holderMin: number): [string, string][] => [
   [
     "Is it safe?",
     "Par never asks for a private key or a seed phrase, never asks you to sign a transaction, and never holds funds. To prove a wallet holds $PAR you sign one plain message, which cannot move funds. Buy opens Jupiter, where you trade yourself.",
   ],
   [
     "Does it cost anything?",
-    "No. Par takes no fee. Cards, /prices, /size, /portfolio, /events, /flows, /pairs, /week, /yield and /alert are free for everyone. The texts need $PAR in a wallet you prove: you hold it, you do not pay it.",
+    `No. Par takes no fee. Cards, /prices, /size, /portfolio, /events, /flows, /pairs, /week, /yield and /alert are free for everyone. The texts need ${holderMin > 0 ? holderRule(holderMin) : "$PAR"} in a wallet you prove: you hold it, you do not pay it.`,
   ],
   coinLive
     ? [
@@ -388,7 +390,7 @@ function DocCard({ doc, holders }: { doc: Doc; holders: boolean }) {
 }
 
 function BotPage() {
-  const { quotes, asOf, coinLive } = Route.useLoaderData();
+  const { quotes, asOf, coinLive, holderMin } = Route.useLoaderData();
   const featured = quotes.find((q) => q.symbol === "NVDAx") ?? quotes[0];
   return (
     <div className="relative min-h-screen text-foam">
@@ -531,7 +533,7 @@ function BotPage() {
             <div className="why-hold rounded-[var(--radius-card)] border border-gold/30 p-5 sm:p-6">
               <p className="flex items-center gap-2 text-sm font-medium text-gold">
                 <FingerprintPattern className="size-4" aria-hidden />
-                With $PAR in a proven wallet
+                {holderMin > 0 ? `With ${holderCount(holderMin)} $PAR in a proven wallet` : "With $PAR in a proven wallet"}
               </p>
               <ul className="mt-5 space-y-5">
                 {HOLDERS.map((item) => (
@@ -539,7 +541,9 @@ function BotPage() {
                 ))}
               </ul>
               <p className="mt-6 text-sm leading-relaxed text-mist">
-                The bot checks the wallet you proved. Texts stop when it no longer holds the coin.
+                {holderMin > 0
+                  ? `The bot checks the wallet you proved. Texts need ${holderRule(holderMin)} there and stop when it holds less.`
+                  : "The bot checks the wallet you proved. Texts stop when it no longer holds the coin."}
                 {coinLive ? "" : " $PAR is not live yet, so these are off for now; a proven wallet is kept for when it is."}
               </p>
             </div>
@@ -623,7 +627,7 @@ function BotPage() {
           <div>
             <SectionTitle id="faq-title">Questions</SectionTitle>
             <div className="panel divide-y divide-line">
-              {questions(coinLive).map(([question, answer]) => (
+              {questions(coinLive, holderMin).map(([question, answer]) => (
                 <details key={question} className="group px-5 py-4">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-foam">
                     {question}

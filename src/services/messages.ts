@@ -4,6 +4,7 @@ import { Markup } from "telegraf";
 import type { InlineKeyboardMarkup } from "telegraf/types";
 import { SYMBOL_TO_TOKEN, TOKENIZED_STOCKS, siblingTokens } from "../config/tokens.js";
 import { marketNotes } from "./calendar.js";
+import { holderAmount } from "./holderRule.js";
 import type { DeskQuote, SizeResult } from "./desk.js";
 import type { PortfolioSummary } from "./portfolio.js";
 import { PAIR_POINTS, type CompanyPair } from "./pairs.js";
@@ -251,7 +252,27 @@ export function bagText(changes: { quote: DeskQuote; from: string; thin: boolean
 
 // ── Commands ─────────────────────────────────────────────────────────────────
 
-export function startText(firstName?: string) {
+/**
+ * /ca: the official $PAR address, or that $PAR is not live yet. Fake copies of a coin appear within minutes of a launch,
+ * and "CA?" (contract address) is the first thing people ask in Telegram.
+ */
+export function caText(mint: string) {
+  if (!mint) {
+    return [
+      "⏳ <b>$PAR is not live yet.</b>",
+      "When it is, its official address will be here (/ca) and on onpar.site. Until then, any \"$PAR\" address you see is not Par's.",
+    ].join("\n");
+  }
+  return [
+    "🪙 <b>Official $PAR address</b>",
+    `<code>${escapeHtml(mint)}</code>`,
+    "",
+    "Any other address is not $PAR. Par never asks you to send funds or sign a transaction. The same address is on onpar.site.",
+  ].join("\n");
+}
+
+/** `holderMin`: HOLDER_MIN_TOKENS, shown next to the holder features when it is set. */
+export function startText(firstName?: string, holderMin = 0) {
   return [
     `👋 <b>Welcome to Par${firstName ? `, ${escapeHtml(firstName)}` : ""}</b>`,
     `Is the price real? Par checks ${TOKENIZED_STOCKS.length} tokenized stocks on Solana against Nasdaq, live, and tells you when a buy is fair.`,
@@ -266,8 +287,9 @@ export function startText(firstName?: string) {
     "• /pairs · same company, two tokens: which is cheaper",
     "• /events · market days off, balance changes and SEC filings",
     "• /flows · large batches of tokens created or burned in the last 24 hours",
+    "• /ca · the official $PAR address",
     "",
-    "<b>For $PAR holders</b>",
+    holderMin > 0 ? `<b>For $PAR holders</b> · ${holderAmount(holderMin)}` : "<b>For $PAR holders</b>",
     "• /watch · a text the moment a name turns Fair",
     "• /brief · the morning brief before the open",
     "• /bell · one message as Nasdaq opens",
@@ -308,6 +330,7 @@ export function helpText() {
     "/events on · key SEC filings for the names you hold or watch, at most 5 a day; pause alerts always",
     "/flows on · a text when at least $500,000 and 1% of a name you hold or watch is created or burned within an hour, at most 3 a day",
     "/hold · prove the wallet that holds $PAR: one signed message, not a transaction",
+    "/ca · the official $PAR address",
     "",
     "<b>Also</b>",
     "/portfolio or /p · /prices · /events · /flows · /week · /pairs · /yield NVDAx · /alert NVDAx up 5 · /alert list · /alert clear",
