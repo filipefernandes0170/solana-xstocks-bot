@@ -1,14 +1,19 @@
 import { ArrowLeftRight, Briefcase, CalendarDays, Factory, Send, Sunrise, Zap } from "lucide-react";
 import type { ReactNode } from "react";
+import { holderCount, holderRule } from "../../lib/holder";
 import type { HolderStatus } from "../../lib/types";
 
-function statusLine(status: HolderStatus) {
+function statusLine(status: HolderStatus, minimum: number) {
   return status === "unminted"
     ? "The coin is not live yet, so no wallet gets the texts."
     : status === "holds"
-      ? "This wallet would get the texts."
+      ? minimum > 0
+        ? `This wallet holds ${holderRule(minimum)}, so it would get the texts.`
+        : "This wallet would get the texts."
       : status === "absent"
-        ? "This wallet would not get the texts."
+        ? minimum > 0
+          ? `This wallet holds less than ${holderCount(minimum)} $PAR, so it would not get the texts.`
+          : "This wallet would not get the texts."
         : "The chain did not answer. Try again.";
 }
 
@@ -54,6 +59,7 @@ export function WhyHold({
   error,
   status,
   onCheck,
+  minimum = 0,
 }: {
   wallet: string;
   onWallet: (wallet: string) => void;
@@ -61,6 +67,8 @@ export function WhyHold({
   error: string | null;
   status: HolderStatus | null;
   onCheck: () => void;
+  /** How much $PAR a holder needs; 0 means any amount. */
+  minimum?: number;
 }) {
   return (
     <section className="why-hold mt-16 overflow-hidden rounded-[1.75rem] p-6 ring-1 ring-white/10 sm:p-10" aria-labelledby="why-hold-title">
@@ -70,7 +78,10 @@ export function WhyHold({
       </h2>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-mist">
         Everything on this page stays free. @ONPAR_BOT sends these to holders who prove their wallet once with /hold (one signed message,
-        not a transaction), and stops when the wallet no longer holds the coin.
+        not a transaction).{" "}
+        {minimum > 0
+          ? `A holder's wallet needs ${holderRule(minimum)}, and the texts stop when it holds less.`
+          : "The texts stop when the wallet no longer holds the coin."}
       </p>
       <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {PERKS.map((perk) => (
@@ -123,7 +134,7 @@ export function WhyHold({
           {error ? <p className="mt-3 text-sm text-clay-bright">{error}</p> : null}
           {status ? (
             <p className="mt-3 text-base text-foam" role="status">
-              {statusLine(status)}
+              {statusLine(status, minimum)}
             </p>
           ) : null}
         </form>

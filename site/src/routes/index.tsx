@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Desk } from "../components/desk/Desk";
 import { LIVE_PAGE_CACHE, SITE_URL } from "../lib/site";
-import { getCryptos, getOffers, getQuotes } from "../server/functions";
+import { getCryptos, getFlags, getOffers, getQuotes } from "../server/functions";
 
 export const Route = createFileRoute("/")({
   headers: () => ({ "Netlify-CDN-Cache-Control": LIVE_PAGE_CACHE }),
@@ -10,8 +10,8 @@ export const Route = createFileRoute("/")({
     links: [{ rel: "canonical", href: `${SITE_URL}/` }],
   }),
   loader: async () => {
-    const [quotes, offers, cryptos] = await Promise.all([getQuotes(), getOffers(), getCryptos()]);
-    return { quotes, offers, cryptos };
+    const [quotes, offers, cryptos, flags] = await Promise.all([getQuotes(), getOffers(), getCryptos(), getFlags()]);
+    return { quotes, offers, cryptos, holderMin: flags.holderMin };
   },
   component: Home,
 });
@@ -26,6 +26,7 @@ function Home() {
       initialOffers={data.offers.offers}
       offersError={data.offers.ok ? null : data.offers.message}
       initialCryptos={data.cryptos.rows}
+      holderMin={data.holderMin}
     />
   );
 }

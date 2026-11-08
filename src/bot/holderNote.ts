@@ -1,6 +1,7 @@
 import { config } from "../config/index.js";
 import { getUser } from "../db/index.js";
 import { holderWallet, walletsHolding } from "../services/holder.js";
+import { holderAmount } from "../services/holderRule.js";
 
 /** One line on whether this user's texts will actually send: it depends on the wallet holding $PAR. */
 export async function holderNote(telegramId: number) {
@@ -11,9 +12,13 @@ export async function holderNote(telegramId: number) {
       ? "⏳ $PAR is not live yet, so holder texts stay off until it is. Your proven wallet is saved."
       : "⏳ $PAR is not live yet, so holder texts stay off until it is. You can already prove your wallet with the button below.";
   }
-  if (!wallet) return "🔐 Prove the wallet that holds $PAR with the button below (one signed message, not a transaction), or nothing will be sent.";
+  const amount = holderAmount(config.holderMin);
+  if (!wallet) {
+    return `🔐 Prove the wallet that holds ${amount} with the button below (one signed message, not a transaction), or nothing will be sent.`;
+  }
   const holders = await walletsHolding([wallet]).catch(() => new Set<string>());
-  return holders.has(wallet)
-    ? "✅ Your proven wallet holds $PAR, so this will send."
+  if (holders.has(wallet)) return `✅ Your proven wallet holds ${amount}, so this will send.`;
+  return config.holderMin > 0
+    ? `👛 Holder texts need ${amount} in your proven wallet. It holds less, so this will wait until it does.`
     : "👛 Your proven wallet does not hold $PAR yet, so this will wait until it does.";
 }

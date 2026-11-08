@@ -9,6 +9,7 @@
 
 import { ETF_UNDERLYINGS, TOKEN_BY_MINT, USDC_MINT, USDT_MINT } from "../lib/tokens";
 import type { HolderStatus, Holding, HoldingsResult, PortfolioLine, PortfolioResult, Quote } from "../lib/types";
+import { holderMinimum } from "../lib/holder";
 import { env } from "./http";
 import { deskQuotes, jupiterPrices } from "./quotes";
 import { logMessage, rpc, solBalance, tokenBalances } from "./solana";
@@ -187,8 +188,8 @@ export async function holderStatus(wallet: string): Promise<HolderStatus> {
       (sum, entry) => sum + Number(entry.account?.data?.parsed?.info?.tokenAmount?.uiAmountString ?? 0),
       0,
     );
-    const minimum = Number(env("HOLDER_MIN_TOKENS") || "0");
-    const holds = Number.isFinite(minimum) && minimum > 0 ? total >= minimum : total > 0;
+    const minimum = holderMinimum(env("HOLDER_MIN_TOKENS"));
+    const holds = minimum > 0 ? total >= minimum : total > 0;
     return holds ? "holds" : "absent";
   } catch (error) {
     console.warn(`[par] Holder check: ${logMessage(error)}`);

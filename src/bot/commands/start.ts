@@ -1,4 +1,5 @@
 import { Context } from "telegraf";
+import { config } from "../../config/index.js";
 import { getUser, upsertUser } from "../../db/index.js";
 import { bagWatchText, startKeyboard, startText } from "../../services/messages.js";
 import { holderNote } from "../holderNote.js";
@@ -28,7 +29,7 @@ export async function startCommand(ctx: Context) {
 
   // Someone who has not proven a wallet sees the proof button first, so a holder can do it straight away.
   const proofNonce = getUser(from.id)?.verified_wallet ? null : freshProofCode(from.id);
-  await ctx.reply(startText(from.first_name), {
+  await ctx.reply(startText(from.first_name, config.holderMin), {
     parse_mode: "HTML",
     link_preview_options: { is_disabled: true },
     reply_markup: startKeyboard(proofNonce),

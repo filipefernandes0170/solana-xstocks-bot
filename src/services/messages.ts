@@ -4,6 +4,7 @@ import { Markup } from "telegraf";
 import type { InlineKeyboardMarkup } from "telegraf/types";
 import { SYMBOL_TO_TOKEN, TOKENIZED_STOCKS, siblingTokens } from "../config/tokens.js";
 import { marketNotes } from "./calendar.js";
+import { holderAmount } from "./holderRule.js";
 import type { DeskQuote, SizeResult } from "./desk.js";
 import type { PortfolioSummary } from "./portfolio.js";
 import { PAIR_POINTS, type CompanyPair } from "./pairs.js";
@@ -251,7 +252,8 @@ export function bagText(changes: { quote: DeskQuote; from: string; thin: boolean
 
 // ── Commands ─────────────────────────────────────────────────────────────────
 
-export function startText(firstName?: string) {
+/** `holderMin`: HOLDER_MIN_TOKENS, shown next to the holder features when it is set. */
+export function startText(firstName?: string, holderMin = 0) {
   return [
     `👋 <b>Welcome to Par${firstName ? `, ${escapeHtml(firstName)}` : ""}</b>`,
     `Is the price real? Par checks ${TOKENIZED_STOCKS.length} tokenized stocks on Solana against Nasdaq, live, and tells you when a buy is fair.`,
@@ -267,7 +269,7 @@ export function startText(firstName?: string) {
     "• /events · market days off, balance changes and SEC filings",
     "• /flows · large batches of tokens created or burned in the last 24 hours",
     "",
-    "<b>For $PAR holders</b>",
+    holderMin > 0 ? `<b>For $PAR holders</b> · ${holderAmount(holderMin)}` : "<b>For $PAR holders</b>",
     "• /watch · a text the moment a name turns Fair",
     "• /brief · the morning brief before the open",
     "• /bell · one message as Nasdaq opens",
