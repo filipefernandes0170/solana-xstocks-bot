@@ -21,6 +21,7 @@ import { weekCommand } from "./commands/week.js";
 import { pairsCommand } from "./commands/pairs.js";
 import { sizeAlertCommand } from "./commands/sizealert.js";
 import { yieldCommand } from "./commands/yield.js";
+import { caCommand } from "./commands/ca.js";
 
 /** The command list Telegram shows in the menu next to the message box. */
 export const MENU_COMMANDS = [
@@ -38,6 +39,7 @@ export const MENU_COMMANDS = [
   { command: "yield", description: "Live lending rates on Kamino" },
   { command: "alert", description: "One-off price move alerts" },
   { command: "hold", description: "Prove the wallet that holds $PAR" },
+  { command: "ca", description: "The official $PAR address" },
   { command: "help", description: "How Par works" },
 ];
 
@@ -61,6 +63,7 @@ export function createBot() {
   bot.command("bell", bellCommand);
   bot.command("brief", briefCommand);
   bot.command("hold", holdCommand);
+  bot.command("ca", caCommand);
   // Not in the menu: tells anyone their own Telegram ID (the admin puts theirs in ALERT_CHAT_ID).
   bot.command("myid", (ctx) => ctx.reply(`🆔 Your Telegram ID is <code>${ctx.from.id}</code>.`, { parse_mode: "HTML" }));
 

@@ -14,7 +14,7 @@ import { bagPowersResult, cleanMints } from "./powers";
 import { exitCheck, quotesResult, sizeCheck, wantNames } from "./quotes";
 import { supplyResult } from "./supply";
 import { venuesResult } from "./venues";
-import { holderMinimum } from "../lib/holder";
+import { holderMinimum, parMint } from "../lib/holder";
 import { env } from "./http";
 import { walletInput } from "./solana";
 import { holderStatus, lookupHoldings, readPortfolio } from "./wallet";
@@ -114,7 +114,7 @@ export const getSupply = createServerFn({ method: "GET" }).handler(async () => {
  */
 export const getFlags = createServerFn({ method: "GET" }).handler(async () => {
   sharePublicData();
-  return { coinLive: env("TOKEN_MINT") !== "", holderMin: holderMinimum(env("HOLDER_MIN_TOKENS")) };
+  return { coinLive: parMint(env("TOKEN_MINT")) !== "", holderMin: holderMinimum(env("HOLDER_MIN_TOKENS")) };
 });
 
 export const getCryptos = createServerFn({ method: "GET" }).handler(async () => {

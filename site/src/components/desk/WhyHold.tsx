@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Briefcase, CalendarDays, Factory, Send, Sunrise, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import { holderCount, holderRule } from "../../lib/holder";
+import { OfficialAddress } from "../OfficialAddress";
 import type { HolderStatus } from "../../lib/types";
 
 function statusLine(status: HolderStatus, minimum: number) {
@@ -83,6 +84,7 @@ export function WhyHold({
           ? `A holder's wallet needs ${holderRule(minimum)}, and the texts stop when it holds less.`
           : "The texts stop when the wallet no longer holds the coin."}
       </p>
+      <OfficialAddress className="mt-5 max-w-2xl" />
       <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {PERKS.map((perk) => (
           <li key={perk.title} className="rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/10">

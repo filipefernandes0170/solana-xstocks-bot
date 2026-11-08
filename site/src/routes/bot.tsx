@@ -269,6 +269,7 @@ const COMMANDS: [string, string][] = [
   ["/events off", "Filing texts off"],
   ["/flows off", "Flow texts off"],
   ["/hold", "Prove the wallet that holds $PAR"],
+  ["/ca", "The official $PAR address"],
   ["/help", "How Par works"],
 ];
 

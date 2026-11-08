@@ -7,6 +7,8 @@
 export const SITE_URL = "https://onpar.site";
 
 export const SITE_TITLE = "Par — Is the price real?";
+/** The desk's browser tab and search result title: what Par does, in one line. */
+export const DESK_TITLE = "Par · Is the price real? Tokenized stocks vs Nasdaq";
 export const SITE_DESCRIPTION = "Par says whether a tokenized stock on Solana is actually at the share price.";
 
 /**
