@@ -30,16 +30,16 @@ export function WatchBag({ address, symbols }: { address: string; symbols: strin
             Watch this bag in Telegram
           </p>
           <h2 id="watch-title" className="mt-1 font-display text-2xl leading-tight text-foam">
-            A text when your bag needs a look
+            An alert when your bag needs a look
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-mist">
-            One tap opens @ONPAR_BOT with this public address. The bot shows the bag, then texts you when a name in it changes verdict, when its pool gets
+            One tap opens @ONPAR_BOT with this public address. The bot shows the bag, then alerts you when a name in it changes verdict, when its pool gets
             thin, when a large batch of it is created or burned, and the evening before a rebase.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-mist">
             {coinLive === false
-              ? "Bag texts are for $PAR holders. $PAR is not live yet, so the bot saves the bag now and the texts start once it is. "
-              : "Bag texts are for $PAR holders. "}
+              ? "Bag alerts are for $PAR holders. $PAR is not live yet, so the bot saves the bag now and the alerts start once it is. "
+              : "Bag alerts are for $PAR holders. "}
             The link carries only the public address. Par never asks for a key or a signature.
           </p>
         </div>

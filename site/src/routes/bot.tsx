@@ -39,7 +39,7 @@ import { getFlags, getQuotes } from "../server/functions";
 
 const BOT_URL = "https://t.me/ONPAR_BOT";
 const TITLE = "Par on Telegram";
-const DESCRIPTION = "@ONPAR_BOT texts you the moment a tokenized stock on Solana is back at the share price. Every feature, explained.";
+const DESCRIPTION = "@ONPAR_BOT alerts you on Telegram the moment a tokenized stock on Solana is back at the share price. Every feature, explained.";
 
 export const Route = createFileRoute("/bot")({
   headers: () => ({ "Netlify-CDN-Cache-Control": PUBLIC_DATA_CACHE }),
@@ -51,7 +51,7 @@ export const Route = createFileRoute("/bot")({
       { property: "og:description", content: DESCRIPTION },
       { property: "og:url", content: `${SITE_URL}/bot` },
       { property: "og:image", content: `${SITE_URL}/og/bot.png` },
-      { property: "og:image:alt", content: "Par on Telegram: a text the moment a tokenized stock is back at the share price." },
+      { property: "og:image:alt", content: "Par on Telegram: an alert the moment a tokenized stock is back at the share price." },
       { name: "twitter:title", content: TITLE },
       { name: "twitter:description", content: DESCRIPTION },
       { name: "twitter:image", content: `${SITE_URL}/og/bot.png` },
@@ -83,8 +83,8 @@ const HOW: { icon: ReactNode; title: string; line: string }[] = [
   },
   {
     icon: <Zap className="size-5" aria-hidden />,
-    title: "It texts on a change",
-    line: "A ping when a verdict changes, your order size fits, a key filing lands or a token is paused. Never the same thing twice, and every text has an off switch.",
+    title: "It alerts you on a change",
+    line: "A ping when a verdict changes, your order size fits, a key filing lands or a token is paused. Never the same thing twice, and every alert has an off switch.",
   },
 ];
 
@@ -109,10 +109,10 @@ const FREE: { icon: ReactNode; title: string; line: string }[] = [
 ];
 
 const HOLDERS: { icon: ReactNode; title: string; line: string }[] = [
-  { icon: <Zap className="size-5" aria-hidden />, title: "Fair pings", line: "A text the moment a name you watch turns Fair, and when one trades rich while Nasdaq is closed." },
-  { icon: <Target className="size-5" aria-hidden />, title: "Size alerts", line: "A text when your own order size, not just $1,000, is within 0.4% of the Nasdaq print." },
-  { icon: <CalendarDays className="size-5" aria-hidden />, title: "Event texts", line: "Key filings for the names you hold or watch, at most 5 a day, and a pause alert at once." },
-  { icon: <Factory className="size-5" aria-hidden />, title: "Issuer flows", line: "A text when a large batch of a name you hold or watch is created or burned on Solana." },
+  { icon: <Zap className="size-5" aria-hidden />, title: "Fair pings", line: "An alert the moment a name you watch turns Fair, and when one trades rich while Nasdaq is closed." },
+  { icon: <Target className="size-5" aria-hidden />, title: "Size alerts", line: "An alert when your own order size, not just $1,000, is within 0.4% of the Nasdaq print." },
+  { icon: <CalendarDays className="size-5" aria-hidden />, title: "Event alerts", line: "Key filings for the names you hold or watch, at most 5 a day, and a pause alert at once." },
+  { icon: <Factory className="size-5" aria-hidden />, title: "Issuer flows", line: "An alert when a large batch of a name you hold or watch is created or burned on Solana." },
   { icon: <Sunrise className="size-5" aria-hidden />, title: "Morning brief", line: "Before the open on trading days: what is dearest and cheapest to buy, and today's balance changes." },
   { icon: <BellRing className="size-5" aria-hidden />, title: "Open bell", line: "One message as Nasdaq opens, with whatever is Fair and a Buy button for each." },
   { icon: <Briefcase className="size-5" aria-hidden />, title: "Bag watch and two-token pings", line: "A note when a stock in your wallet changes verdict, and when one token of a company gets cheaper." },
@@ -161,7 +161,7 @@ const FREE_DOCS: Doc[] = [
     title: "Two tokens, one company",
     commands: ["/pairs"],
     what: "AMD and SpaceX each have an xStock and a Backpack token. This says which $1,000 buy is cheaper right now, or which pool is deep enough to buy at all.",
-    when: "Holders can get a text when the gap between them opens: /pairs on.",
+    when: "Holders can get an alert when the gap between them opens: /pairs on.",
   },
   {
     icon: <Trophy className="size-5" aria-hidden />,
@@ -181,8 +181,8 @@ const FREE_DOCS: Doc[] = [
     icon: <Siren className="size-5" aria-hidden />,
     title: "Move alerts",
     commands: ["/alert NVDAx up 5", "/alert list", "/alert clear"],
-    what: "A one-off text when a name moves that much (up, down or both) within the bot's time window, which it states when you set the alert.",
-    when: "It turns itself off after it fires, so a long move does not text you again and again.",
+    what: "A one-off alert when a name moves that much (up, down or both) within the bot's time window, which it states when you set the alert.",
+    when: "It turns itself off after it fires, so a long move does not alert you again and again.",
   },
 ];
 
@@ -191,26 +191,26 @@ const HOLDER_DOCS: Doc[] = [
     icon: <FingerprintPattern className="size-5" aria-hidden />,
     title: "Prove your $PAR wallet",
     commands: ["/hold", "/hold check", "/hold off"],
-    what: "Holder texts go only to a wallet you prove is yours. Tap 🔐 Prove my $PAR wallet, connect that wallet on the Par site (Phantom, Solflare and other Solana wallets) and sign one message. The code works once, for 15 minutes.",
-    when: "A message is not a transaction and cannot move funds. The bot then reads that wallet's $PAR on chain, and the texts stop if it no longer holds enough.",
+    what: "Holder alerts go only to a wallet you prove is yours. Tap 🔐 Prove my $PAR wallet, connect that wallet on the Par site (Phantom, Solflare and other Solana wallets) and sign one message. The code works once, for 15 minutes.",
+    when: "A message is not a transaction and cannot move funds. The bot then reads that wallet's $PAR on chain, and the alerts stop if it no longer holds enough.",
   },
   {
     icon: <Zap className="size-5" aria-hidden />,
     title: "Fair pings",
     commands: ["/watch NVDAx", "/watch all", "/watch list", "/watch off"],
-    what: "A text the moment a watched name turns 🟢 Fair, with a Buy button, and a 🌙 note when one trades over the print while Nasdaq is closed. At most one Fair text per name an hour, so a price sitting on the edge does not text you over and over.",
+    what: "An alert the moment a watched name turns 🟢 Fair, with a Buy button, and a 🌙 note when one trades over the print while Nasdaq is closed. At most one Fair alert per name an hour, so a price sitting on the edge does not alert you over and over.",
     when: "Watch a few names or all of them. The Watch button on a card and the site's favourites do the same.",
   },
   {
     icon: <Briefcase className="size-5" aria-hidden />,
     title: "Bag watch",
     commands: ["Watch this bag"],
-    what: "Follow a wallet from /portfolio or the site's Portfolio page. A text when a name in it changes verdict or its pool gets thin, and the evening before a rebase changes its balance.",
+    what: "Follow a wallet from /portfolio or the site's Portfolio page. An alert when a name in it changes verdict or its pool gets thin, and the evening before a rebase changes its balance.",
     when: "Send another address to follow a different wallet.",
   },
   {
     icon: <CalendarDays className="size-5" aria-hidden />,
-    title: "Event texts",
+    title: "Event alerts",
     commands: ["/events on", "/events off"],
     what: "Key SEC filings (results, deals, board or executive changes, warnings) for the names in your bag or watch list, within minutes of the SEC posting them, at most 5 a day. On unless you turn it off.",
     when: "If a token you hold or watch has its transfers paused on chain, you hear at once, and again when they resume. That safety alert has no off switch.",
@@ -219,14 +219,14 @@ const HOLDER_DOCS: Doc[] = [
     icon: <Factory className="size-5" aria-hidden />,
     title: "Issuer flows",
     commands: ["/flows", "/flows on", "/flows off"],
-    what: "Tokens are created when the issuer (xStocks or Backpack) issues new ones and burned when they are redeemed. Par reads each token's supply on Solana every 5 minutes. A large flow is at least $500,000 and 1% of the token's supply created or burned within about an hour. Anyone can list the last 24 hours with /flows. Holders get a text within minutes when one hits a name in their bag or watch list: how much, in dollars and shares, and the supply on Solana after it.",
-    when: "At most 3 texts a day and once per name every 6 hours; on unless you turn it off. A rebase never counts, since it changes the multiplier, not the supply. Par does not know who is behind a flow, and a flow is not a buy or sell signal.",
+    what: "Tokens are created when the issuer (xStocks or Backpack) issues new ones and burned when they are redeemed. Par reads each token's supply on Solana every 5 minutes. A large flow is at least $500,000 and 1% of the token's supply created or burned within about an hour. Anyone can list the last 24 hours with /flows. Holders get an alert within minutes when one hits a name in their bag or watch list: how much, in dollars and shares, and the supply on Solana after it.",
+    when: "At most 3 alerts a day and once per name every 6 hours; on unless you turn it off. A rebase never counts, since it changes the multiplier, not the supply. Par does not know who is behind a flow, and a flow is not a buy or sell signal.",
   },
   {
     icon: <Target className="size-5" aria-hidden />,
     title: "Size alerts",
     commands: ["/sizealert NVDAx 5000", "/sizealert", "/sizealert off"],
-    what: "A one-off text when a buy of your size, not just $1,000, is within 0.4% of the Nasdaq print while Nasdaq is open. Up to 3 at once.",
+    what: "A one-off alert when a buy of your size, not just $1,000, is within 0.4% of the Nasdaq print while Nasdaq is open. Up to 3 at once.",
     when: "Checked every few minutes, then it turns itself off.",
   },
   {
@@ -247,7 +247,7 @@ const HOLDER_DOCS: Doc[] = [
     icon: <ArrowLeftRight className="size-5" aria-hidden />,
     title: "Two-token pings",
     commands: ["/pairs on", "/pairs off"],
-    what: "A text when one token of a company is 0.5 points cheaper to buy than the other.",
+    what: "An alert when one token of a company is 0.5 points cheaper to buy than the other.",
     when: "At most once a day per company.",
   },
 ];
@@ -263,11 +263,11 @@ const COMMANDS: [string, string][] = [
   ["/yield NVDAx", "Lending rates"],
   ["/alert NVDAx up 5", "A one-off move alert"],
   ["/watch NVDAx", "Ping when it turns Fair"],
-  ["/sizealert NVDAx 5000", "A text when your size is fair"],
+  ["/sizealert NVDAx 5000", "An alert when your size is fair"],
   ["/brief", "Morning brief on or off"],
   ["/bell", "Open bell on or off"],
-  ["/events off", "Filing texts off"],
-  ["/flows off", "Flow texts off"],
+  ["/events off", "Filing alerts off"],
+  ["/flows off", "Flow alerts off"],
   ["/hold", "Prove the wallet that holds $PAR"],
   ["/ca", "The official $PAR address"],
   ["/help", "How Par works"],
@@ -288,7 +288,7 @@ const questions = (coinLive: boolean, holderMin: number): [string, string][] => 
   ],
   [
     "Does it cost anything?",
-    `No. Par takes no fee. Cards, /prices, /size, /portfolio, /events, /flows, /pairs, /week, /yield and /alert are free for everyone. The texts need ${holderMin > 0 ? holderRule(holderMin) : "$PAR"} in a wallet you prove: you hold it, you do not pay it.`,
+    `No. Par takes no fee. Cards, /prices, /size, /portfolio, /events, /flows, /pairs, /week, /yield and /alert are free for everyone. The alerts need ${holderMin > 0 ? holderRule(holderMin) : "$PAR"} in a wallet you prove: you hold it, you do not pay it.`,
   ],
   coinLive
     ? [
@@ -297,11 +297,11 @@ const questions = (coinLive: boolean, holderMin: number): [string, string][] => 
       ]
     : [
         "Is $PAR live?",
-        "Not yet. Until it is, the holder texts stay off and the bot says so. You can already prove your wallet; the bot keeps it. Everything else works today.",
+        "Not yet. Until it is, the holder alerts stay off and the bot says so. You can already prove your wallet; the bot keeps it. Everything else works today.",
       ],
   [
-    "How often will it text me?",
-    "Only when something changes, never the same thing twice, and at most once an hour about the same name, even when its price sits right on a verdict's edge. The brief and the bell come once a trading day, two-token pings once a day per company, filing texts at most 5 a day, flow texts at most 3 a day, and size and move alerts switch off after they fire. Every text has an off switch: /watch off, /brief, /bell, /pairs off, /events off, /flows off, /sizealert off, /alert clear.",
+    "How often will it message me?",
+    "Only when something changes, never the same thing twice, and at most once an hour about the same name, even when its price sits right on a verdict's edge. The brief and the bell come once a trading day, two-token pings once a day per company, filing alerts at most 5 a day, flow alerts at most 3 a day, and size and move alerts switch off after they fire. Every alert has an off switch: /watch off, /brief, /bell, /pairs off, /events off, /flows off, /sizealert off, /alert clear.",
   ],
   [
     "Where do the numbers come from?",
@@ -411,11 +411,11 @@ function BotPage() {
               </div>
             </div>
             <p className="mt-4 text-lg font-semibold leading-snug text-foam">
-              A text the moment the price is <span className="text-gold">real.</span>
+              An alert the moment the price is <span className="text-gold">real.</span>
             </p>
             <p className="mt-2 text-sm leading-relaxed text-mist">
               @ONPAR_BOT checks {TOKENS.length} tokenized stocks on Solana against Nasdaq every minute. Ask about any name, size your order, follow
-              the filings, and get a text when a buy is back at the share price.
+              the filings, and get an alert when a buy is back at the share price.
             </p>
             <a href={BOT_URL} className={`${GOLD_BUTTON} mt-5 h-11 w-full`}>
               <Send className="size-4" aria-hidden />
@@ -517,7 +517,7 @@ function BotPage() {
         </section>
 
         <section aria-labelledby="plans-title" className="mt-14">
-          <SectionTitle id="plans-title">Free to ask. Texts for holders.</SectionTitle>
+          <SectionTitle id="plans-title">Free to ask. Alerts for holders.</SectionTitle>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="panel p-5 sm:p-6">
               <p className="flex items-center gap-2 text-sm font-medium text-pine">
@@ -542,8 +542,8 @@ function BotPage() {
               </ul>
               <p className="mt-6 text-sm leading-relaxed text-mist">
                 {holderMin > 0
-                  ? `The bot checks the wallet you proved. Texts need ${holderRule(holderMin)} there and stop when it holds less.`
-                  : "The bot checks the wallet you proved. Texts stop when it no longer holds the coin."}
+                  ? `The bot checks the wallet you proved. Alerts need ${holderRule(holderMin)} there and stop when it holds less.`
+                  : "The bot checks the wallet you proved. Alerts stop when it no longer holds the coin."}
                 {coinLive ? "" : " $PAR is not live yet, so these are off for now; a proven wallet is kept for when it is."}
               </p>
             </div>
@@ -551,7 +551,7 @@ function BotPage() {
         </section>
 
         <section id="features" aria-labelledby="features-title" className="mt-14 scroll-mt-8">
-          <SectionTitle id="features-title" line="What each one does, the command to use, and when it texts you. Send /help in the bot for the short version.">
+          <SectionTitle id="features-title" line="What each one does, the command to use, and when it alerts you. Send /help in the bot for the short version.">
             Every feature, explained
           </SectionTitle>
 

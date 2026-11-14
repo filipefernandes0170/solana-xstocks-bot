@@ -1,73 +1,124 @@
 import { PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { config } from "../config/index.js";
-import { connection } from "./solana.js";
+import { accountHolds, holderThreshold, readMint, type MintFacts, type MintReading, type TokenAccountSlice } from "./parMint.js";
+import { RPC_URLS, chainCall } from "./solana.js";
 
-let decimalsCache: number | null = null;
+/** `unknown`: the chain could not be read and there is no recent answer to fall back on. */
+export type HolderState = "holds" | "short" | "unknown";
+
+/** An answer is reused for a minute, so the ping loop does not hammer the RPC. */
+const FRESH_MS = 60_000;
+/**
+ * When the chain cannot be read, the last answer stands for this long. Without it, one failed request turned every
+ * holder into a non-holder for that round: their Fair ping was skipped for good, and they were told they held too little.
+ */
+const LAST_GOOD_MS = 15 * 60_000;
+
 const balanceCache = new Map<string, { at: number; holds: boolean }>();
 
-async function decimals() {
-  if (decimalsCache != null) return decimalsCache;
-  const info = await connection.getParsedAccountInfo(new PublicKey(config.tokenMint));
-  const value = info.value?.data;
-  const parsed = value && "parsed" in value ? value.parsed?.info?.decimals : undefined;
-  decimalsCache = typeof parsed === "number" ? parsed : 6;
-  return decimalsCache;
+// ----- The mint -----
+
+let reading: MintReading | null = null;
+
+/** What the chain said about the $PAR address when it was last read; null before the first good read. */
+export function parMintReading() {
+  return reading;
 }
 
-function minRaw(decimals: number) {
-  if (config.holderMin <= 0) return 1n;
-  return BigInt(Math.round(config.holderMin * 10 ** decimals));
+/** Reads the $PAR mint and remembers the answer. Null when $PAR is not live; throws when the chain cannot be read. */
+export async function checkParMint(): Promise<MintReading | null> {
+  if (!config.tokenMint) return null;
+  try {
+    new PublicKey(config.tokenMint);
+  } catch {
+    reading = { status: "bad", reason: "it is not a valid Solana address" };
+    return reading;
+  }
+  reading = await readMint(RPC_URLS, config.tokenMint);
+  return reading;
 }
+
+// A mint that is not a token is read again at most every 5 minutes (it only changes with a new deploy).
+let badReadAt = 0;
+
+async function mintFacts(): Promise<MintFacts | null> {
+  if (reading?.status === "ok") return reading;
+  if (reading?.status === "bad" && Date.now() - badReadAt < 5 * 60_000) return null;
+  const fresh = await checkParMint();
+  if (fresh?.status === "bad") badReadAt = Date.now();
+  return fresh?.status === "ok" ? fresh : null;
+}
+
+// ----- The balances -----
 
 /**
- * Wallets that currently hold the project coin.
- * Any amount counts unless HOLDER_MIN_TOKENS is set.
- * Results are cached for a minute so the ping loop does not hammer RPC.
+ * For each wallet: does it hold enough $PAR right now (HOLDER_MIN_TOKENS, 250,000 at launch)? Reads each wallet's own
+ * $PAR account, a hundred wallets per request. When the chain cannot be read, an answer up to 15 minutes old stands;
+ * a wallet with none is `unknown`, never "holds too little".
  */
-export async function walletsHolding(wallets: string[]) {
+export async function holderStates(wallets: string[]): Promise<Map<string, HolderState>> {
+  const states = new Map<string, HolderState>();
   const unique = [...new Set(wallets.filter(Boolean))];
-  const holding = new Set<string>();
-  if (!config.tokenMint || unique.length === 0) return holding;
+  if (!config.tokenMint || unique.length === 0) return states;
 
   const now = Date.now();
   const pending: string[] = [];
   for (const wallet of unique) {
     const cached = balanceCache.get(wallet);
-    if (cached && now - cached.at < 60_000) {
-      if (cached.holds) holding.add(wallet);
-    } else {
-      pending.push(wallet);
-    }
+    if (cached && now - cached.at < FRESH_MS) states.set(wallet, cached.holds ? "holds" : "short");
+    else pending.push(wallet);
   }
-  if (pending.length === 0) return holding;
+  if (pending.length === 0) return states;
 
   try {
-    const threshold = minRaw(await decimals());
+    const facts = await mintFacts();
+    // The address is not a token: nobody holds it. (The admin was told when the bot started.)
+    if (!facts) {
+      for (const wallet of pending) states.set(wallet, "short");
+      return states;
+    }
     const mint = new PublicKey(config.tokenMint);
-    const found = new Set<string>();
-
-    for (const program of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
-      const atas = pending.map((wallet) => getAssociatedTokenAddressSync(mint, new PublicKey(wallet), false, program));
-      for (let i = 0; i < atas.length; i += 100) {
-        const slice = atas.slice(i, i + 100);
-        const infos = await connection.getMultipleAccountsInfo(slice);
-        infos.forEach((info, index) => {
-          if (!info || info.data.length < 72) return;
-          const amount = Buffer.from(info.data).readBigUInt64LE(64);
-          if (amount >= threshold) found.add(pending[i + index]);
-        });
+    const program = new PublicKey(facts.programId);
+    const threshold = holderThreshold(config.holderMin, facts.decimals);
+    const entries: { wallet: string; key: Uint8Array; address: string }[] = [];
+    for (const wallet of pending) {
+      try {
+        const owner = new PublicKey(wallet);
+        entries.push({ wallet, key: owner.toBytes(), address: getAssociatedTokenAddressSync(mint, owner, true, program).toBase58() });
+      } catch {
+        states.set(wallet, "short");
       }
     }
-
-    for (const wallet of pending) {
-      const holds = found.has(wallet);
-      balanceCache.set(wallet, { at: now, holds });
-      if (holds) holding.add(wallet);
+    for (let i = 0; i < entries.length; i += 100) {
+      const slice = entries.slice(i, i + 100);
+      const result = await chainCall<{ value?: TokenAccountSlice[] }>("getMultipleAccounts", [
+        slice.map((entry) => entry.address),
+        { encoding: "base64", commitment: "confirmed", dataSlice: { offset: 0, length: 72 } },
+      ]);
+      const value = result?.value;
+      if (!Array.isArray(value) || value.length !== slice.length) throw new Error("getMultipleAccounts: unexpected answer");
+      slice.forEach((entry, index) => {
+        const holds = accountHolds(value[index], mint.toBytes(), entry.key, threshold);
+        balanceCache.set(entry.wallet, { at: now, holds });
+        states.set(entry.wallet, holds ? "holds" : "short");
+      });
     }
   } catch (err) {
     console.warn("Holder check failed:", (err as Error).message);
+    for (const wallet of pending) {
+      if (states.has(wallet)) continue;
+      const cached = balanceCache.get(wallet);
+      states.set(wallet, cached && now - cached.at < LAST_GOOD_MS ? (cached.holds ? "holds" : "short") : "unknown");
+    }
   }
+  return states;
+}
+
+/** The wallets that hold enough $PAR (see holderStates). A wallet that could not be checked is left out. */
+export async function walletsHolding(wallets: string[]) {
+  const holding = new Set<string>();
+  for (const [wallet, state] of await holderStates(wallets)) if (state === "holds") holding.add(wallet);
   return holding;
 }
 

@@ -40,8 +40,9 @@ export const config = {
   deskCron: env.DESK_CHECK_CRON,
   eventsCron: env.EVENTS_CHECK_CRON,
   alertChatId: env.ALERT_CHAT_ID ?? "",
-  // The official address in config/par.ts, unless TOKEN_MINT is set (emergency only).
-  tokenMint: env.TOKEN_MINT ?? PAR_MINT,
+  // The official $PAR address: config/par.ts only, the address /ca and the site show. TOKEN_MINT in .env is no longer
+  // read (14 Nov 2026): with it set, the bot would have checked one coin while /ca and the site named another.
+  tokenMint: PAR_MINT,
   // 250,000 $PAR (config/par.ts), unless HOLDER_MIN_TOKENS is set to a positive number.
   holderMin: env.HOLDER_MIN_TOKENS > 0 ? env.HOLDER_MIN_TOKENS : PAR_HOLDER_MIN,
   briefChannelId: env.BRIEF_CHANNEL_ID ?? "",

@@ -274,8 +274,21 @@ async function refreshBuys(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
   }
 }
 
+/** Two rounds never start closer together than this, whatever ended the first one early. */
+const ROUND_MIN_MS = 30_000;
+let roundTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Starts a round unless one is running. When a round ends the next one follows by itself (14 Nov 2026). Before, a new
+ * round began only when prices were reloaded, once a minute and only if the last round had finished: a round takes
+ * about a minute, so the next usually missed its turn, rounds ran every 100 to 140 s, and for part of that time most
+ * buys were older than the 90 s a verdict accepts. Now each name is quoted about once a minute.
+ */
 function startBuyRefresh(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
   if (!buyRefresh) {
+    const startedAt = Date.now();
+    if (roundTimer) clearTimeout(roundTimer);
+    roundTimer = null;
     buyRefresh = refreshBuys(quotes, mints)
       .catch((err) => console.error("Buy quotes failed:", err instanceof Error ? err.message : err))
       .finally(() => {
@@ -283,6 +296,14 @@ function startBuyRefresh(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
         firstBuyRoundDone = true;
         // The site shows these too (services/shareBuys.ts); it never throws and never holds up the next round.
         void shareBuys(buys);
+        // The next round: after Jupiter's pause if there is one, and only while prices are still being loaded
+        // (a bot that stopped loading prices stops quoting too).
+        const wait = Math.max(1_000, ROUND_MIN_MS - (Date.now() - startedAt), jupiterPauseLeft());
+        roundTimer = setTimeout(() => {
+          roundTimer = null;
+          if (cache && rebaseCache && Date.now() - cache.at < STALE_OK_MS) void startBuyRefresh(cache.quotes, rebaseCache.rows);
+        }, wait);
+        roundTimer.unref();
       });
   }
   return buyRefresh;
@@ -381,12 +402,43 @@ export async function getDeskQuote(symbol: string) {
   return quotes.find((quote) => quote.symbol === symbol) ?? null;
 }
 
-const CARD_BUY_WAIT_MS = 4500;
+/**
+ * A rolling limit: at most `limit` grants in any `windowMs`. Pure, so the tests can play a busy minute.
+ */
+export function rollingLimit(limit: number, windowMs: number) {
+  const times: number[] = [];
+  return {
+    take(now = Date.now()) {
+      while (times.length > 0 && now - times[0] >= windowMs) times.shift();
+      if (times.length >= limit) return false;
+      times.push(now);
+      return true;
+    },
+  };
+}
+
+/*
+ * Quotes people ask for (a size check, a card whose $1,000 buy is not in yet) share Jupiter's one request every two
+ * seconds with the background round, which needs 23 of the 28 slots in a minute. On 14 Nov 2026 a simulation showed
+ * one size check every 2 s leaving the round 3 of its 70 quotes in three minutes: every verdict went to "Checking", Fair
+ * pings stopped and the site lost the bot's buys. So people's quotes are rationed: USER_QUOTES_PER_MIN in any minute
+ * for everyone together, one every USER_QUOTE_EVERY_MS per person (so one person takes at most a third of the ration),
+ * and a slot must be free within USER_SLOT_WAIT_MS. That wait plus one gap (2.1 s) stays under the 6 s the round itself
+ * waits, so the round never misses its slot.
+ */
+export const USER_QUOTES_PER_MIN = 6;
+export const USER_QUOTE_EVERY_MS = 30_000;
+const USER_SLOT_WAIT_MS = 3_500;
+const userQuotes = rollingLimit(USER_QUOTES_PER_MIN, 60_000);
+const lastUserQuote = new Map<number, number>();
+
+const CARD_BUY_WAIT_MS = USER_SLOT_WAIT_MS;
 
 /**
  * One name for a card. When its $1,000 buy is not fresh (the background round has not reached it), it is quoted right
  * away, waiting at most CARD_BUY_WAIT_MS for a Jupiter slot, and kept for everything else too. Thin pools are never
- * quoted, and nothing is asked while Jupiter is cooling down after a 429.
+ * quoted, nothing is asked while Jupiter is cooling down after a 429, and these quotes count toward the minute's
+ * ration for people's quotes (the card then says the buy is still loading, as before).
  */
 export async function getDeskQuoteNow(symbol: string) {
   const quote = await getDeskQuote(symbol);
@@ -395,6 +447,7 @@ export async function getDeskQuoteNow(symbol: string) {
   if (jupiterPaused()) return quote;
   const info = rebaseCache?.rows.get(quote.mint);
   if (!info || typeof info.decimals !== "number") return quote;
+  if (!userQuotes.take()) return quote;
   const buy = await oneBuy(quote, info, CARD_BUY_WAIT_MS).catch(() => null);
   if (!buy) return quote;
   buys.set(quote.mint, buy);
@@ -419,8 +472,18 @@ export type SizeResult =
   | { ok: true; quote: DeskQuote; usd: number; shares: number; price: number; impactPct: number; at: number }
   | { ok: false; message: string };
 
-/** /size: what a buy of `usd` dollars of one name really costs per share, from a live Jupiter quote. */
-export async function sizeQuote(symbol: string, usd: number): Promise<SizeResult> {
+/** The same name and amount asked again within this time gets the same answer, without asking Jupiter. */
+const SIZE_CACHE_MS = 20_000;
+const sizeCache = new Map<string, Fill>();
+const sizeInflight = new Map<string, Promise<Fill | null>>();
+
+/**
+ * /size: what a buy of `usd` dollars of one name really costs per share, from a Jupiter quote.
+ * `user`: the person asking (their Telegram ID); their quotes are rationed (see USER_QUOTES_PER_MIN), and a $1,000
+ * check is answered from the background round's own quote while that is fresh. `live`: always a quote taken now
+ * (size alerts, which must not fire on the round's quote).
+ */
+export async function sizeQuote(symbol: string, usd: number, options: { user?: number; live?: boolean } = {}): Promise<SizeResult> {
   const amount = Math.round(usd);
   if (!Number.isFinite(amount) || amount < SIZE_MIN_USD || amount > SIZE_MAX_USD) {
     return { ok: false, message: "Pick an amount from $10 to $250,000." };
@@ -430,7 +493,38 @@ export async function sizeQuote(symbol: string, usd: number): Promise<SizeResult
   if (!quote || quote.usdPrice == null || !info || typeof info.decimals !== "number") {
     return { ok: false, message: "Prices are still loading. Try again in a minute." };
   }
-  const fill = await quoteBuy(quote.mint, amount, info, 10_000);
-  if (!fill) return { ok: false, message: "Jupiter is busy or has no route for this size. Try again in a minute." };
-  return { ok: true, quote, usd: amount, shares: fill.shares, price: fill.price, impactPct: fill.impactPct, at: fill.at };
+  const done = (fill: Fill): SizeResult => ({ ok: true, quote, usd: amount, shares: fill.shares, price: fill.price, impactPct: fill.impactPct, at: fill.at });
+  const busy: SizeResult = { ok: false, message: "Jupiter is busy or has no route for this size. Try again in a minute." };
+  const key = `${quote.mint}:${amount}`;
+  const now = Date.now();
+
+  const cached = sizeCache.get(key);
+  if (cached && now - cached.at < SIZE_CACHE_MS) return done(cached);
+  // $1,000 is the size the background round quotes for every name: while its quote is fresh, that is the answer.
+  if (!options.live && amount === 1000 && quote.buyPrice != null && quote.buyPrice > 0 && quote.buyAt != null) {
+    return done({ price: quote.buyPrice, shares: amount / quote.buyPrice, impactPct: quote.buyImpactPct ?? 0, at: quote.buyAt });
+  }
+
+  let pending = sizeInflight.get(key);
+  if (!pending) {
+    if (options.user != null) {
+      const last = lastUserQuote.get(options.user);
+      if (last != null && now - last < USER_QUOTE_EVERY_MS) {
+        return { ok: false, message: `One live size check every ${USER_QUOTE_EVERY_MS / 1000} seconds. Try again in ${Math.max(1, Math.ceil((USER_QUOTE_EVERY_MS - (now - last)) / 1000))} s.` };
+      }
+      if (jupiterPaused(now)) return busy;
+      if (!userQuotes.take(now)) return { ok: false, message: "A lot of size checks are being asked right now. Try again in a minute." };
+      if (lastUserQuote.size > 5000) lastUserQuote.clear();
+      lastUserQuote.set(options.user, now);
+    }
+    pending = quoteBuy(quote.mint, amount, info, options.user != null ? USER_SLOT_WAIT_MS : 10_000)
+      .catch(() => null)
+      .finally(() => sizeInflight.delete(key));
+    sizeInflight.set(key, pending);
+  }
+  const fill = await pending;
+  if (!fill) return busy;
+  if (sizeCache.size > 500) sizeCache.clear();
+  sizeCache.set(key, fill);
+  return done(fill);
 }

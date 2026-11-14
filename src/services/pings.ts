@@ -14,6 +14,7 @@ import {
   pruneEventLog,
   savePauseState,
   briefAlreadySent,
+  clearBagStateExcept,
   deactivateSizeAlert,
   markPairSent,
   pairAlreadySent,
@@ -34,7 +35,7 @@ import {
   saveVerdictState,
   type UserRow,
 } from "../db/index.js";
-import { getTokenizedStockHoldings } from "./solana.js";
+import { WALLETS_PER_CALL, holdingsOfWallets, isValidSolanaAddress } from "./solana.js";
 import { buysReady, getDeskQuotes, pauseFlags, sizeQuote, type DeskQuote } from "./desk.js";
 import { addDays } from "./calendar.js";
 import { FAIR_PING_EVERY_MS, RICH_PING_EVERY_MS, bagNews, pingAllowed } from "./calm.js";
@@ -51,7 +52,7 @@ import {
 } from "./events.js";
 import { SYMBOL_TO_TOKEN } from "../config/tokens.js";
 import { FLOW_TEXTS_PER_DAY, FLOW_TEXT_EVERY_MS, FLOW_TEXT_MAX_AGE_MS, checkFlows, flowFromRow, flowKeyboard, flowText } from "./flows.js";
-import { holderWallet, walletsHolding } from "./holder.js";
+import { holderStates, holderWallet, walletsHolding } from "./holder.js";
 import {
   bagText,
   bellText,
@@ -104,7 +105,50 @@ const TITLES: Record<VerdictId, string> = {
 };
 
 let running = false;
+
+// ----- Bags: the stock tokens in the wallets bag notes follow -----
+// Read for $PAR holders only, a few wallets per request, each at most every 90 s. Before 14 Nov 2026 every saved
+// wallet was read every minute, one request each, holder or not: a busy launch day would have made each round last
+// many minutes (late pings) and, past ten, the watchdog would have restarted the bot again and again.
 const bagCache = new Map<string, { at: number; symbols: Map<string, number> }>();
+const BAG_FRESH_MS = 90_000;
+/** A reading older than this is not used: no note is better than a note about a bag as it was. */
+const BAG_KEEP_MS = 10 * 60_000;
+/** The most a round spends reading bags. With more wallets than that covers, the oldest readings go first. */
+const BAG_BUDGET_MS = 20_000;
+/** Between two bag requests: at most about three a second, well inside the public RPC's 40 calls per 10 s. */
+const BAG_PAUSE_MS = 250;
+
+/** Reads the bags that are due, oldest reading first, until the time is up or the chain stops answering. */
+async function refreshBags(wallets: string[], budgetMs = BAG_BUDGET_MS) {
+  const started = Date.now();
+  const due = [...new Set(wallets)]
+    .filter((wallet) => started - (bagCache.get(wallet)?.at ?? 0) >= BAG_FRESH_MS && isValidSolanaAddress(wallet))
+    .sort((a, b) => (bagCache.get(a)?.at ?? 0) - (bagCache.get(b)?.at ?? 0));
+  for (let i = 0; i < due.length; i += WALLETS_PER_CALL) {
+    if (Date.now() - started > budgetMs) {
+      console.warn(`Bag reads: ${due.length - i} wallets wait for the next round`);
+      break;
+    }
+    try {
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, BAG_PAUSE_MS));
+      const read = await holdingsOfWallets(due.slice(i, i + WALLETS_PER_CALL));
+      const at = Date.now();
+      for (const [wallet, holdings] of read) bagCache.set(wallet, { at, symbols: new Map(holdings.map((holding) => [holding.symbol, holding.amount])) });
+    } catch (err) {
+      console.warn("Bag read failed:", (err as Error).message);
+      break;
+    }
+  }
+  // Wallets no longer followed fall out after an hour.
+  if (bagCache.size > 2000) for (const [wallet, entry] of bagCache) if (started - entry.at > 3600_000) bagCache.delete(wallet);
+}
+
+/** A wallet's stock tokens as last read, or null when there is no reading young enough to speak from. */
+function bagOf(wallet: string) {
+  const cached = bagCache.get(wallet);
+  return cached && Date.now() - cached.at < BAG_KEEP_MS ? cached.symbols : null;
+}
 
 async function send(bot: Telegraf, chatId: number | string, text: string, markup?: InlineKeyboardMarkup) {
   await bot.telegram.sendMessage(chatId, text, {
@@ -118,18 +162,20 @@ function watches(symbols: string[], symbol: string) {
   return symbols.includes("ALL") || symbols.includes(symbol);
 }
 
+/** One wallet's stock tokens now (the event texts): the last reading while it is fresh, else a new one. Throws when the chain cannot be read. */
 async function bagHoldings(wallet: string) {
   const cached = bagCache.get(wallet);
-  if (cached && Date.now() - cached.at < 90_000) return cached.symbols;
-  const holdings = await getTokenizedStockHoldings(wallet);
+  if (cached && Date.now() - cached.at < BAG_FRESH_MS) return cached.symbols;
+  const holdings = (await holdingsOfWallets([wallet])).get(wallet) ?? [];
   const symbols = new Map(holdings.map((holding) => [holding.symbol, holding.amount]));
   bagCache.set(wallet, { at: Date.now(), symbols });
   return symbols;
 }
 
 /**
- * Bag notes: a name in the watched wallet changed verdict or its pool got thin. What each person was last told is
- * remembered, so a name sitting on a verdict's edge is texted at most once an hour (services/calm.ts).
+ * Bag notes, for holders: a name in the watched wallet changed verdict or its pool got thin. What each person was last
+ * told is remembered, so a name sitting on a verdict's edge is texted at most once an hour (services/calm.ts). The bag
+ * is the reading refreshBags took this round; without a recent one nothing is said and nothing is forgotten.
  */
 async function sendBag(
   bot: Telegraf,
@@ -141,7 +187,8 @@ async function sendBag(
   now: number,
 ) {
   if (!user.wallet) return;
-  const owned = await bagHoldings(user.wallet);
+  const owned = bagOf(user.wallet);
+  if (!owned) return;
   const previous = new Map(getBagState(user.telegram_id).map((row) => [row.symbol, row]));
   if (owned.size === 0) return;
   const changes: { quote: DeskQuote; from: string; thin: boolean; verdict: ReturnType<typeof tradeVerdict> }[] = [];
@@ -228,7 +275,7 @@ async function sendSizeAlerts(bot: Telegraf, bySymbol: Map<string, DeskQuote>, h
     const buyGap = basisPct(buyUsable(quote.buyAt ?? null, now) ? (quote.buyPrice ?? null) : null, quote.stockPrice);
     if (!sizeWorthQuoting(buyGap)) continue;
     quoted += 1;
-    const result = await sizeQuote(alert.symbol, alert.usd);
+    const result = await sizeQuote(alert.symbol, alert.usd, { live: true });
     if (!result.ok) continue;
     if (!sizeAlertHit(basisPct(result.price, result.quote.stockPrice), isSessionOpen(result.quote.marketState))) continue;
     try {
@@ -302,6 +349,9 @@ export async function checkEvents(bot: Telegraf) {
     // The names a holder follows: the watch list, and the stock tokens in the bag wallet and the proven wallet.
     // Read only when something is due, and once per run.
     const follows = new Map<number, { all: boolean; symbols: Set<string> }>();
+    // New bag reads stop after this long in one run; a name someone only holds (and does not watch) then waits for
+    // the next run, three minutes later.
+    const readUntil = Date.now() + BAG_BUDGET_MS;
     const followed = async (user: UserRow) => {
       const known = follows.get(user.telegram_id);
       if (known) return known;
@@ -310,7 +360,8 @@ export async function checkEvents(bot: Telegraf) {
       if (!result.all) {
         for (const wallet of new Set([user.wallet, user.verified_wallet].filter((w): w is string => !!w))) {
           try {
-            for (const [symbol, amount] of await bagHoldings(wallet)) if (amount > 0) result.symbols.add(symbol);
+            const bag = bagOf(wallet) ?? (Date.now() < readUntil ? await bagHoldings(wallet) : null);
+            for (const [symbol, amount] of bag ?? []) if (amount > 0) result.symbols.add(symbol);
           } catch (err) {
             console.warn("Event bag read failed", user.telegram_id, (err as Error).message);
           }
@@ -503,8 +554,11 @@ export async function checkDesk(bot: Telegraf) {
       watchByUser.set(watch.telegram_id, list);
     }
 
-    const wallets = users.map(holderWallet).filter(Boolean);
-    const holders = await walletsHolding(wallets);
+    const states = await holderStates(users.map(holderWallet).filter(Boolean));
+    const holders = new Set([...states].filter(([, state]) => state === "holds").map(([wallet]) => wallet));
+    // Bag notes are for holders, so only their bags are read, and only theirs are remembered. Someone whose wallet
+    // could not be checked this round keeps their memory; a non-holder's is dropped, so a later holder starts clean.
+    clearBagStateExcept(users.filter((user) => (states.get(holderWallet(user)) ?? "short") !== "short").map((user) => user.telegram_id));
     const now = Date.now();
     const day = etDay(now);
     const bellOpen = inBellWindow(now) && [...snaps.values()].some((snap) => snap.open);
@@ -524,11 +578,15 @@ export async function checkDesk(bot: Telegraf) {
       }
     }
 
+    // The time-critical texts first (the bell above, then Fair and "rich while closed"); the bags are read after
+    // them, so a slow chain read never delays a Fair ping.
+    const toldByUser = new Map<number, Set<string>>();
     for (const user of users) {
       const wallet = holderWallet(user);
       const holds = !!wallet && holders.has(wallet);
       const watched = watchByUser.get(user.telegram_id) ?? [];
       const told = new Set<string>();
+      toldByUser.set(user.telegram_id, told);
       if (holds && watched.length > 0) {
         // At most one Fair ping per name an hour, and one "rich while closed" ping per name in 12 hours (calm.ts).
         const mineFair = bellRecipients.has(user.telegram_id)
@@ -558,12 +616,19 @@ export async function checkDesk(bot: Telegraf) {
           console.warn("Watch ping failed", user.telegram_id, (err as Error).message);
         }
       }
+    }
+
+    await refreshBags(users.filter((user) => user.wallet && holders.has(holderWallet(user))).map((user) => user.wallet as string));
+
+    for (const user of users) {
+      const wallet = holderWallet(user);
+      const holds = !!wallet && holders.has(wallet);
+      if (!holds || !user.wallet) continue;
       try {
-        await sendBag(bot, user, bySymbol, snaps, holds, told, now);
+        await sendBag(bot, user, bySymbol, snaps, holds, toldByUser.get(user.telegram_id) ?? new Set(), now);
       } catch (err) {
         console.warn("Bag ping failed", user.telegram_id, (err as Error).message);
       }
-      if (!holds || !user.wallet) continue;
       const due = quotes.filter((quote) => {
         const rebase = quote.rebase;
         if (!rebase || !rebaseDue(rebase.at, now) || rebaseAlreadySent(user.telegram_id, quote.symbol, rebase.at)) return false;
@@ -571,7 +636,8 @@ export async function checkDesk(bot: Telegraf) {
       });
       if (due.length === 0) continue;
       try {
-        const owned = await bagHoldings(user.wallet);
+        const owned = bagOf(user.wallet);
+        if (!owned) continue;
         for (const quote of due) {
           if ((owned.get(quote.symbol) ?? 0) <= 0 || !quote.rebase) continue;
           if (rebaseAlreadySent(user.telegram_id, quote.symbol, quote.rebase.at)) continue;

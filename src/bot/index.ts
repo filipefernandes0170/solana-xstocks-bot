@@ -1,4 +1,4 @@
-import { Telegraf } from "telegraf";
+import { Telegraf, type Context } from "telegraf";
 import { env } from "../config/index.js";
 import { SYMBOL_TO_TOKEN, lookupToken } from "../config/tokens.js";
 import { getDeskQuotes } from "../services/desk.js";
@@ -43,8 +43,36 @@ export const MENU_COMMANDS = [
   { command: "help", description: "How Par works" },
 ];
 
+/** How many messages are handled at the same time before new ones wait their turn. */
+const BUSY_AT = 25;
+
 export function createBot() {
   const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
+
+  const onError = (err: unknown, ctx: Context) => {
+    console.error("Bot error for", ctx.updateType, err);
+    // ctx.reply itself throws for an update that has no chat; nothing may escape from here.
+    try {
+      ctx.reply("Something went wrong. Please try again.").catch(() => {});
+    } catch {
+      // No chat to answer in.
+    }
+  };
+
+  // Each message is handled on its own. Telegraf otherwise waits for every handler in a batch (up to 90 s) before it
+  // fetches new messages, so one slow lookup (a size check, a wallet read, a hung RPC call) held up everyone's /start.
+  // Past BUSY_AT messages in hand the bot waits again, so a burst is worked off instead of all being answered at
+  // once (Telegram refuses replies beyond about 30 a second).
+  let inHand = 0;
+  bot.use(async (ctx, next) => {
+    inHand += 1;
+    const work = next()
+      .catch((err) => onError(err, ctx))
+      .finally(() => {
+        inHand -= 1;
+      });
+    if (inHand > BUSY_AT) await work;
+  });
 
   bot.start(startCommand);
   bot.help(helpCommand);
@@ -81,9 +109,11 @@ export function createBot() {
     if (token) await watchReply(ctx, token.symbol);
   });
 
-  bot.action("proof:check", async (ctx) => {
+  // "proof:check:<code>" checks that message's own code; plain "proof:check" (buttons sent before 14 Nov 2026)
+  // checks this person's recent codes.
+  bot.action(/^proof:check(?::([0-9a-f]{32}))?$/, async (ctx) => {
     await ctx.answerCbQuery("Checking the signature…").catch(() => {});
-    await confirmProof(ctx);
+    await confirmProof(ctx, ctx.match[1]);
   });
 
   bot.action("menu:prices", async (ctx) => {
@@ -126,10 +156,7 @@ export function createBot() {
     });
   });
 
-  bot.catch((err, ctx) => {
-    console.error("Bot error for", ctx.updateType, err);
-    ctx.reply("Something went wrong. Please try again.").catch(() => {});
-  });
+  bot.catch(onError);
 
   return bot;
 }

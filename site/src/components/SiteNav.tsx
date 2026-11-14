@@ -3,6 +3,7 @@ import { Search, Wallet } from "lucide-react";
 import { useId, useState } from "react";
 import { TOKENS } from "../lib/tokens";
 import { Logo } from "./Logo";
+import { ParStrip } from "./ParStrip";
 
 const LINKS = [
   { to: "/", label: "Desk" },
@@ -72,7 +73,7 @@ function NameSearch() {
   );
 }
 
-/** The bar at the top of every page: the mark, the four pages, a name search and the wallet. */
+/** The bar at the top of every page: the mark, the four pages, a name search and the wallet, then the $PAR line. */
 export function SiteNav({ current }: { current: "/" | "/events" | "/bot" | "/portfolio" | null }) {
   return (
     <header className="relative z-20 border-b border-line bg-night/85 backdrop-blur">
@@ -107,6 +108,7 @@ export function SiteNav({ current }: { current: "/" | "/events" | "/bot" | "/por
           </Link>
         </div>
       </div>
+      <ParStrip />
     </header>
   );
 }

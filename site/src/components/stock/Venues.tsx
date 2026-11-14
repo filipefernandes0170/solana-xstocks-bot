@@ -2,6 +2,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { THIN_POOL_USD, poolLabel } from "../../lib/brand";
 import { formatUsd, jupiterBuyUrl } from "../../lib/format";
+import { sessionClosed } from "../../lib/session";
 import type { StockToken } from "../../lib/tokens";
 import type { Quote } from "../../lib/types";
 import { STALE_PAGE_MS } from "../../lib/site";
@@ -92,6 +93,9 @@ export function Venues({ token, quote, initial, now }: { token: StockToken; quot
   const priced = rows.filter((row) => row.price != null);
   const lowest = priced.length > 1 ? priced.reduce((a, b) => ((b.price as number) < (a.price as number) ? b : a)) : null;
   const stock = quote?.stockPrice ?? null;
+  // While Nasdaq is closed the print is the last one: the gaps show as plain grey numbers and nothing is tinted as
+  // better, the same rule as the gap meter above (18 Oct 2026).
+  const closed = sessionClosed(quote?.marketState);
 
   return (
     <section aria-labelledby="venues-title" className="panel mt-8 p-6 text-ink ring-1 ring-line sm:p-7">
@@ -101,17 +105,20 @@ export function Venues({ token, quote, initial, now }: { token: StockToken; quot
       </h2>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
         The same token is also sold on exchanges. Each price is per share, for a $1,000 buy right now, next to the Nasdaq print. Lower against Nasdaq
-        is better.
+        is better.{closed ? " Nasdaq is closed, so each gap is against its last print." : ""}
       </p>
       <ul className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {rows.map((row) => (
-          <li key={row.key} className={`flex flex-col rounded-2xl p-4 ${row === lowest ? "bg-pine-soft ring-1 ring-pine/30" : "bg-field"}`}>
+          <li
+            key={row.key}
+            className={`flex flex-col rounded-2xl p-4 ${row === lowest ? (closed ? "bg-field ring-1 ring-line" : "bg-pine-soft ring-1 ring-pine/30") : "bg-field"}`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-medium">{row.name}</p>
                 <p className="text-xs text-muted">{row.market}</p>
               </div>
-              {row.price != null ? <GapPill value={gapPct(row.price, stock)} /> : null}
+              {row.price != null ? <GapPill value={gapPct(row.price, stock)} closed={closed} /> : null}
             </div>
             {row.price != null ? (
               <p className="mt-3 font-display text-2xl tabular-nums">
@@ -121,7 +128,9 @@ export function Venues({ token, quote, initial, now }: { token: StockToken; quot
             ) : (
               <p className="mt-3 text-sm leading-relaxed text-muted">{row.status}</p>
             )}
-            {row === lowest ? <p className="mt-1 text-xs font-medium text-pine">Lowest right now, before exchange fees</p> : null}
+            {row === lowest ? (
+              <p className={`mt-1 text-xs font-medium ${closed ? "text-muted" : "text-pine"}`}>Lowest right now, before exchange fees</p>
+            ) : null}
             {row.price != null ? <p className="mt-2 text-xs leading-relaxed text-muted">{row.fee}</p> : null}
             <a
               href={row.href}

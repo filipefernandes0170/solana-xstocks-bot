@@ -174,6 +174,26 @@ addColumn("users", "pairs", "INTEGER DEFAULT 0");
 addColumn("users", "events", "INTEGER DEFAULT 1");
 // Issuer flow texts (/flows): on unless the user turns them off.
 addColumn("users", "flows", "INTEGER DEFAULT 1");
+// A wallet counts for one Telegram account (14 Nov 2026). Proofs made before that rule could have left one wallet on
+// several accounts: the newest proof keeps it. The index then makes a second owner impossible.
+try {
+  const cleared = db
+    .prepare(
+      `UPDATE users SET verified_wallet = NULL, verified_at = NULL
+       WHERE verified_wallet IS NOT NULL AND EXISTS (
+         SELECT 1 FROM users other
+         WHERE other.verified_wallet = users.verified_wallet
+           AND (COALESCE(other.verified_at, 0) > COALESCE(users.verified_at, 0)
+             OR (COALESCE(other.verified_at, 0) = COALESCE(users.verified_at, 0) AND other.telegram_id > users.telegram_id))
+       )`,
+    )
+    .run().changes;
+  if (cleared > 0) console.log(`Proven wallets: ${cleared} older duplicate proof(s) removed (one account per wallet).`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS users_verified_wallet ON users(verified_wallet) WHERE verified_wallet IS NOT NULL`);
+} catch (err) {
+  console.error("Proven wallets could not be made unique:", (err as Error).message);
+}
+
 // What the bot last told each person about each name in their bag, and when (see services/calm.ts).
 addColumn("bag_state", "told", "TEXT");
 addColumn("bag_state", "told_at", "INTEGER DEFAULT 0");
@@ -218,13 +238,11 @@ export function getProof(nonce: string) {
   return (db.prepare(`SELECT nonce, telegram_id, created_at, used FROM wallet_proofs WHERE nonce = ?`).get(nonce) as ProofRow | undefined) ?? null;
 }
 
-/** This user's newest code that has not been used. */
-export function latestProof(telegramId: number) {
-  return (
-    (db
-      .prepare(`SELECT nonce, telegram_id, created_at, used FROM wallet_proofs WHERE telegram_id = ? AND used = 0 ORDER BY created_at DESC LIMIT 1`)
-      .get(telegramId) as ProofRow | undefined) ?? null
-  );
+/** This user's unused codes made since `since` (ms), newest first, at most `limit`. */
+export function recentProofs(telegramId: number, since: number, limit = 3) {
+  return db
+    .prepare(`SELECT nonce, telegram_id, created_at, used FROM wallet_proofs WHERE telegram_id = ? AND used = 0 AND created_at >= ? ORDER BY created_at DESC LIMIT ?`)
+    .all(telegramId, since, limit) as ProofRow[];
 }
 
 export function markProofUsed(nonce: string) {
@@ -234,6 +252,20 @@ export function markProofUsed(nonce: string) {
 /** Codes older than a day are of no use; called when a new one is made. */
 export function pruneProofs(before: number) {
   db.prepare(`DELETE FROM wallet_proofs WHERE created_at < ?`).run(before);
+}
+
+/**
+ * A wallet counts for one Telegram account: the one that proved it last. Removes it from every other account and
+ * returns those accounts, so one holder cannot sign for any number of friends.
+ */
+export function releaseVerifiedWallet(wallet: string, exceptTelegramId: number) {
+  const others = (db.prepare(`SELECT telegram_id FROM users WHERE verified_wallet = ? AND telegram_id != ?`).all(wallet, exceptTelegramId) as { telegram_id: number }[]).map(
+    (row) => row.telegram_id,
+  );
+  if (others.length > 0) {
+    db.prepare(`UPDATE users SET verified_wallet = NULL, verified_at = NULL, updated_at = strftime('%s','now') WHERE verified_wallet = ? AND telegram_id != ?`).run(wallet, exceptTelegramId);
+  }
+  return others;
 }
 
 export function setVerifiedWallet(telegramId: number, wallet: string | null) {
@@ -582,6 +614,18 @@ export function markPing(telegramId: number, symbol: string, kind: string, at: n
     INSERT INTO ping_log (telegram_id, symbol, kind, sent_at) VALUES (?, ?, ?, ?)
     ON CONFLICT(telegram_id, symbol, kind) DO UPDATE SET sent_at = excluded.sent_at
   `).run(telegramId, symbol, kind, at);
+}
+
+/** Forgets what everyone except these people was told about their bag (bag notes are for holders only). */
+export function clearBagStateExcept(keepIds: number[]) {
+  const keep = new Set(keepIds);
+  const owners = (db.prepare("SELECT DISTINCT telegram_id FROM bag_state").all() as { telegram_id: number }[]).map((row) => row.telegram_id);
+  const gone = owners.filter((id) => !keep.has(id));
+  if (gone.length === 0) return;
+  const remove = db.prepare("DELETE FROM bag_state WHERE telegram_id = ?");
+  db.transaction(() => {
+    for (const id of gone) remove.run(id);
+  })();
 }
 
 export function deleteBagSymbol(telegramId: number, symbol: string) {
