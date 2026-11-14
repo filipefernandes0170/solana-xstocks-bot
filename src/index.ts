@@ -6,6 +6,11 @@ import { getDeskQuotes } from "./services/desk.js";
 import { checkHealth, reportParMint, runBackup, tellAdmin } from "./services/monitor.js";
 import { checkDesk, checkEvents } from "./services/pings.js";
 
+// A promise nobody handled must not take the bot down (Node's default is to exit): it is logged and the bot goes on.
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection:", reason);
+});
+
 const bot = createBot();
 
 // Load prices before anyone asks, so the first lookup after a restart answers at once.

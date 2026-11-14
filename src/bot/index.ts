@@ -43,18 +43,35 @@ export const MENU_COMMANDS = [
   { command: "help", description: "How Par works" },
 ];
 
+/** How many messages are handled at the same time before new ones wait their turn. */
+const BUSY_AT = 25;
+
 export function createBot() {
   const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
 
   const onError = (err: unknown, ctx: Context) => {
     console.error("Bot error for", ctx.updateType, err);
-    ctx.reply("Something went wrong. Please try again.").catch(() => {});
+    // ctx.reply itself throws for an update that has no chat; nothing may escape from here.
+    try {
+      ctx.reply("Something went wrong. Please try again.").catch(() => {});
+    } catch {
+      // No chat to answer in.
+    }
   };
 
   // Each message is handled on its own. Telegraf otherwise waits for every handler in a batch (up to 90 s) before it
   // fetches new messages, so one slow lookup (a size check, a wallet read, a hung RPC call) held up everyone's /start.
-  bot.use((ctx, next) => {
-    void next().catch((err) => onError(err, ctx));
+  // Past BUSY_AT messages in hand the bot waits again, so a burst is worked off instead of all being answered at
+  // once (Telegram refuses replies beyond about 30 a second).
+  let inHand = 0;
+  bot.use(async (ctx, next) => {
+    inHand += 1;
+    const work = next()
+      .catch((err) => onError(err, ctx))
+      .finally(() => {
+        inHand -= 1;
+      });
+    if (inHand > BUSY_AT) await work;
   });
 
   bot.start(startCommand);

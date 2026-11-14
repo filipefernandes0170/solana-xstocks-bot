@@ -46,9 +46,18 @@ export async function portfolioReply(ctx: Context, wallet: string) {
 
   const pending = await ctx.reply("💼 Reading the wallet…");
 
+  let read: [Awaited<ReturnType<typeof buildPortfolio>>, Awaited<ReturnType<typeof getDeskQuotes>>];
   try {
-    const [pf, quotes] = await Promise.all([buildPortfolio(wallet), getDeskQuotes({ allowStale: true }).catch(() => [])]);
-    setWallet(ctx.from!.id, wallet);
+    read = await Promise.all([buildPortfolio(wallet), getDeskQuotes({ allowStale: true }).catch(() => [])]);
+  } catch (err) {
+    console.error("Portfolio failed:", err instanceof Error ? err.message : err);
+    await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "💼 Could not read that wallet. Try again in a minute.").catch(() => {});
+    return false;
+  }
+  const [pf, quotes] = read;
+  setWallet(ctx.from!.id, wallet);
+
+  try {
     if (pf.positions.length === 0) {
       await ctx.telegram.editMessageText(
         ctx.chat!.id,
@@ -67,9 +76,8 @@ export async function portfolioReply(ctx: Context, wallet: string) {
       { parse_mode: "HTML", link_preview_options: { is_disabled: true } },
     );
   } catch (err) {
-    console.error("Portfolio failed:", err instanceof Error ? err.message : err);
-    await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "💼 Could not read that wallet. Try again in a minute.").catch(() => {});
-    return false;
+    // The wallet was read and saved; only showing it failed.
+    console.error("Portfolio reply failed:", err instanceof Error ? err.message : err);
   }
   return true;
 }

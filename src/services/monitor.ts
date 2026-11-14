@@ -27,18 +27,19 @@ export async function tellAdmin(bot: Telegraf, text: string) {
   }
 }
 
-let parReported = false;
+let parReported: "ok" | "bad" | null = null;
 
 /**
  * Reads the $PAR address on chain and texts the admin what is there: a token with a billion supply, or not a token at
- * all (then /ca stays off). Once per start; while the chain cannot be read it is tried again with each health check.
+ * all (then /ca stays off). Read at start and with each health check until it is a token; the admin hears each change,
+ * so an address that was published a moment before the coin existed is cleared, and reported, by itself.
  */
 export async function reportParMint(bot: Telegraf) {
-  if (parReported || !config.tokenMint) return;
+  if (parReported === "ok" || !config.tokenMint) return;
   try {
     const reading = await checkParMint();
-    if (!reading) return;
-    parReported = true;
+    if (!reading || reading.status === parReported) return;
+    parReported = reading.status;
     await tellAdmin(bot, mintReport(config.tokenMint, reading));
   } catch (err) {
     console.warn("The $PAR address could not be checked yet:", (err as Error).message);

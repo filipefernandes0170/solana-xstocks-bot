@@ -116,6 +116,8 @@ const BAG_FRESH_MS = 90_000;
 const BAG_KEEP_MS = 10 * 60_000;
 /** The most a round spends reading bags. With more wallets than that covers, the oldest readings go first. */
 const BAG_BUDGET_MS = 20_000;
+/** Between two bag requests: at most about three a second, well inside the public RPC's 40 calls per 10 s. */
+const BAG_PAUSE_MS = 250;
 
 /** Reads the bags that are due, oldest reading first, until the time is up or the chain stops answering. */
 async function refreshBags(wallets: string[], budgetMs = BAG_BUDGET_MS) {
@@ -129,6 +131,7 @@ async function refreshBags(wallets: string[], budgetMs = BAG_BUDGET_MS) {
       break;
     }
     try {
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, BAG_PAUSE_MS));
       const read = await holdingsOfWallets(due.slice(i, i + WALLETS_PER_CALL));
       const at = Date.now();
       for (const [wallet, holdings] of read) bagCache.set(wallet, { at, symbols: new Map(holdings.map((holding) => [holding.symbol, holding.amount])) });
@@ -346,6 +349,9 @@ export async function checkEvents(bot: Telegraf) {
     // The names a holder follows: the watch list, and the stock tokens in the bag wallet and the proven wallet.
     // Read only when something is due, and once per run.
     const follows = new Map<number, { all: boolean; symbols: Set<string> }>();
+    // New bag reads stop after this long in one run; a name someone only holds (and does not watch) then waits for
+    // the next run, three minutes later.
+    const readUntil = Date.now() + BAG_BUDGET_MS;
     const followed = async (user: UserRow) => {
       const known = follows.get(user.telegram_id);
       if (known) return known;
@@ -354,7 +360,8 @@ export async function checkEvents(bot: Telegraf) {
       if (!result.all) {
         for (const wallet of new Set([user.wallet, user.verified_wallet].filter((w): w is string => !!w))) {
           try {
-            for (const [symbol, amount] of await bagHoldings(wallet)) if (amount > 0) result.symbols.add(symbol);
+            const bag = bagOf(wallet) ?? (Date.now() < readUntil ? await bagHoldings(wallet) : null);
+            for (const [symbol, amount] of bag ?? []) if (amount > 0) result.symbols.add(symbol);
           } catch (err) {
             console.warn("Event bag read failed", user.telegram_id, (err as Error).message);
           }
@@ -552,7 +559,6 @@ export async function checkDesk(bot: Telegraf) {
     // Bag notes are for holders, so only their bags are read, and only theirs are remembered. Someone whose wallet
     // could not be checked this round keeps their memory; a non-holder's is dropped, so a later holder starts clean.
     clearBagStateExcept(users.filter((user) => (states.get(holderWallet(user)) ?? "short") !== "short").map((user) => user.telegram_id));
-    await refreshBags(users.filter((user) => user.wallet && holders.has(holderWallet(user))).map((user) => user.wallet as string));
     const now = Date.now();
     const day = etDay(now);
     const bellOpen = inBellWindow(now) && [...snaps.values()].some((snap) => snap.open);
@@ -572,11 +578,15 @@ export async function checkDesk(bot: Telegraf) {
       }
     }
 
+    // The time-critical texts first (the bell above, then Fair and "rich while closed"); the bags are read after
+    // them, so a slow chain read never delays a Fair ping.
+    const toldByUser = new Map<number, Set<string>>();
     for (const user of users) {
       const wallet = holderWallet(user);
       const holds = !!wallet && holders.has(wallet);
       const watched = watchByUser.get(user.telegram_id) ?? [];
       const told = new Set<string>();
+      toldByUser.set(user.telegram_id, told);
       if (holds && watched.length > 0) {
         // At most one Fair ping per name an hour, and one "rich while closed" ping per name in 12 hours (calm.ts).
         const mineFair = bellRecipients.has(user.telegram_id)
@@ -606,9 +616,16 @@ export async function checkDesk(bot: Telegraf) {
           console.warn("Watch ping failed", user.telegram_id, (err as Error).message);
         }
       }
+    }
+
+    await refreshBags(users.filter((user) => user.wallet && holders.has(holderWallet(user))).map((user) => user.wallet as string));
+
+    for (const user of users) {
+      const wallet = holderWallet(user);
+      const holds = !!wallet && holders.has(wallet);
       if (!holds || !user.wallet) continue;
       try {
-        await sendBag(bot, user, bySymbol, snaps, holds, told, now);
+        await sendBag(bot, user, bySymbol, snaps, holds, toldByUser.get(user.telegram_id) ?? new Set(), now);
       } catch (err) {
         console.warn("Bag ping failed", user.telegram_id, (err as Error).message);
       }

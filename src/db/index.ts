@@ -174,6 +174,26 @@ addColumn("users", "pairs", "INTEGER DEFAULT 0");
 addColumn("users", "events", "INTEGER DEFAULT 1");
 // Issuer flow texts (/flows): on unless the user turns them off.
 addColumn("users", "flows", "INTEGER DEFAULT 1");
+// A wallet counts for one Telegram account (14 Nov 2026). Proofs made before that rule could have left one wallet on
+// several accounts: the newest proof keeps it. The index then makes a second owner impossible.
+try {
+  const cleared = db
+    .prepare(
+      `UPDATE users SET verified_wallet = NULL, verified_at = NULL
+       WHERE verified_wallet IS NOT NULL AND EXISTS (
+         SELECT 1 FROM users other
+         WHERE other.verified_wallet = users.verified_wallet
+           AND (COALESCE(other.verified_at, 0) > COALESCE(users.verified_at, 0)
+             OR (COALESCE(other.verified_at, 0) = COALESCE(users.verified_at, 0) AND other.telegram_id > users.telegram_id))
+       )`,
+    )
+    .run().changes;
+  if (cleared > 0) console.log(`Proven wallets: ${cleared} older duplicate proof(s) removed (one account per wallet).`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS users_verified_wallet ON users(verified_wallet) WHERE verified_wallet IS NOT NULL`);
+} catch (err) {
+  console.error("Proven wallets could not be made unique:", (err as Error).message);
+}
+
 // What the bot last told each person about each name in their bag, and when (see services/calm.ts).
 addColumn("bag_state", "told", "TEXT");
 addColumn("bag_state", "told_at", "INTEGER DEFAULT 0");

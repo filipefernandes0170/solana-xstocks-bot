@@ -274,8 +274,21 @@ async function refreshBuys(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
   }
 }
 
+/** Two rounds never start closer together than this, whatever ended the first one early. */
+const ROUND_MIN_MS = 30_000;
+let roundTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Starts a round unless one is running. When a round ends the next one follows by itself (14 Nov 2026). Before, a new
+ * round began only when prices were reloaded, once a minute and only if the last round had finished: a round takes
+ * about a minute, so the next usually missed its turn, rounds ran every 100 to 140 s, and for part of that time most
+ * buys were older than the 90 s a verdict accepts. Now each name is quoted about once a minute.
+ */
 function startBuyRefresh(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
   if (!buyRefresh) {
+    const startedAt = Date.now();
+    if (roundTimer) clearTimeout(roundTimer);
+    roundTimer = null;
     buyRefresh = refreshBuys(quotes, mints)
       .catch((err) => console.error("Buy quotes failed:", err instanceof Error ? err.message : err))
       .finally(() => {
@@ -283,6 +296,14 @@ function startBuyRefresh(quotes: DeskQuote[], mints: Map<string, MintInfo>) {
         firstBuyRoundDone = true;
         // The site shows these too (services/shareBuys.ts); it never throws and never holds up the next round.
         void shareBuys(buys);
+        // The next round: after Jupiter's pause if there is one, and only while prices are still being loaded
+        // (a bot that stopped loading prices stops quoting too).
+        const wait = Math.max(1_000, ROUND_MIN_MS - (Date.now() - startedAt), jupiterPauseLeft());
+        roundTimer = setTimeout(() => {
+          roundTimer = null;
+          if (cache && rebaseCache && Date.now() - cache.at < STALE_OK_MS) void startBuyRefresh(cache.quotes, rebaseCache.rows);
+        }, wait);
+        roundTimer.unref();
       });
   }
   return buyRefresh;
@@ -401,11 +422,12 @@ export function rollingLimit(limit: number, windowMs: number) {
  * seconds with the background round, which needs 23 of the 28 slots in a minute. On 14 Nov 2026 a simulation showed
  * one size check every 2 s leaving the round 3 of its 70 quotes in three minutes: every verdict went to "Checking", Fair
  * pings stopped and the site lost the bot's buys. So people's quotes are rationed: USER_QUOTES_PER_MIN in any minute
- * for everyone together, one every USER_QUOTE_EVERY_MS per person, and a slot must be free within USER_SLOT_WAIT_MS.
- * That wait plus one gap (2.1 s) stays under the 6 s the round itself waits, so the round never misses its slot.
+ * for everyone together, one every USER_QUOTE_EVERY_MS per person (so one person takes at most a third of the ration),
+ * and a slot must be free within USER_SLOT_WAIT_MS. That wait plus one gap (2.1 s) stays under the 6 s the round itself
+ * waits, so the round never misses its slot.
  */
 export const USER_QUOTES_PER_MIN = 6;
-export const USER_QUOTE_EVERY_MS = 10_000;
+export const USER_QUOTE_EVERY_MS = 30_000;
 const USER_SLOT_WAIT_MS = 3_500;
 const userQuotes = rollingLimit(USER_QUOTES_PER_MIN, 60_000);
 const lastUserQuote = new Map<number, number>();
@@ -488,7 +510,7 @@ export async function sizeQuote(symbol: string, usd: number, options: { user?: n
     if (options.user != null) {
       const last = lastUserQuote.get(options.user);
       if (last != null && now - last < USER_QUOTE_EVERY_MS) {
-        return { ok: false, message: `One live size check every 10 seconds. Try again in ${Math.max(1, Math.ceil((USER_QUOTE_EVERY_MS - (now - last)) / 1000))} s.` };
+        return { ok: false, message: `One live size check every ${USER_QUOTE_EVERY_MS / 1000} seconds. Try again in ${Math.max(1, Math.ceil((USER_QUOTE_EVERY_MS - (now - last)) / 1000))} s.` };
       }
       if (jupiterPaused(now)) return busy;
       if (!userQuotes.take(now)) return { ok: false, message: "A lot of size checks are being asked right now. Try again in a minute." };

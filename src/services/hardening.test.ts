@@ -233,6 +233,9 @@ test("people's quotes are rationed, so they cannot take the background round's p
   assert.equal(limit.take(start + 59_999), false);
   assert.equal(limit.take(start + 60_000), true, "a minute after the first, one more");
   assert.equal(limit.take(start + 60_500), false);
+  // One person alone cannot use it up: at most a third of the minute's ration.
+  assert.equal(desk.USER_QUOTE_EVERY_MS, 30_000);
+  assert.ok(Math.ceil(60_000 / desk.USER_QUOTE_EVERY_MS) <= desk.USER_QUOTES_PER_MIN / 3);
   // Jupiter allows about 28 requests a minute; the round needs 23 and the price list 2. Six more is the most that fits
   // with the round still finishing inside the 90 s a quote stays usable.
   assert.ok(23 + 2 + desk.USER_QUOTES_PER_MIN <= Math.floor((90_000 / 2100) * 0.75));

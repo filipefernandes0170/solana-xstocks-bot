@@ -77,13 +77,15 @@ export async function confirmProof(ctx: Context, nonce?: string) {
     return;
   }
   if (!verifyCodeProof(signed.address, signed.signature, proof.nonce)) {
-    await ctx.reply("🔐 The signature did not check out, so nothing was saved. Here is a new code to try again:", again());
+    await ctx.reply("🔐 The signature did not check out, so nothing was saved. Try again with this button:", again());
     return;
   }
   markProofUsed(proof.nonce);
   const others = releaseVerifiedWallet(signed.address, telegramId);
   setVerifiedWallet(telegramId, signed.address);
-  await ctx.reply(`${provenText(signed.address)}\n\n${await holderNote(telegramId)}`, { parse_mode: "HTML" });
+  await ctx.reply(`${provenText(signed.address)}\n\n${await holderNote(telegramId)}`, { parse_mode: "HTML" }).catch((err) => {
+    console.warn("Proof reply failed", telegramId, (err as Error).message);
+  });
   for (const other of others) {
     await ctx.telegram
       .sendMessage(other, "👛 Your proven wallet was just proven by another Telegram account, so holder texts stopped here. A wallet counts for one account. Send /hold to prove a wallet again.")

@@ -203,3 +203,30 @@ test("an old plain button finds the signed code among the recent ones; an expire
   const none = await deliver(message(602, "/hold check"));
   assert.match(texts(none)[0], /no code waiting/);
 });
+
+test("an error in an update with no chat to answer in does not escape (it used to end the process)", async () => {
+  const escaped: unknown[] = [];
+  const onEscape = (reason: unknown) => escaped.push(reason);
+  process.on("unhandledRejection", onEscape);
+  // A button press that carries no message: the handler's reply throws, and so would the error handler's own reply.
+  await bot.handleUpdate({ update_id: ++updateId, callback_query: { id: "x", from: person(700), chat_instance: "x", data: "menu:size" } } as never);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  process.off("unhandledRejection", onEscape);
+  assert.deepEqual(escaped, []);
+});
+
+test("in a burst, new messages wait their turn once 25 are in hand", async () => {
+  // Thirty people whose replies each take 0.8 s to send.
+  slowChat = 800;
+  const started = Date.now();
+  const handed: number[] = [];
+  const all = Array.from({ length: 30 }, (_, i) =>
+    bot.handleUpdate({ ...message(800, "/ca"), update_id: ++updateId } as never).then(() => handed.push(Date.now() - started)),
+  );
+  await Promise.all(all);
+  const quick = handed.filter((ms) => ms < 400).length;
+  assert.ok(quick >= 20 && quick <= 26, `about the first 25 are taken at once (${quick})`);
+  assert.ok(handed.some((ms) => ms >= 700), "the rest wait until one of those is done");
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  slowChat = null;
+});

@@ -1,18 +1,11 @@
-import { Connection, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { config } from "../config/index.js";
 import { TOKENIZED_STOCKS, type TokenizedStock } from "../config/tokens.js";
-import { RPC_TIMEOUT_MS, rpcCall, rpcUrls } from "./rpc.js";
+import { rpcCall, rpcUrls } from "./rpc.js";
 
-// Every request has a time limit: without one, a hung RPC call never returned and held up whatever waited for it.
-const timedFetch = ((input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-  fetch(input, { ...init, signal: AbortSignal.timeout(RPC_TIMEOUT_MS) })) as typeof fetch;
-
-export const connection = new Connection(config.rpcUrl, {
-  commitment: "confirmed",
-  confirmTransactionInitialTimeout: 60_000,
-  fetch: timedFetch as never,
-});
+// Every chain read goes through chainCall: a time limit and a size limit on each request (services/rpc.ts). Without a
+// time limit, a hung RPC call never returned and held up whatever waited for it.
 
 /** The bot's RPC addresses: SOLANA_RPC_URL, then the public one. */
 export const RPC_URLS = rpcUrls(config.rpcUrl);
@@ -42,7 +35,7 @@ const TOKEN_PROGRAMS = [TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID];
 /** getMultipleAccounts takes at most 100 addresses. */
 const ACCOUNTS_PER_CALL = 100;
 export const ADDRESSES_PER_WALLET = TOKENIZED_STOCKS.length * TOKEN_PROGRAMS.length;
-/** How many wallets fit in one call. */
+/** How many wallets to ask for together (their addresses are then sent a hundred per request). */
 export const WALLETS_PER_CALL = Math.max(1, Math.floor(ACCOUNTS_PER_CALL / ADDRESSES_PER_WALLET));
 
 type Slot = { address: string; token: TokenizedStock };
@@ -113,9 +106,14 @@ export async function holdingsOfWallets(wallets: string[]): Promise<Map<string, 
   for (let i = 0; i < unique.length; i += WALLETS_PER_CALL) {
     const group = unique.slice(i, i + WALLETS_PER_CALL).map((wallet) => ({ wallet, slots: walletSlots(wallet) }));
     const addresses = group.flatMap((entry) => entry.slots.map((slot) => slot.address));
-    const result = await chainCall<{ value?: ParsedTokenAccount[] }>("getMultipleAccounts", [addresses, { encoding: "jsonParsed", commitment: "confirmed" }]);
-    const value = result?.value;
-    if (!Array.isArray(value) || value.length !== addresses.length) throw new Error("getMultipleAccounts: unexpected answer");
+    // A hundred addresses per request, however many names are tracked.
+    const value: ParsedTokenAccount[] = [];
+    for (let at = 0; at < addresses.length; at += ACCOUNTS_PER_CALL) {
+      const part = addresses.slice(at, at + ACCOUNTS_PER_CALL);
+      const result = await chainCall<{ value?: ParsedTokenAccount[] }>("getMultipleAccounts", [part, { encoding: "jsonParsed", commitment: "confirmed" }]);
+      if (!Array.isArray(result?.value) || result.value.length !== part.length) throw new Error("getMultipleAccounts: unexpected answer");
+      value.push(...result.value);
+    }
     let offset = 0;
     for (const entry of group) {
       out.set(entry.wallet, holdingsFromAccounts(entry.wallet, entry.slots, value.slice(offset, offset + entry.slots.length)));

@@ -16,6 +16,7 @@ import { PUBLIC_RPC, rpcCall } from "../../src/services/rpc.ts";
 const [argMint, argWallet] = process.argv.slice(2);
 const urls = [process.env.SOLANA_RPC_URL || PUBLIC_RPC];
 let failed = false;
+let warned = false;
 const fail = (line: string) => {
   failed = true;
   console.log(`FAIL  ${line}`);
@@ -49,7 +50,10 @@ if (key) {
     if (reading.status === "bad") fail(`not a token: ${reading.reason}`);
     else {
       ok(`it is a token: ${reading.decimals} decimals, supply ${supplyTokens(reading).toLocaleString("en-US")}`);
-      for (const warning of mintWarnings(reading)) console.log(`WARN  ${warning}`);
+      for (const warning of mintWarnings(reading)) {
+        warned = true;
+        console.log(`WARN  ${warning}`);
+      }
       if (argWallet) {
         const owner = new PublicKey(argWallet);
         const account = getAssociatedTokenAddressSync(key, owner, true, new PublicKey(reading.programId)).toBase58();
@@ -69,5 +73,11 @@ if (key) {
   }
 }
 
-console.log(failed ? "\nNOT OK. Do not publish this address." : "\nAll good.");
-process.exit(failed ? 1 : 0);
+console.log(
+  failed
+    ? "\nNOT OK. Do not publish this address."
+    : warned
+      ? "\nLOOK AGAIN. A new pump.fun coin has none of these warnings: is this the right address?"
+      : "\nAll good.",
+);
+process.exit(failed ? 1 : warned ? 2 : 0);
