@@ -2,12 +2,13 @@ import { poolLabel } from "../../lib/brand";
 import { formatUsd } from "../../lib/format";
 import { sessionClosed } from "../../lib/session";
 import { verdictPillClass } from "../../lib/verdict";
-import { BuyLink, ChangePill, GapPill, TickerBadge } from "./parts";
+import { BuyLink, ChangePill, GapPill, TickerBadge, verdictDotClass } from "./parts";
 import { FavouriteButton, type DeskRow } from "./StockCard";
 
 // Columns: # · name · last trade · Nasdaq · $1,000 buy versus Nasdaq · pool · 24h · verdict · Buy. Fewer on smaller screens.
+// On a phone each name takes two lines: the name, its price and Buy, then its verdict and the gap (nothing is cut off).
 const GRID =
-  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_8.5rem] lg:grid-cols-[2rem_minmax(0,2fr)_1fr_1fr_1fr_0.8fr_0.9fr_6.5rem_4.5rem]";
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_8.5rem] lg:grid-cols-[2rem_minmax(0,2fr)_1fr_1fr_1fr_0.8fr_0.9fr_6.5rem_4.5rem]";
 
 /**
  * The table view of Markets: one line per name, for scanning all of them at once. Clicking a name shows it in the
@@ -55,13 +56,7 @@ export function StockList({
                   <TickerBadge underlying={row.underlying} sector={row.sector} size="sm" />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-ink">{row.symbol}</span>
-                    <span className="block truncate text-xs text-muted">
-                      {row.name}
-                      <span className="sm:hidden">
-                        {" · "}
-                        {formatUsd(row.usdPrice)}
-                      </span>
-                    </span>
+                    <span className="block truncate text-xs text-muted">{row.name}</span>
                   </span>
                 </button>
               </span>
@@ -79,11 +74,20 @@ export function StockList({
                   {row.verdict.title}
                 </span>
               </span>
-              <span className="flex items-center justify-end gap-2">
-                <span className="sm:hidden" data-verdict>
-                  {gap}
-                </span>
+              <span className="flex items-center justify-end gap-3">
+                <span className="whitespace-nowrap text-sm font-medium tabular-nums text-ink sm:hidden">{formatUsd(row.usdPrice)}</span>
                 <BuyLink mint={row.mint} symbol={row.symbol} compact />
+              </span>
+              {/* Phones only: the verdict in words and the gap, on their own line under the name. */}
+              <span className="col-span-2 flex items-center justify-between gap-3 pb-0.5 pl-9 sm:hidden">
+                <span data-verdict className="inline-flex min-w-0 items-center gap-1.5 text-xs font-medium text-ink">
+                  <span className={`size-2 shrink-0 rounded-full ${verdictDotClass(row.verdict.id)}`} aria-hidden />
+                  {row.verdict.title}
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-2 text-xs text-muted">
+                  $1,000 buy vs Nasdaq
+                  <span data-verdict>{gap}</span>
+                </span>
               </span>
             </li>
           );

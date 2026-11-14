@@ -15,7 +15,7 @@ export function parseAmount(text: string) {
 export async function replySize(ctx: Context, symbol: string, usd: number) {
   const pending = await ctx.reply(`📏 Asking Jupiter about $${Math.round(usd).toLocaleString("en-US")} of ${symbol}…`);
   try {
-    const result = await sizeQuote(symbol, usd);
+    const result = await sizeQuote(symbol, usd, { user: ctx.from?.id });
     if (!result.ok) {
       await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, `📏 ${result.message}`);
       return;

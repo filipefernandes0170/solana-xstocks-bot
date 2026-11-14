@@ -668,7 +668,7 @@ export function Desk({
               {filter === "favourites" && favourites.length > 0 ? (
                 <div className="mt-4 flex flex-col gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-line sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-mist">
-                    Get a text when {favourites.length === 1 ? "this name turns" : "these turn"} Fair.
+                    Get a Telegram alert when {favourites.length === 1 ? "this name turns" : "these turn"} Fair.
                     {favourites.length > 8 ? " The link carries the first 8." : ""}
                   </p>
                   <a

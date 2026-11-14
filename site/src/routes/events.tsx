@@ -286,7 +286,7 @@ function EventDetails({ event, today, coinLive }: { event: ParEvent; today: stri
         Get these in Telegram
       </a>
       <p className="mt-2 text-xs leading-relaxed text-muted">
-        {"The texts are for $PAR holders who prove their wallet in the bot."}
+        {"The alerts are for $PAR holders who prove their wallet in the bot."}
         {coinLive ? "" : " $PAR is not live yet, so they are off for now."}
       </p>
     </div>
@@ -665,14 +665,14 @@ function EventsPage() {
                 <Send className="size-4" aria-hidden />
                 In Telegram
               </p>
-              <h2 className="mt-2 font-display text-xl leading-tight text-ink">Get these as texts.</h2>
+              <h2 className="mt-2 font-display text-xl leading-tight text-ink">Get these as alerts.</h2>
               <ul className="mt-4 space-y-3 text-sm leading-relaxed text-muted">
                 <li>
                   <code className="font-mono text-gold">/events</code>
                   {" · the next 7 days and the latest key filings. Free for everyone."}
                 </li>
                 <li>
-                  <span className="font-medium text-ink">Filing texts</span>
+                  <span className="font-medium text-ink">Filing alerts</span>
                   {" · results, deals and leadership news for the names in your bag or watch list, at most 5 a day. "}
                   <code className="font-mono text-gold">/events off</code>
                   {" stops them."}
@@ -687,7 +687,7 @@ function EventsPage() {
                 </li>
               </ul>
               <p className="mt-4 text-xs leading-relaxed text-muted">
-                {"The texts are for $PAR holders who prove their wallet in the bot."}
+                {"The alerts are for $PAR holders who prove their wallet in the bot."}
                 {data.coinLive ? "" : " $PAR is not live yet, so they are off for now."}
               </p>
               <a href={BOT_EVENTS} className={`${GOLD_BUTTON} mt-5`}>

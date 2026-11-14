@@ -14,7 +14,7 @@ import { bagPowersResult, cleanMints } from "./powers";
 import { exitCheck, quotesResult, sizeCheck, wantNames } from "./quotes";
 import { supplyResult } from "./supply";
 import { venuesResult } from "./venues";
-import { holderMinimum, parMint } from "../lib/holder";
+import { PAR_MINT, holderMinimum } from "../lib/holder";
 import { env } from "./http";
 import { walletInput } from "./solana";
 import { holderStatus, lookupHoldings, readPortfolio } from "./wallet";
@@ -109,12 +109,12 @@ export const getSupply = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 /**
- * Whether $PAR is live (the holder texts only work once TOKEN_MINT is set) and how much $PAR a holder needs
- * (HOLDER_MIN_TOKENS, 0 = any amount). Public, so shared like the prices.
+ * Whether $PAR is live (it has an address in lib/holder.ts) and how much $PAR a holder needs (250,000, or
+ * HOLDER_MIN_TOKENS). Public, so shared like the prices.
  */
 export const getFlags = createServerFn({ method: "GET" }).handler(async () => {
   sharePublicData();
-  return { coinLive: parMint(env("TOKEN_MINT")) !== "", holderMin: holderMinimum(env("HOLDER_MIN_TOKENS")) };
+  return { coinLive: PAR_MINT !== "", holderMin: holderMinimum(env("HOLDER_MIN_TOKENS")) };
 });
 
 export const getCryptos = createServerFn({ method: "GET" }).handler(async () => {

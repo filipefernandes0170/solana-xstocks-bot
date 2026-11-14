@@ -19,7 +19,7 @@ The website at https://onpar.site (Netlify project `xstocks-tracker`; the old ht
 4. **More tokens priced on /portfolio.** The original's rule for which other tokens get priced is unknown. Here it prices up to 150 tokens, 50 per Jupiter request, one request at a time. Anything left without a price is counted in "N tokens had no price".
 5. **No Grok preview bridge.** The original carried Grok's editor bridge (a `postMessage` listener plus the zod library) and a link to `/__grok/manifest.webmanifest`, which returned 404. Neither did anything for visitors, so neither is here.
 6. **GLDx counts as an ETF** on /portfolio. This is not verified against the original, which was never seen holding GLDx.
-7. **Holder check** ("Would this wallet get the text?") adds up every token account of `TOKEN_MINT`. The bot only reads the associated token account. Until the official address is filled in (`PAR_MINT`, launch day), both answer "not live yet".
+7. **Holder check** ("Would this wallet get the text?") adds up every token account of the $PAR mint (`PAR_MINT`). The bot only reads the associated token account. Until the official address is filled in (`PAR_MINT`, launch day), both answer "not live yet".
 8. **Short dollar amounts ("$51M").** The published code wrote "$51.0M" when it ran in Node and "$51M" in a browser, so a page rendered on the server did not match the browser and React redrew it (an error on every /ranking load). Since 18 Oct 2026 both write "$51M"; the golden test drops that trailing ".0" from the recorded answers (`tests/logic.test.ts`).
 
 ## Changes after the rebuild (17 Oct 2026)
@@ -169,6 +169,21 @@ Filipe asked for the look of a dashboard picture he sent, keeping only the data 
 - **Not taken from the picture**, because Par has no such data or would break its rules: total volume, a 3M/1Y price chart, impact ratings and future earnings dates, average price and P/L, a "Claim" button, invented commands.
 - Checked: types, 122 tests, production build, a readability scan of every page and desk view (no text under 4.5:1, 3:1 for large text), desktop and 390 px phone screenshots.
 
+## Launch hardening (14 Nov 2026)
+
+Two independent reviews four days before $PAR (the site, and the bot with its backend) found these; each was reproduced before it was fixed, and each has a test (`src/services/hardening.test.ts`, `tests/proof.test.ts`, `tests/launchUi.test.ts`).
+
+- **A wallet proof could be forged.** The eight Ed25519 points of small order (14 ways to write them) are valid Solana addresses nobody owns, and one fixed "signature" passes Node's check against them. Anyone could have "proven" such an address after sending it 250,000 $PAR. Both verifiers now refuse those keys (`isSmallOrderKey`, the bot's and the site's lists equal by test). A proven wallet also counts for one Telegram account only: the one that proved it last.
+- **One pasted address could take the bot down for good.** The bot read every token account a wallet owns; for an exchange or pool address that is hundreds of megabytes (845 MB measured), and the address was saved before it was read, so the bot read it again after every restart. Wallets are now read from the tracked names' own token accounts only (50 small accounts per wallet, `src/services/solana.ts`), with a time and size limit on every RPC call (`src/services/rpc.ts`), and a wallet is saved only after it was read. The trade-off: stock tokens kept outside a wallet's usual (associated) token account are not seen. The site's lookups cap the answer at 6 MB (`readJsonCapped`) and say so.
+- **The minute loop read every saved wallet, one request each.** Bags are now read for $PAR holders only, two wallets per request, each at most every 90 s, within 20 s per round; a non-holder's bag memory is dropped, so a later holder starts clean.
+- **A few size checks a minute starved the $1,000 round.** People's quotes are rationed (6 a minute for everyone, one per person every 10 s, only when a Jupiter slot is free within 3.5 s), the same name and amount is answered from a 20 s cache, and a $1,000 check is answered from the round's own quote.
+- **One slow request held up everyone.** Each Telegram update is now handled on its own instead of batch by batch.
+- **Nothing checked the $PAR address.** The address lives in one place per side (`src/config/par.ts`, `src/lib/holder.ts`, equal by test; `TOKEN_MINT` is no longer read). `npm run check:par` (repo root) reads it on chain before it is published, the bot does the same at start and texts the admin, and /ca stays off for an address that is not a token.
+- **Proving a wallet failed in normal use.** Every holder reply made a new code and "I signed it" checked only the newest. Codes are reused for five minutes, each button carries its own code, an expired code answers with a fresh button, and `?start=hold` opens the proof message from the site.
+- **A failed holder read looked like "you hold too little".** The last good answer stands for 15 minutes, and the note says when the chain could not be read.
+- **Site:** a $PAR strip under the nav on every page (the official address once it exists), the phone table shows each name's price and verdict, the holder steps are spelled out ("What $PAR unlocks"), "texts" became "Telegram alerts", and the Where-to-buy gap is grey while Nasdaq is closed.
+- **Left for after launch** (found in the same reviews): Fair judged on a Nasdaq print up to 30 minutes old when Nasdaq's API fails mid-session; the bot in a group chat; a rate limit on the site's POST functions; link-preview images in the old colours; the length of /bot on phones.
+
 ## Run it
 
 ```bash
@@ -189,7 +204,7 @@ Node 22.12 or newer.
 |---|---|
 | `SOLANA_RPC_URL` | RPC for wallet reads (default: the public mainnet RPC, which is rate-limited) |
 | `JUPITER_API_KEY` | A free key from developers.jup.ag (set, secret, Functions scope). Same pace as keyless (1 request every 2 s), but counted for our organisation instead of the function's shared Netlify IP. Do not give the bot this key: they would share one limit |
-| `TOKEN_MINT` | Emergency override only. The official $PAR address lives in `src/lib/holder.ts` (`PAR_MINT`, same as the bot's `src/config/par.ts`, checked by a test); empty there and here means "the coin is not live yet" |
+| `TOKEN_MINT` | No longer read (14 Nov 2026). The official $PAR address lives in `src/lib/holder.ts` (`PAR_MINT`, same as the bot's `src/config/par.ts`, checked by a test); empty there means "the coin is not live yet" |
 | `HOLDER_MIN_TOKENS` | Emergency override only. Empty or 0 means the launch minimum, 250,000 $PAR (`PAR_HOLDER_MIN` in `src/lib/holder.ts`) |
 | `SHARE_BUYS_SECRET` | 64 hex characters (`openssl rand -hex 32`), secret, Functions scope. The same value goes in the bot's `.env`; the bot then posts its $1,000 buys to `/api/share-buys`. Empty means off. Changing it needs a new deploy |
 

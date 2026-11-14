@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Check, ShieldCheck, Smartphone } from "lucide-react";
+import { Check, Send, ShieldCheck, Smartphone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Backdrop } from "../components/Backdrop";
 import { SiteFooter } from "../components/SiteFooter";
@@ -111,15 +111,25 @@ function VerifyPage() {
           </p>
           <h1 className="hero-title mt-2 font-display text-3xl leading-tight sm:text-4xl">Prove your wallet</h1>
           <p className="mt-4 text-base leading-relaxed text-mist">
-            Holder texts go only to a wallet its owner proved. Connect the wallet that holds $PAR and sign the message below. A message is not a
+            Holder alerts go only to a wallet its owner proved. Connect the wallet that holds $PAR and sign the message below. A message is not a
             transaction: it cannot move funds. Par never asks for a seed phrase. If your wallet shows a transaction or a spending approval, refuse it.
           </p>
         </header>
 
         {!nonce ? (
-          <p className="panel mt-8 p-6 text-base leading-relaxed text-ink ring-1 ring-line">
-            This link is missing its code. Send /hold to @ONPAR_BOT on Telegram and tap the button it sends.
-          </p>
+          <div className="panel mt-8 p-6 text-ink ring-1 ring-line">
+            <p className="text-base font-medium leading-relaxed">This link is missing its code.</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
+              The bot gives you the link: send /hold to @ONPAR_BOT on Telegram and tap the button it sends. Each link works once, for 15 minutes.
+            </p>
+            <a
+              href="https://t.me/ONPAR_BOT?start=hold"
+              className="mt-4 inline-flex h-12 items-center gap-2 rounded-full bg-gold px-6 text-sm font-medium text-night"
+            >
+              <Send className="size-4" aria-hidden />
+              Open @ONPAR_BOT
+            </a>
+          </div>
         ) : (
           <section className="panel mt-8 p-5 text-ink ring-1 ring-line sm:p-7" aria-live="polite">
             <p className="text-sm font-medium text-amber">The message you will sign</p>

@@ -5,7 +5,7 @@
 // the dev server's browser build (production strips it from the browser entirely).
 import * as nodeCrypto from "node:crypto";
 import { getStore } from "@netlify/blobs";
-import { PROOF_TTL_MS, isNonce, proofMessage } from "../lib/walletProof";
+import { PROOF_TTL_MS, isNonce, isSmallOrderKey, proofMessage } from "../lib/walletProof";
 import { base58Decode, isSolanaAddress, logMessage } from "./solana";
 
 const STORE = "wallet-proofs";
@@ -19,7 +19,8 @@ export type ProofResult = { ok: true } | { ok: false; message: string };
 export function signatureMatches(address: string, signatureBase64: string, message: string) {
   try {
     const key = base58Decode(address);
-    if (!key || key.length !== 32) return false;
+    // A key of small order is nobody's wallet, and a fixed signature passes for it (lib/walletProof.ts).
+    if (!key || key.length !== 32 || isSmallOrderKey(key)) return false;
     const signature = Buffer.from(signatureBase64, "base64");
     if (signature.length !== 64) return false;
     const publicKey = nodeCrypto.createPublicKey({ key: Buffer.concat([Buffer.from(ED25519_SPKI_PREFIX, "hex"), Buffer.from(key)]), format: "der", type: "spki" });

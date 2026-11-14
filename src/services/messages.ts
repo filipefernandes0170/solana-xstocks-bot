@@ -358,8 +358,9 @@ export function pricesText(quotes: DeskQuote[]) {
   ].join("\n");
 }
 
-export function sizeText(result: Extract<SizeResult, { ok: true }>) {
+export function sizeText(result: Extract<SizeResult, { ok: true }>, now = Date.now()) {
   const { quote } = result;
+  const ageSec = Math.round((now - result.at) / 1000);
   const gap = basisPct(result.price, quote.stockPrice);
   const call = sizeCall({ gap, impactPct: result.impactPct, open: isSessionOpen(quote.marketState) });
   const premium = gap == null || quote.stockPrice == null ? null : result.usd - result.shares * quote.stockPrice;
@@ -373,7 +374,9 @@ export function sizeText(result: Extract<SizeResult, { ok: true }>) {
       `🌊 Pool impact ${result.impactPct.toFixed(result.impactPct >= 0.1 ? 2 : 3)}%`,
       "",
       `${TONE_EMOJI[call.tone]} <b>${escapeHtml(call.title)}.</b> ${escapeHtml(call.line)}`,
-      "<i>Live Jupiter quote. Prices move, so the fill is not guaranteed.</i>",
+      ageSec > 20
+        ? `<i>Jupiter quote from ${ageSec} s ago. Prices move, so the fill is not guaranteed.</i>`
+        : "<i>Live Jupiter quote. Prices move, so the fill is not guaranteed.</i>",
     ]),
   };
 }
@@ -417,7 +420,7 @@ export function portfolioText(wallet: string, pf: PortfolioSummary, quotes: Map<
     shown.length > 15 && `<i>…and ${shown.length - 15} more</i>`,
     dust > 0 && `<i>${dust} position${dust === 1 ? "" : "s"} worth under $0.01 not shown</i>`,
     "",
-    "Pings use this wallet while it holds $PAR. /watch · /brief · /bell",
+    "Bag notes follow this wallet. They are for $PAR holders: prove your wallet with /hold.",
   ]);
 }
 
@@ -711,7 +714,8 @@ export function holdText(proven: string | null) {
 export function proofKeyboard(nonce: string): InlineKeyboardMarkup {
   return Markup.inlineKeyboard([
     [Markup.button.url("🔐 Prove my wallet", `${DESK_URL}/verify?n=${nonce}`)],
-    [Markup.button.callback("✅ I signed it", "proof:check")],
+    // The code rides in the button, so "I signed it" under an older message still checks that message's code.
+    [Markup.button.callback("✅ I signed it", `proof:check:${nonce}`)],
   ]).reply_markup;
 }
 

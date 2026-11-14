@@ -6,6 +6,8 @@ import type { Telegraf } from "telegraf";
 import { config } from "../config/index.js";
 import { backupDatabase, backupIfMissing } from "./backup.js";
 import { deskHealth } from "./desk.js";
+import { checkParMint } from "./holder.js";
+import { mintReport } from "./parMint.js";
 import { alertText, problemsIn, recoveryText, stepHealth, type HealthState } from "./health.js";
 import { DESK_URL } from "./messages.js";
 
@@ -22,6 +24,24 @@ export async function tellAdmin(bot: Telegraf, text: string) {
     await bot.telegram.sendMessage(config.alertChatId, text, { link_preview_options: { is_disabled: true } });
   } catch (err) {
     console.warn("Admin message failed:", (err as Error).message, "|", text);
+  }
+}
+
+let parReported = false;
+
+/**
+ * Reads the $PAR address on chain and texts the admin what is there: a token with a billion supply, or not a token at
+ * all (then /ca stays off). Once per start; while the chain cannot be read it is tried again with each health check.
+ */
+export async function reportParMint(bot: Telegraf) {
+  if (parReported || !config.tokenMint) return;
+  try {
+    const reading = await checkParMint();
+    if (!reading) return;
+    parReported = true;
+    await tellAdmin(bot, mintReport(config.tokenMint, reading));
+  } catch (err) {
+    console.warn("The $PAR address could not be checked yet:", (err as Error).message);
   }
 }
 
@@ -42,6 +62,7 @@ export async function checkHealth(bot: Telegraf) {
   if (checking) return;
   checking = true;
   try {
+    await reportParMint(bot);
     const reading = { ...deskHealth(), ...(await siteReading()) };
     const now = Date.now();
     const step = stepHealth(state, problemsIn(reading, now), now);

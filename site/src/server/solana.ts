@@ -8,6 +8,36 @@ const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 export const BAD_ADDRESS = "That does not look like a Solana address.";
+/** Shown when an address owns more token accounts than a wallet does (an exchange, a pool, a program). */
+export const TOO_MANY_ACCOUNTS = "This address holds too many token accounts for Par to read. Paste a personal wallet.";
+/** The most an RPC answer may weigh. A wallet with a thousand token accounts is about 2 MB. */
+export const RPC_MAX_BYTES = 6_000_000;
+
+class AnswerTooLarge extends Error {}
+
+/**
+ * The answer as JSON, read in pieces and dropped as soon as it passes `maxBytes`. Before 14 Nov 2026 the whole answer
+ * was taken whatever its size: every token account of an exchange or pool address is hundreds of megabytes, enough to
+ * run a function out of memory and time on each lookup.
+ */
+export async function readJsonCapped(response: Response, maxBytes: number): Promise<unknown> {
+  if (Number(response.headers.get("content-length") ?? 0) > maxBytes) throw new AnswerTooLarge("answer too large");
+  const reader = response.body?.getReader();
+  if (!reader) return response.json();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new AnswerTooLarge("answer too large");
+    }
+    chunks.push(value);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
 
 /** The bytes of a base58 string, most significant first; null when it has a character outside base58. */
 export function base58Decode(value: string): Uint8Array | null {
@@ -65,10 +95,12 @@ export async function rpc<T>(method: string, params: unknown[], timeoutMs = 15_0
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!response.ok) throw new Error(`RPC answered ${response.status}`);
-      const data = (await response.json()) as { result?: T; error?: { message?: string } };
+      const data = (await readJsonCapped(response, RPC_MAX_BYTES)) as { result?: T; error?: { message?: string } };
       if (data.error) throw new Error(data.error.message ?? "RPC error");
       return data.result as T;
     } catch (error) {
+      // Too large is the address's doing, not the RPC's: another RPC would send the same answer.
+      if (error instanceof AnswerTooLarge) throw new Error(TOO_MANY_ACCOUNTS);
       lastError = error;
       // Never log the URL: a private RPC URL can contain an API key.
       console.warn(`[par] Solana RPC ${method}: ${logMessage(error)}`);

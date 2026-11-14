@@ -82,3 +82,68 @@ test("the site refuses a proof before storing anything when any part is wrong", 
   assert.deepEqual(forged, { ok: false, message: "The signature does not match this message. Try again, or use another wallet." });
   assert.equal((await submitProof({ nonce: NONCE, address: owner.address, signature: "short" })).ok, false);
 });
+
+// Found in review on 14 Nov 2026: these 14 byte strings are valid Solana addresses that nobody owns (the Ed25519 points
+// of small order), and one fixed "signature" passes a plain check against them. Anyone could have "proven" such an
+// address after sending it some $PAR.
+const SMALL_ORDER = [
+  "0000000000000000000000000000000000000000000000000000000000000000",
+  "0000000000000000000000000000000000000000000000000000000000000080",
+  "0100000000000000000000000000000000000000000000000000000000000000",
+  "0100000000000000000000000000000000000000000000000000000000000080",
+  "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+  "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+  "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+  "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+  "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+  "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+  "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+  "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+];
+
+test("an address nobody owns is refused, whatever signature comes with it", async () => {
+  const { isSmallOrderKey } = await import("../src/lib/walletProof");
+  // 01 followed by 63 zero bytes: the signature anyone can write down.
+  const forged = toBase64(Uint8Array.from([1, ...new Array(63).fill(0)]));
+  assert.match(forged, /^[A-Za-z0-9+/]{86}==$/, "it has the shape of a real signature");
+  for (const hex of SMALL_ORDER) {
+    const key = Uint8Array.from(Buffer.from(hex, "hex"));
+    const address = base58Encode(key);
+    assert.ok(isSmallOrderKey(key), hex);
+    assert.ok(isSolanaAddress(address), "a valid address, which is why the rule is needed");
+    for (let i = 0; i < 20; i++) {
+      const nonce = i.toString(16).padStart(32, "0");
+      assert.equal(signatureMatches(address, forged, proofMessage(nonce)), false);
+    }
+    assert.deepEqual(await submitProof({ nonce: NONCE, address, signature: forged }), {
+      ok: false,
+      message: "The signature does not match this message. Try again, or use another wallet.",
+    });
+  }
+  const real = wallet();
+  assert.equal(isSmallOrderKey(base58Decode(real.address) as Uint8Array), false);
+  assert.ok(signatureMatches(real.address, real.sign(proofMessage(NONCE)), proofMessage(NONCE)), "a real wallet still proves");
+});
+
+test("an RPC answer is dropped once it passes the size limit, instead of being read whole", async () => {
+  const { readJsonCapped } = await import("../src/server/solana");
+  const small = new Response(JSON.stringify({ result: { value: [1, 2, 3] } }));
+  assert.deepEqual(await readJsonCapped(small, 1000), { result: { value: [1, 2, 3] } });
+  // Declared too large: refused before a byte is read.
+  const declared = new Response("{}", { headers: { "content-length": "9000000" } });
+  await assert.rejects(readJsonCapped(declared, 1000), /too large/);
+  // Not declared, and it keeps coming: cut off as soon as the limit is passed.
+  let sent = 0;
+  const endless = new Response(
+    new ReadableStream({
+      pull(controller) {
+        sent += 1;
+        controller.enqueue(new TextEncoder().encode("x".repeat(1000)));
+      },
+    }),
+  );
+  await assert.rejects(readJsonCapped(endless, 10_000), /too large/);
+  assert.ok(sent <= 13, `stopped after about the limit (${sent} pieces of 1,000 bytes)`);
+});

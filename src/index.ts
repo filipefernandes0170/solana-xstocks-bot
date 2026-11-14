@@ -3,7 +3,7 @@ import cron from "node-cron";
 import { config } from "./config/index.js";
 import { checkAlerts } from "./services/alerts.js";
 import { getDeskQuotes } from "./services/desk.js";
-import { checkHealth, runBackup, tellAdmin } from "./services/monitor.js";
+import { checkHealth, reportParMint, runBackup, tellAdmin } from "./services/monitor.js";
 import { checkDesk, checkEvents } from "./services/pings.js";
 
 const bot = createBot();
@@ -14,11 +14,12 @@ getDeskQuotes().catch((err) => console.warn("Warm-up failed:", err instanceof Er
 // Telegraf 4.16: the launch() promise settles only when polling stops, so log from the onLaunch callback.
 bot.launch(() => {
   console.log("xStocks Telegram bot is running");
-  if (!config.tokenMint) console.log("TOKEN_MINT is not set. Pings will not send until it is.");
+  if (!config.tokenMint) console.log("$PAR has no address yet (config/par.ts). Holder texts will not send until it has.");
+  if (process.env.TOKEN_MINT) console.warn("TOKEN_MINT in .env is no longer read: the $PAR address comes from config/par.ts only.");
   // The command list Telegram shows next to the message box.
   bot.telegram.setMyCommands(MENU_COMMANDS).catch((err) => console.warn("Could not set the command menu:", err.message));
   // Every start reaches the admin, so a crash loop or a deploy is visible.
-  void tellAdmin(bot, "🔄 Par bot started.");
+  void tellAdmin(bot, "🔄 Par bot started.").then(() => reportParMint(bot));
   // Today's backup right after a start, if the daily one has not run yet.
   setTimeout(() => void runBackup(bot, true), 60_000).unref();
 })

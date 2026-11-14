@@ -90,7 +90,7 @@ npm run typecheck
 npm run build
 ```
 
-The site starts with no secrets. These variables are optional and use the same names as the bot: `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `TOKEN_MINT`, `HOLDER_MIN_TOKENS`, `SHARE_BUYS_SECRET`. On Netlify they are set in the project environment (Functions scope for the secret and the Jupiter key), not in git.
+The site starts with no secrets. These variables are optional and use the same names as the bot: `SOLANA_RPC_URL`, `JUPITER_API_KEY`, `HOLDER_MIN_TOKENS`, `SHARE_BUYS_SECRET`. On Netlify they are set in the project environment (Functions scope for the secret and the Jupiter key), not in git.
 
 ## Author
 

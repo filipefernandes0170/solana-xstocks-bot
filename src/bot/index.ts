@@ -1,4 +1,4 @@
-import { Telegraf } from "telegraf";
+import { Telegraf, type Context } from "telegraf";
 import { env } from "../config/index.js";
 import { SYMBOL_TO_TOKEN, lookupToken } from "../config/tokens.js";
 import { getDeskQuotes } from "../services/desk.js";
@@ -46,6 +46,17 @@ export const MENU_COMMANDS = [
 export function createBot() {
   const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
 
+  const onError = (err: unknown, ctx: Context) => {
+    console.error("Bot error for", ctx.updateType, err);
+    ctx.reply("Something went wrong. Please try again.").catch(() => {});
+  };
+
+  // Each message is handled on its own. Telegraf otherwise waits for every handler in a batch (up to 90 s) before it
+  // fetches new messages, so one slow lookup (a size check, a wallet read, a hung RPC call) held up everyone's /start.
+  bot.use((ctx, next) => {
+    void next().catch((err) => onError(err, ctx));
+  });
+
   bot.start(startCommand);
   bot.help(helpCommand);
   bot.command("portfolio", portfolioCommand);
@@ -81,9 +92,11 @@ export function createBot() {
     if (token) await watchReply(ctx, token.symbol);
   });
 
-  bot.action("proof:check", async (ctx) => {
+  // "proof:check:<code>" checks that message's own code; plain "proof:check" (buttons sent before 14 Nov 2026)
+  // checks this person's recent codes.
+  bot.action(/^proof:check(?::([0-9a-f]{32}))?$/, async (ctx) => {
     await ctx.answerCbQuery("Checking the signature…").catch(() => {});
-    await confirmProof(ctx);
+    await confirmProof(ctx, ctx.match[1]);
   });
 
   bot.action("menu:prices", async (ctx) => {
@@ -126,10 +139,7 @@ export function createBot() {
     });
   });
 
-  bot.catch((err, ctx) => {
-    console.error("Bot error for", ctx.updateType, err);
-    ctx.reply("Something went wrong. Please try again.").catch(() => {});
-  });
+  bot.catch(onError);
 
   return bot;
 }

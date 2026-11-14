@@ -48,7 +48,7 @@ export function BagEvents({ events, marketState, now }: { events: BagEvent[]; ma
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm leading-relaxed">Jupiter lists no multiplier change for the names you hold. The bot texts holders the evening before one.</p>
+        <p className="mt-4 text-sm leading-relaxed">Jupiter lists no multiplier change for the names you hold. The bot alerts holders the evening before one.</p>
       )}
       <div className="mt-4 rounded-xl bg-field px-4 py-3 text-sm ring-1 ring-line">
         <p className="font-medium">

@@ -5,7 +5,7 @@ import { bagWatchText, startKeyboard, startText } from "../../services/messages.
 import { holderNote } from "../holderNote.js";
 import { briefReply } from "./brief.js";
 import { eventsReply } from "./events.js";
-import { confirmProof } from "./hold.js";
+import { confirmProof, holdReply } from "./hold.js";
 import { freshProofCode, proveKeyboardFor } from "../proof.js";
 import { payloadWallet, portfolioReply } from "./portfolio.js";
 import { payloadSymbols, watchReply } from "./watch.js";
@@ -14,8 +14,9 @@ import { payloadSymbols, watchReply } from "./watch.js";
  * /start, including the site's deep links: ?start=brief turns the morning brief on, ?start=w-NVDAx-TSLAx
  * (the Favourites "Watch in Telegram" button) watches those names, and ?start=p-<wallet> (the portfolio's
  * "Watch this bag" button) saves that public address and shows its bag, which turns the bag texts on.
- * ?start=v-<code> comes back from the site after a wallet signed the proof message (see /hold), and
- * ?start=events (the Events page) answers /events.
+ * ?start=v-<code> comes back from the site after a wallet signed the proof message (see /hold),
+ * ?start=events (the Events page) answers /events, and ?start=hold (the site's "how to get holder alerts" steps)
+ * answers /hold.
  */
 export async function startCommand(ctx: Context) {
   const from = ctx.from!;
@@ -24,6 +25,10 @@ export async function startCommand(ctx: Context) {
 
   if (payload.startsWith("v-")) {
     await confirmProof(ctx, payload.slice(2));
+    return;
+  }
+  if (payload === "hold") {
+    await holdReply(ctx);
     return;
   }
 

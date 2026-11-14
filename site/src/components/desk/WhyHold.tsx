@@ -4,17 +4,20 @@ import { holderCount, holderRule } from "../../lib/holder";
 import { OfficialAddress } from "../OfficialAddress";
 import type { HolderStatus } from "../../lib/types";
 
+/** Opens the bot on its wallet-proof step (the bot answers ?start=hold like /hold; an older bot shows /start, which has the same button). */
+const HOLD_LINK = "https://t.me/ONPAR_BOT?start=hold";
+
 function statusLine(status: HolderStatus, minimum: number) {
   return status === "unminted"
-    ? "The coin is not live yet, so no wallet gets the texts."
+    ? "The coin is not live yet, so no wallet gets the alerts."
     : status === "holds"
       ? minimum > 0
-        ? `This wallet holds ${holderRule(minimum)}, so it would get the texts.`
-        : "This wallet would get the texts."
+        ? `This wallet holds ${holderRule(minimum)}, so it would get the alerts.`
+        : "This wallet would get the alerts."
       : status === "absent"
         ? minimum > 0
-          ? `This wallet holds less than ${holderCount(minimum)} $PAR, so it would not get the texts.`
-          : "This wallet would not get the texts."
+          ? `This wallet holds less than ${holderCount(minimum)} $PAR, so it would not get the alerts.`
+          : "This wallet would not get the alerts."
         : "The chain did not answer. Try again.";
 }
 
@@ -22,22 +25,22 @@ const PERKS: { icon: ReactNode; title: string; line: string; tag?: string }[] = 
   {
     icon: <Zap className="size-5" aria-hidden />,
     title: "Fair pings and size alerts",
-    line: "A text the moment a name you watch turns Fair, and when your own order size, not just $1,000, is within 0.4% of the Nasdaq print.",
+    line: "An alert the moment a name you watch turns Fair, and when your own order size, not just $1,000, is within 0.4% of the Nasdaq print.",
   },
   {
     icon: <Factory className="size-5" aria-hidden />,
     title: "Issuer flows",
     tag: "New",
-    line: "A text when $500,000 or more of a name you hold or watch is created or burned on Solana within an hour.",
+    line: "An alert when $500,000 or more of a name you hold or watch is created or burned on Solana within an hour.",
   },
   {
     icon: <ArrowLeftRight className="size-5" aria-hidden />,
     title: "Two-token pings",
-    line: "A text when one token of a company is 0.5 points cheaper to buy than the other.",
+    line: "An alert when one token of a company is 0.5 points cheaper to buy than the other.",
   },
   {
     icon: <CalendarDays className="size-5" aria-hidden />,
-    title: "Event texts",
+    title: "Event alerts",
     line: "Key SEC filings for the names you hold or watch, at most 5 a day, and an alert at once if a token's transfers are paused.",
   },
   {
@@ -52,7 +55,7 @@ const PERKS: { icon: ReactNode; title: string; line: string; tag?: string }[] = 
   },
 ];
 
-/** What holding the coin unlocks in the bot, and a read-only check of any wallet. */
+/** What $PAR unlocks in the bot, the three steps to switch it on, and a read-only check of any wallet. */
 export function WhyHold({
   wallet,
   onWallet,
@@ -72,18 +75,55 @@ export function WhyHold({
   minimum?: number;
 }) {
   return (
-    <section className="why-hold mt-16 overflow-hidden rounded-[1.75rem] p-6 ring-1 ring-white/10 sm:p-10" aria-labelledby="why-hold-title">
-      <p className="text-sm font-medium tracking-wide text-gold">Why hold $PAR</p>
+    <section
+      id="par"
+      className="why-hold mt-16 scroll-mt-6 overflow-hidden rounded-[1.75rem] p-6 ring-1 ring-white/10 sm:p-10"
+      aria-labelledby="why-hold-title"
+    >
+      <p className="text-sm font-medium tracking-wide text-gold">What $PAR unlocks</p>
       <h2 id="why-hold-title" className="mt-2 max-w-2xl font-display text-3xl leading-tight text-foam sm:text-4xl">
-        The desk is free. The texts are for holders.
+        The desk is free. The Telegram alerts are for holders.
       </h2>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-mist">
         Everything on this page stays free. @ONPAR_BOT sends these to holders who prove their wallet once with /hold (one signed message,
         not a transaction).{" "}
         {minimum > 0
-          ? `A holder's wallet needs ${holderRule(minimum)}, and the texts stop when it holds less.`
-          : "The texts stop when the wallet no longer holds the coin."}
+          ? `A holder's wallet needs ${holderRule(minimum)}, and the alerts stop when it holds less.`
+          : "The alerts stop when the wallet no longer holds the coin."}
       </p>
+      <ol className="mt-6 grid max-w-4xl gap-3 sm:grid-cols-3" aria-label="How to get the holder alerts">
+        {[
+          {
+            title: minimum > 0 ? `Hold ${holderRule(minimum)}` : "Hold $PAR",
+            line: "In a Solana wallet of your own, such as Phantom or Solflare.",
+          },
+          {
+            title: "Send /hold to @ONPAR_BOT",
+            line: "The bot answers with a button that opens this site.",
+            href: HOLD_LINK,
+          },
+          {
+            title: "Sign one message",
+            line: "A message, not a transaction: it cannot move funds.",
+          },
+        ].map((step, index) => (
+          <li key={step.title} className="flex gap-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
+            <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-gold text-sm font-semibold text-night" aria-hidden>
+              {index + 1}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-foam">{step.title}</span>
+              <span className="mt-0.5 block text-sm leading-relaxed text-mist">{step.line}</span>
+              {step.href ? (
+                <a href={step.href} className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-gold underline decoration-gold/50 underline-offset-4">
+                  <Send className="size-3.5" aria-hidden />
+                  Open @ONPAR_BOT
+                </a>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ol>
       <OfficialAddress className="mt-5 max-w-2xl" />
       <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {PERKS.map((perk) => (
@@ -113,7 +153,7 @@ export function WhyHold({
           }}
         >
           <label htmlFor="coin-wallet" className="text-sm font-medium text-foam">
-            Would this wallet get the texts?
+            Would this wallet get the alerts?
           </label>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input

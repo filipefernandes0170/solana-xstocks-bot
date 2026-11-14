@@ -78,8 +78,8 @@ export function BagSupply({
         <p className="mt-3 text-sm text-muted">No stock tokens in this wallet.</p>
       ) : null}
       <p className="mt-4 rounded-xl bg-field px-4 py-3 text-sm leading-relaxed text-ink ring-1 ring-line">
-        Large batches, $500,000 and 1% of a token&apos;s supply within an hour, show in @ONPAR_BOT with /flows. $PAR holders who watch this bag get a
-        text when one hits a name in it.
+        Large batches, $500,000 and 1% of a token&apos;s supply within an hour, show in @ONPAR_BOT with /flows. $PAR holders who watch this bag get an
+        alert when one hits a name in it.
       </p>
     </section>
   );

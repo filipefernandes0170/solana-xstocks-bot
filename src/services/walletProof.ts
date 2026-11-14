@@ -21,6 +21,30 @@ const NONCE = /^[0-9a-f]{32}$/;
 // DER header for an Ed25519 public key (SubjectPublicKeyInfo, OID 1.3.101.112), followed by the 32 raw key bytes.
 const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 
+/**
+ * The Ed25519 keys of small order, as hex with the sign bit cleared (the same seven libsodium refuses). They are valid
+ * Solana addresses that nobody owns, and a fixed "signature" (01 followed by 63 zero bytes) checks out against them
+ * for any message, so anyone could "prove" such an address after sending it some $PAR. Found in review, 14 Nov 2026:
+ * Node accepted that signature for all 14 encodings. A test keeps this list equal to the site's.
+ */
+const SMALL_ORDER_KEYS = new Set([
+  "0000000000000000000000000000000000000000000000000000000000000000",
+  "0100000000000000000000000000000000000000000000000000000000000000",
+  "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+  "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+  "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+  "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+  "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+]);
+
+/** True for a 32-byte key that no one can own (see SMALL_ORDER_KEYS). A proof for it is never accepted. */
+export function isSmallOrderKey(key: Uint8Array) {
+  if (key.length !== 32) return false;
+  const bytes = Buffer.from(key);
+  bytes[31] &= 0x7f;
+  return SMALL_ORDER_KEYS.has(bytes.toString("hex"));
+}
+
 /** A fresh one-time code: 128 random bits as 32 hex characters ("v-" + code fits Telegram's start parameter). */
 export function newNonce() {
   return randomBytes(16).toString("hex");
@@ -45,7 +69,7 @@ export function proofMessage(nonce: string, host = SITE_HOST) {
 export function verifyProof(address: string, signatureBase64: string, message: string) {
   try {
     const key = new PublicKey(address).toBytes();
-    if (key.length !== 32) return false;
+    if (key.length !== 32 || isSmallOrderKey(key)) return false;
     const signature = Buffer.from(signatureBase64, "base64");
     if (signature.length !== 64) return false;
     const publicKey = createPublicKey({ key: Buffer.concat([ED25519_SPKI_PREFIX, Buffer.from(key)]), format: "der", type: "spki" });

@@ -34,8 +34,9 @@ export async function portfolioCommand(ctx: Context) {
 }
 
 /**
- * Saves the wallet and shows its bag. Shared by /portfolio, a pasted address and the site's "Watch this bag" link.
- * The saved wallet is the one the bag texts follow. Returns false when the address is not valid.
+ * Shows the wallet's bag and saves it. Shared by /portfolio, a pasted address and the site's "Watch this bag" link.
+ * The saved wallet is the one the bag texts follow; it is saved only after it was read, so an address the chain
+ * cannot answer for is never kept. Returns false when the address is not valid or could not be read.
  */
 export async function portfolioReply(ctx: Context, wallet: string) {
   if (!isValidSolanaAddress(wallet)) {
@@ -43,11 +44,11 @@ export async function portfolioReply(ctx: Context, wallet: string) {
     return false;
   }
 
-  setWallet(ctx.from!.id, wallet);
   const pending = await ctx.reply("💼 Reading the wallet…");
 
   try {
     const [pf, quotes] = await Promise.all([buildPortfolio(wallet), getDeskQuotes({ allowStale: true }).catch(() => [])]);
+    setWallet(ctx.from!.id, wallet);
     if (pf.positions.length === 0) {
       await ctx.telegram.editMessageText(
         ctx.chat!.id,
@@ -67,7 +68,8 @@ export async function portfolioReply(ctx: Context, wallet: string) {
     );
   } catch (err) {
     console.error("Portfolio failed:", err instanceof Error ? err.message : err);
-    await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "💼 Could not read that wallet. Try again in a minute.");
+    await ctx.telegram.editMessageText(ctx.chat!.id, pending.message_id, undefined, "💼 Could not read that wallet. Try again in a minute.").catch(() => {});
+    return false;
   }
   return true;
 }

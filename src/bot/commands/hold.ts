@@ -1,7 +1,7 @@
 import { Context } from "telegraf";
-import { getProof, getUser, latestProof, markProofUsed, setVerifiedWallet, upsertUser } from "../../db/index.js";
+import { getProof, getUser, markProofUsed, recentProofs, releaseVerifiedWallet, setVerifiedWallet, upsertUser, type ProofRow } from "../../db/index.js";
 import { holdText, proofKeyboard, provenText } from "../../services/messages.js";
-import { fetchSiteProof, isNonce, proofFresh, verifyCodeProof } from "../../services/walletProof.js";
+import { PROOF_TTL_MS, fetchSiteProof, isNonce, proofFresh, verifyCodeProof, type SiteProof } from "../../services/walletProof.js";
 import { holderNote } from "../holderNote.js";
 import { freshProofCode } from "../proof.js";
 
@@ -21,41 +21,72 @@ export async function holdCommand(ctx: Context) {
     await ctx.reply("👛 Your proven wallet is removed. Send /hold to prove one again.");
     return;
   }
+  await holdReply(ctx);
+}
+
+/** The proof message with its button. Also the answer to the site's "Open @ONPAR_BOT" link (?start=hold). */
+export async function holdReply(ctx: Context) {
   const nonce = freshProofCode(ctx.from!.id);
   const user = getUser(ctx.from!.id);
   await ctx.reply(holdText(user?.verified_wallet ?? null), { parse_mode: "HTML", reply_markup: proofKeyboard(nonce) });
 }
 
 /**
- * Checks the proof for a code (from ?start=v-<code>) or this user's newest code, and saves the wallet only when the
- * code is theirs, unused and fresh, and the signature checks out here, whatever the site said.
+ * Checks the proof for a code (from ?start=v-<code>, or the button under a proof message) or, without one, this
+ * user's few newest codes, and saves the wallet only when the code is theirs, unused and fresh, and the signature
+ * checks out here, whatever the site said. A wallet counts for one Telegram account: proving it here removes it from
+ * any other.
  */
 export async function confirmProof(ctx: Context, nonce?: string) {
   const telegramId = ctx.from!.id;
   upsertUser(telegramId, ctx.from?.username, ctx.from?.first_name);
-  const proof = nonce ? (isNonce(nonce) ? getProof(nonce) : null) : latestProof(telegramId);
-  if (!proof || proof.telegram_id !== telegramId) {
-    await ctx.reply("🔐 That code is not yours, or there is none. Send /hold for a new one.");
-    return;
+  const again = () => ({ reply_markup: proofKeyboard(freshProofCode(telegramId)) });
+
+  let proof: ProofRow | null = null;
+  let signed: SiteProof | null = null;
+  if (nonce) {
+    proof = isNonce(nonce) ? getProof(nonce) : null;
+    if (!proof || proof.telegram_id !== telegramId) {
+      await ctx.reply("🔐 That code is not yours, or there is none. Here is a new one:", again());
+      return;
+    }
+    if (proof.used) {
+      await ctx.reply("🔐 That code was already used. Here is a new one:", again());
+      return;
+    }
+    if (!proofFresh(proof.created_at)) {
+      await ctx.reply("🔐 That code has expired (they last 15 minutes). Here is a new one:", again());
+      return;
+    }
+    signed = await fetchSiteProof(proof.nonce);
+  } else {
+    // No code named (/hold check, or a button from before the code rode in it): the first recent code with a signature.
+    const candidates = recentProofs(telegramId, Date.now() - PROOF_TTL_MS, 3);
+    if (candidates.length === 0) {
+      await ctx.reply("🔐 There is no code waiting, or it has expired (they last 15 minutes). Here is a new one:", again());
+      return;
+    }
+    for (const candidate of candidates) {
+      proof = candidate;
+      signed = await fetchSiteProof(candidate.nonce);
+      if (signed) break;
+    }
   }
-  if (proof.used) {
-    await ctx.reply("🔐 That code was already used. Send /hold for a new one.");
-    return;
-  }
-  if (!proofFresh(proof.created_at)) {
-    await ctx.reply("🔐 That code has expired (they last 15 minutes). Send /hold for a new one.");
-    return;
-  }
-  const signed = await fetchSiteProof(proof.nonce);
-  if (!signed) {
-    await ctx.reply("🔐 No signature for this code yet. Sign the message on the page, then tap Back to Telegram, or send /hold check.");
+  if (!proof || !signed) {
+    await ctx.reply("🔐 No signature for this code yet. Sign the message on the page, then tap Back to Telegram or “I signed it”.");
     return;
   }
   if (!verifyCodeProof(signed.address, signed.signature, proof.nonce)) {
-    await ctx.reply("🔐 The signature did not check out, so nothing was saved. Send /hold to try again.");
+    await ctx.reply("🔐 The signature did not check out, so nothing was saved. Here is a new code to try again:", again());
     return;
   }
   markProofUsed(proof.nonce);
+  const others = releaseVerifiedWallet(signed.address, telegramId);
   setVerifiedWallet(telegramId, signed.address);
   await ctx.reply(`${provenText(signed.address)}\n\n${await holderNote(telegramId)}`, { parse_mode: "HTML" });
+  for (const other of others) {
+    await ctx.telegram
+      .sendMessage(other, "👛 Your proven wallet was just proven by another Telegram account, so holder texts stopped here. A wallet counts for one account. Send /hold to prove a wallet again.")
+      .catch(() => {});
+  }
 }
