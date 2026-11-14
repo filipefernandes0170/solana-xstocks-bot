@@ -84,6 +84,7 @@ import {
   buyUsable,
   isPreMarket,
   isSessionOpen,
+  printStale,
   sizeAlertHit,
   sizeWorthQuoting,
   rebaseDue,
@@ -270,7 +271,8 @@ async function sendSizeAlerts(bot: Telegraf, bySymbol: Map<string, DeskQuote>, h
     if (quoted >= SIZE_CHECKS_PER_RUN) break;
     if (!holderIds.has(alert.telegram_id) || now - alert.last_checked < SIZE_RECHECK_MS) continue;
     const quote = bySymbol.get(alert.symbol);
-    if (!quote || !isSessionOpen(quote.marketState)) continue;
+    // An alert never fires on an old Nasdaq print (verdict.ts PRINT_STALE_MS); it waits for a fresh one.
+    if (!quote || !isSessionOpen(quote.marketState) || printStale(quote, now)) continue;
     touchSizeAlert(alert.id, now);
     const buyGap = basisPct(buyUsable(quote.buyAt ?? null, now) ? (quote.buyPrice ?? null) : null, quote.stockPrice);
     if (!sizeWorthQuoting(buyGap)) continue;

@@ -290,3 +290,31 @@ test("the /portfolio reply no longer says pasted wallets get the holder texts", 
   assert.match(text, /prove your wallet with \/hold/);
   assert.doesNotMatch(text, /Pings use this wallet/);
 });
+
+test("while Nasdaq is open, a verdict never rests on a print older than seven minutes", async () => {
+  const verdict = await import("./verdict.js");
+  const now = 10_000_000;
+  const row = {
+    symbol: "NVDAx",
+    underlying: "NVDA",
+    usdPrice: 186.7,
+    stockPrice: 186.64,
+    marketState: "Open",
+    buyPrice: 186.75,
+    buyImpactPct: 0.02,
+    buyAt: now - 10_000,
+    issuerPrice: 186.7,
+    issuerAt: now - 30_000,
+  };
+  const fresh = verdict.tradeVerdict({ ...row, printAt: now - 3 * 60_000 }, now);
+  assert.equal(fresh.id, "fair", "a $1,000 buy 0.06% over a print read three minutes ago");
+  assert.equal(verdict.tradeVerdict(row, now).id, "fair", "a print with no read time is not judged (the site's rows)");
+  const stale = verdict.tradeVerdict({ ...row, printAt: now - verdict.PRINT_STALE_MS - 1 }, now);
+  assert.equal(stale.id, "checking");
+  assert.match(stale.line, /Nasdaq price has not updated/);
+  assert.equal(verdict.toSnap({ ...row, printAt: now - 20 * 60_000 }, now).verdictId, "checking", "so no Fair ping either");
+  // Closed: the last print is the one that counts, however old.
+  const closed = { ...row, marketState: "Closed", printAt: now - 10 * 3600_000 };
+  assert.equal(verdict.printStale(closed, now), false);
+  assert.notEqual(verdict.tradeVerdict(closed, now).id, "checking");
+});

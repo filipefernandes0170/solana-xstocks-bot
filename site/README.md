@@ -185,7 +185,8 @@ Two independent reviews four days before $PAR (the site, and the bot with its ba
 - **Proving a wallet failed in normal use.** Every holder reply made a new code and "I signed it" checked only the newest. Codes are reused for five minutes, each button carries its own code, an expired code answers with a fresh button, and `?start=hold` opens the proof message from the site.
 - **A failed holder read looked like "you hold too little".** The last good answer stands for 15 minutes, and the note says when the chain could not be read.
 - **Site:** a $PAR strip under the nav on every page (the official address once it exists), the phone table shows each name's price and verdict, the holder steps are spelled out ("What $PAR unlocks"), "texts" became "Telegram alerts", and the Where-to-buy gap is grey while Nasdaq is closed.
-- **Left for after launch** (found in the same reviews): Fair judged on a Nasdaq print up to 30 minutes old when Nasdaq's API fails mid-session; the bot in a group chat; a rate limit on the site's POST functions; link-preview images in the old colours; the length of /bot on phones.
+- **Before launch, also (14 Nov 2026, later):** while Nasdaq is open, the bot no longer calls anything Fair, pings, or fires a size alert on a Nasdaq print read more than 7 minutes ago (`PRINT_STALE_MS` in `src/services/verdict.ts`; it used to keep a failed symbol's last print for up to 30). The link-preview images (`og.png`, `og/bot.png`, `og/s/*.png`) are redrawn in the dark look with Inter; the mark is unchanged. Chat apps keep an old preview for a while (Telegram: @WebpageBot refreshes it).
+- **Left for after launch** (found in the same reviews): the bot in a group chat; a rate limit on the site's POST functions; the length of /bot on phones; the "$X reaches 1% impact" line jumping between loads.
 
 ## Run it
 
