@@ -351,6 +351,8 @@ async function loadQuotes(): Promise<DeskQuote[]> {
       underlying: token.underlying ?? token.symbol,
       usdPrice,
       stockPrice: token.underlying ? (stocks[token.underlying]?.price ?? null) : null,
+      // When that print was read: a verdict does not rest on one older than PRINT_STALE_MS (verdict.ts).
+      printAt: token.underlying && stocks[token.underlying] ? (prints.get(token.underlying)?.at ?? null) : null,
       marketState: (token.underlying && stocks[token.underlying]?.state) || state,
       issuerPrice: Number.isFinite(issuerRaw) && issuerRaw > 0 ? issuerRaw : null,
       issuerAt: Number.isFinite(issuerAt) ? issuerAt : null,

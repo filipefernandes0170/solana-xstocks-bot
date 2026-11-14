@@ -41,7 +41,21 @@ export type VerdictInput = {
   buyAt?: number | null;
   issuerPrice?: number | null;
   issuerAt?: number | null;
+  /** When the Nasdaq print was read (ms). Set by the bot's desk; absent means "not known" and is not judged. */
+  printAt?: number | null;
 };
+
+/**
+ * While Nasdaq is open, a print read longer ago than this is not trusted for a verdict (14 Nov 2026). Prints are read
+ * every 3 minutes; a failed read keeps the last good one for up to 30, and before this rule a Fair verdict, its ping
+ * and size alerts could rest on a price that old. Seven minutes is two missed reads.
+ */
+export const PRINT_STALE_MS = 7 * 60_000;
+
+/** True when the session is open and the print is known to be older than PRINT_STALE_MS. */
+export function printStale(row: Pick<VerdictInput, "marketState" | "printAt">, now = Date.now()) {
+  return isSessionOpen(row.marketState) && row.printAt != null && now - row.printAt > PRINT_STALE_MS;
+}
 
 export type DeskSnap = {
   symbol: string;
@@ -136,6 +150,13 @@ export function tradeVerdict(row: VerdictInput, now = Date.now()): Verdict {
       id: "checking",
       title: "Checking",
       line: "The US session is still loading, so this is not a buy signal yet.",
+    };
+  }
+  if (printStale(row, now)) {
+    return {
+      id: "checking",
+      title: "Checking",
+      line: "The Nasdaq price has not updated for a few minutes, so this is not a buy signal yet.",
     };
   }
   const open = isSessionOpen(row.marketState);
